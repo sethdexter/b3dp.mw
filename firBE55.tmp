@@ -1,0 +1,97 @@
+[gd_scene load_steps=13 format=3 uid="uid://kntfqw1lmnhb"]
+
+[ext_resource type="Script" path="res://fireball.gd" id="1_h18qg"]
+[ext_resource type="Texture2D" uid="uid://bf1h4vsace8wk" path="res://visuals/effects/fire_02.png" id="1_ok1o8"]
+
+[sub_resource type="Curve" id="Curve_y6q7w"]
+max_value = 200.0
+_data = [Vector2(0, 2.59918), 0.0, 0.0, 0, 0, Vector2(1, 200), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_le7xt"]
+curve = SubResource("Curve_y6q7w")
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_c38r4"]
+
+[sub_resource type="Curve" id="Curve_wsajo"]
+_data = [Vector2(0.0836364, 0.166915), 0.0, 0.0, 0, 0, Vector2(0.192727, 0.128167), 0.0, 0.0, 0, 0, Vector2(0.698182, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_f50x0"]
+width = 128
+curve = SubResource("Curve_wsajo")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_hdm42"]
+lifetime_randomness = 0.18
+emission_shape_offset = Vector3(0.115, 0.25, 0.175)
+emission_shape_scale = Vector3(1.095, 1.115, 1.285)
+emission_shape = 1
+emission_sphere_radius = 0.03
+directional_velocity_min = 0.0
+directional_velocity_max = 0.0
+directional_velocity_curve = SubResource("CurveXYZTexture_c38r4")
+gravity = Vector3(0, 6.645, 0)
+scale_min = 0.0
+scale_max = 3.0
+scale_curve = SubResource("CurveTexture_f50x0")
+scale_over_velocity_max = 95.81
+anim_speed_max = 2.2
+anim_speed_curve = SubResource("CurveTexture_le7xt")
+turbulence_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gjkm6"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+albedo_color = Color(0.717647, 0.486275, 0.396078, 1)
+albedo_texture = ExtResource("1_ok1o8")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_fpxif"]
+lightmap_size_hint = Vector2i(5, 5)
+material = SubResource("StandardMaterial3D_gjkm6")
+uv2_padding = 0.22
+
+[sub_resource type="Skin" id="Skin_b4d6d"]
+resource_local_to_scene = true
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_tlnu3"]
+
+[node name="fireball" type="Node3D"]
+script = ExtResource("1_h18qg")
+
+[node name="fire_effect" type="GPUParticles3D" parent="."]
+transform = Transform3D(0.999998, 0.00101246, -0.000347093, -0.00101289, 1, -0.00119662, 0.000345506, 0.00119728, 1, -0.0402098, -0.0391569, -0.138028)
+cast_shadow = 0
+visibility_range_begin = 49.05
+visibility_range_begin_margin = 1177.3
+visibility_range_end = 588.65
+visibility_range_end_margin = 367.9
+visibility_range_fade_mode = 1
+amount = 25
+lifetime = 0.83
+speed_scale = 0.87
+randomness = 0.23
+collision_base_size = 2.3
+visibility_aabb = AABB(-4, -4, -3.52247, 8, 8, 7.04494)
+trail_lifetime = 0.65
+process_material = SubResource("ParticleProcessMaterial_hdm42")
+draw_pass_1 = SubResource("QuadMesh_fpxif")
+draw_skin = SubResource("Skin_b4d6d")
+
+[node name="firelight2" type="OmniLight3D" parent="."]
+transform = Transform3D(0.999999, 0.00101248, -0.000346733, -0.00101289, 0.999999, -0.00119672, 0.000345521, 0.00119707, 0.999999, -0.0435524, 0.189222, -0.151829)
+light_color = Color(0.917647, 0.568627, 0.247059, 1)
+omni_range = 4.097
+
+[node name="RigidBody3D" type="RigidBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D"]
+transform = Transform3D(0.26, 0, 0, 0, 0.26, 0, 0, 0, 0.26, 0.0682419, 0.179081, 0.0306226)
+shape = SubResource("SphereShape3D_tlnu3")

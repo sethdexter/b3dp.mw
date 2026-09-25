@@ -1,0 +1,3 @@
+# GODOT PROJECT COMPLETE SOURCE CONTEXT
+# This file contains the complete script, structure, scene data, and text resources for this Godot project.
+

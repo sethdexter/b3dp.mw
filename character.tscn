@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://d2hqmirwqnwod"]
+
+[ext_resource type="Script" uid="uid://cr0tpb1a25h1f" path="res://systems/character/basecharacter.gd" id="1_kebnn"]
+[ext_resource type="Script" uid="uid://dh727tuyo7uij" path="res://state_machine_component.gd" id="2_4tn0g"]
+[ext_resource type="Script" uid="uid://b4diwhly0gvuu" path="res://systems/components/attributesComponent.gd" id="2_wen8k"]
+[ext_resource type="Script" uid="uid://dr4bb83mx07yt" path="res://systems/components/statsComponent.gd" id="4_r55gl"]
+[ext_resource type="Script" uid="uid://bkry1mgvp1wa2" path="res://systems/components/controllerComponent.gd" id="7_d1dv3"]
+[ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://systems/components/inventoryComponent.gd" id="7_khtj5"]
+[ext_resource type="Script" uid="uid://cflpum6hcv14o" path="res://systems/components/skillsComponent.gd" id="8_0paao"]
+[ext_resource type="Script" uid="uid://c36jd280fd07y" path="res://systems/components/combatComponent.gd" id="10_vwu7d"]
+
+[node name="character" type="MeshInstance3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent", "inventoryComponent")]
+script = ExtResource("1_kebnn")
+char_id = 1
+Name = "Jack"
+attributeComponent = NodePath("attributesComponent")
+statComponent = NodePath("statsComponent")
+combatComponent = NodePath("combatComponent")
+inventoryComponent = NodePath("inventoryComponent")
+
+[node name="attributesComponent" type="Node" parent="."]
+script = ExtResource("2_wen8k")
+
+[node name="statsComponent" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_r55gl")
+currentCharacter = NodePath("..")
+
+[node name="combatComponent" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("10_vwu7d")
+currentCharacter = NodePath("..")
+
+[node name="inventoryComponent" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("7_khtj5")
+currentCharacter = NodePath("..")
+
+[node name="skillsComponent" type="Node" parent="."]
+script = ExtResource("8_0paao")
+
+[node name="movementComponent" type="Node" parent="."]
+script = ExtResource("7_d1dv3")
+
+[node name="stateMachineComponent" type="Node" parent="movementComponent" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_4tn0g")
+currentCharacter = NodePath("../..")

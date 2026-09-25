@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponItem" load_steps=2 format=3 uid="uid://babk2wnl5eo0m"]
+
+[ext_resource type="Script" uid="uid://bylv06u854khh" path="res://databases/weaponItem.gd" id="1_gyfji"]
+
+[resource]
+script = ExtResource("1_gyfji")
+attackTypes = {
+"bludgeiningDamage": 1,
+"pierceDamage": 1,
+"slashDamage": 1
+}
+range = 1
+attackSpeed = 0.4
+governingSkill = ""
+Name = "Rusty Sword"
+id = "0001"
+maxStackCount = 1
+weight = 3
+equippableSlots = Array[String]([])
+isEquipped = false
+isEquippable = true
+isConsumable = false
+isPickupable = false
+itemDesription = "rusted and dull, but heavy enough."
+metadata/_custom_type_script = "uid://bylv06u854khh"

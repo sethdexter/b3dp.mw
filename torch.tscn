@@ -1,0 +1,118 @@
+[gd_scene format=3 uid="uid://meblvp2k5rcf"]
+
+[ext_resource type="Texture2D" path="res://assets/effects/fire_02.png" id="1_f2q60"]
+[ext_resource type="PackedScene" path="res://assets/models/torch.glb" id="2_2uogn"]
+[ext_resource type="Script" path="res://systems/components/interactableComponent.gd" id="2_w3qnr"]
+[ext_resource type="Script" path="res://firelight.gd" id="3_72pgl"]
+[ext_resource type="FontFile" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="4_kx7w4"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_kx7w4"]
+size = Vector3(0.15, 1.515, 0.125)
+
+[sub_resource type="Curve" id="Curve_uod5j"]
+_limits = [0.0, 200.0, 0.0, 1.0]
+_data = [Vector2(0, 2.59918), 0.0, 0.0, 0, 0, Vector2(1, 200), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_p0slx"]
+curve = SubResource("Curve_uod5j")
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_x2qsv"]
+
+[sub_resource type="Curve" id="Curve_k8fgc"]
+_data = [Vector2(0.0836364, 0.166915), 0.0, 0.0, 0, 0, Vector2(0.192727, 0.128167), 0.0, 0.0, 0, 0, Vector2(0.698182, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_8ady4"]
+width = 128
+curve = SubResource("Curve_k8fgc")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_py6jp"]
+lifetime_randomness = 0.18
+emission_shape_offset = Vector3(0.115, 0.25, 0.175)
+emission_shape_scale = Vector3(1.095, 1.115, 1.285)
+emission_shape = 1
+emission_sphere_radius = 0.03
+directional_velocity_min = 0.0
+directional_velocity_max = 0.0
+directional_velocity_curve = SubResource("CurveXYZTexture_x2qsv")
+gravity = Vector3(0, 6.645, 0)
+scale_min = 0.0
+scale_max = 3.0
+scale_curve = SubResource("CurveTexture_8ady4")
+scale_over_velocity_max = 95.81
+anim_speed_max = 2.2
+anim_speed_curve = SubResource("CurveTexture_p0slx")
+turbulence_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6tgdt"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+albedo_color = Color(0.717647, 0.486275, 0.396078, 1)
+albedo_texture = ExtResource("1_f2q60")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_wl7gs"]
+material = SubResource("StandardMaterial3D_6tgdt")
+
+[sub_resource type="Skin" id="Skin_vegkv"]
+resource_local_to_scene = true
+
+[node name="torch" type="StaticBody3D" unique_id=723185783]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=176879766]
+
+[node name="model" parent="MeshInstance3D" unique_id=1463790102 instance=ExtResource("2_2uogn")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.000244975, 0.0956452, 0.00196528)
+visibility_parent = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1267715959]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.000244975, -0.357311, 0.00196528)
+shape = SubResource("BoxShape3D_kx7w4")
+
+[node name="fire_effect" type="GPUParticles3D" parent="." unique_id=1490879369]
+transform = Transform3D(0.999998, -4.14998e-07, -0.000346719, 0, 1, -0.00119693, 0.000346719, 0.00119693, 1, -0.110352, 0.185455, -0.170324)
+cast_shadow = 0
+visibility_range_begin = 49.05
+visibility_range_begin_margin = 1177.3
+visibility_range_end = 588.65
+visibility_range_end_margin = 367.9
+visibility_range_fade_mode = 1
+amount = 18
+lifetime = 0.83
+speed_scale = 0.87
+randomness = 0.23
+collision_base_size = 2.3
+visibility_aabb = AABB(-4, -4, -3.52247, 8, 8, 7.04494)
+trail_lifetime = 0.65
+process_material = SubResource("ParticleProcessMaterial_py6jp")
+draw_pass_1 = SubResource("QuadMesh_wl7gs")
+draw_skin = SubResource("Skin_vegkv")
+
+[node name="firelight" type="OmniLight3D" parent="." unique_id=1363017543]
+transform = Transform3D(1, 3.10863e-15, -1.49012e-08, 0, 1, 2.08616e-07, 1.49012e-08, -2.08616e-07, 1, -0.000244975, 0.324003, 0.00196528)
+light_color = Color(0.917647, 0.568627, 0.247059, 1)
+omni_range = 4.097
+omni_shadow_mode = 0
+script = ExtResource("3_72pgl")
+
+[node name="InteractableComponent" type="Node" parent="." unique_id=1326655788]
+script = ExtResource("2_w3qnr")
+itemId = "torch"
+isPickupable = true
+
+[node name="Label" type="Label" parent="InteractableComponent" unique_id=1022435881]
+visible = false
+offset_left = 1.0
+offset_right = 64.0
+offset_bottom = 23.0
+theme_override_fonts/font = ExtResource("4_kx7w4")
+text = "Pick up"
+metadata/_edit_use_anchors_ = true

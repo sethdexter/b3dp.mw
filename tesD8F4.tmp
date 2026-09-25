@@ -1,0 +1,164 @@
+[gd_scene load_steps=20 format=3 uid="uid://5tj0jbfckiwa"]
+
+[ext_resource type="PackedScene" uid="uid://62aibalrnxx1" path="res://models/barrel.glb" id="1_njpqy"]
+[ext_resource type="PackedScene" uid="uid://crf5jxdbusrvw" path="res://models/crate.glb" id="2_2pej0"]
+[ext_resource type="PackedScene" uid="uid://stdrmbmluvhc" path="res://models/platform01.glb" id="3_tnis7"]
+[ext_resource type="PackedScene" uid="uid://c60324i2fjxbc" path="res://models/chest.glb" id="4_asyl4"]
+[ext_resource type="PackedScene" uid="uid://cn37mgtrtoyk1" path="res://models/irondagger.glb" id="5_nw6v0"]
+[ext_resource type="PackedScene" uid="uid://synbn5a15vlk" path="res://models/goldcoin.glb" id="6_uxl52"]
+[ext_resource type="PackedScene" uid="uid://cbype1dp2van0" path="res://models/blackswordLATER.glb" id="7_1icrp"]
+[ext_resource type="PackedScene" uid="uid://b0es14bj0wpx1" path="res://models/bottle.glb" id="8_af6pk"]
+[ext_resource type="PackedScene" uid="uid://bglf56do7dwkh" path="res://models/torch.glb" id="9_rbx0h"]
+[ext_resource type="Texture2D" uid="uid://bf1h4vsace8wk" path="res://effects/fire_02.png" id="10_oblv5"]
+
+[sub_resource type="Curve" id="Curve_6m5ii"]
+max_value = 200.0
+_data = [Vector2(0, 2.59918), 0.0, 0.0, 0, 0, Vector2(1, 200), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_p0slx"]
+curve = SubResource("Curve_6m5ii")
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_x2qsv"]
+
+[sub_resource type="Curve" id="Curve_nwd6h"]
+_data = [Vector2(0.0836364, 0.166915), 0.0, 0.0, 0, 0, Vector2(0.192727, 0.128167), 0.0, 0.0, 0, 0, Vector2(0.698182, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_8ady4"]
+width = 128
+curve = SubResource("Curve_nwd6h")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_klfnk"]
+lifetime_randomness = 0.18
+emission_shape_offset = Vector3(0.115, 0.25, 0.175)
+emission_shape_scale = Vector3(1.095, 1.115, 1.285)
+emission_shape = 1
+emission_sphere_radius = 0.03
+directional_velocity_min = 0.0
+directional_velocity_max = 0.0
+directional_velocity_curve = SubResource("CurveXYZTexture_x2qsv")
+gravity = Vector3(0, 6.645, 0)
+scale_min = 0.0
+scale_max = 3.0
+scale_curve = SubResource("CurveTexture_8ady4")
+scale_over_velocity_max = 95.81
+anim_speed_max = 2.2
+anim_speed_curve = SubResource("CurveTexture_p0slx")
+turbulence_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6tgdt"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+albedo_color = Color(0.717647, 0.486275, 0.396078, 1)
+albedo_texture = ExtResource("10_oblv5")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_h8bs2"]
+material = SubResource("StandardMaterial3D_6tgdt")
+
+[sub_resource type="Skin" id="Skin_expkw"]
+resource_local_to_scene = true
+
+[node name="testLevel" type="Node3D"]
+
+[node name="skylight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.134592, 0, -0.990901, 0, 1, 0, 0.990901, 0, -0.134592, -0.642642, 5.85855, 9.96233)
+light_color = Color(0.54902, 0.560784, 0.301961, 1)
+light_energy = 1.74
+
+[node name="static_cam" type="Camera3D" parent="."]
+transform = Transform3D(-0.933723, -0.127383, 0.334566, 0.0313036, 0.901922, 0.430763, -0.356624, 0.412687, -0.838158, 7.08049, 5.10124, -4.21042)
+
+[node name="barrel" parent="." instance=ExtResource("1_njpqy")]
+transform = Transform3D(0.558845, 0, -0.829271, 0, 1, 0, 0.829271, 0, 0.558845, 4.00318, 1.24526, 3.1284)
+
+[node name="crate" parent="." instance=ExtResource("2_2pej0")]
+transform = Transform3D(0.875118, 0, 0.483909, 0, 1, 0, -0.483909, 0, 0.875118, 6.27251, 1.15104, 3.03261)
+
+[node name="crate2" parent="." instance=ExtResource("2_2pej0")]
+transform = Transform3D(-0.647402, 0, 0.762149, 0, 1, 0, -0.762149, 0, -0.647402, 6.1606, 3.14691, 3.17785)
+
+[node name="platform01" parent="." instance=ExtResource("3_tnis7")]
+transform = Transform3D(0.969149, 0, 0.246474, 0, 1, 0, -0.246474, 0, 0.969149, 4.87025, 0, 2.0884)
+
+[node name="chest" parent="." instance=ExtResource("4_asyl4")]
+transform = Transform3D(-0.77061, 0, -0.403808, 0, 0.87, 0, 0.403808, 0, -0.77061, 5.56779, 0.799207, 1.40818)
+
+[node name="irondagger" parent="." instance=ExtResource("5_nw6v0")]
+transform = Transform3D(-0.331581, -0.325983, -0.00373138, -9.2823e-10, -0.00532231, 0.46497, -0.326004, 0.33156, 0.00379522, 4.0473, 2.26786, 3.17358)
+
+[node name="goldcoin" parent="." instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.107109, 0, 0.457633, 0, 0.47, 0, -0.457633, 0, 0.107109, 4.17346, 2.25466, 2.92313)
+
+[node name="goldcoin2" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.514636, 0, -0.691143, 0, 0.861702, 0, 0.691143, 0, 0.514636, 0.337323, 0, -9.53674e-07)
+
+[node name="goldcoin4" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.47418, -1.11759e-08, 0.880426, -0.117326, 0.991081, 0.0631891, -0.872575, -0.13326, 0.469952, -1.90735e-06, 0.0324893, -0.272817)
+
+[node name="goldcoin3" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.0366428, 0, -0.999328, 0, 1, 0, 0.999328, 0, 0.0366428, -0.450711, 0, 0.0553608)
+
+[node name="goldcoin11" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(-0.255819, 0, -0.822853, 0, 0.861702, 0, 0.822853, 0, -0.255819, -1.38697, 0, -0.700153)
+
+[node name="goldcoin5" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(-0.671821, 0, -0.539616, 0, 0.861702, 0, 0.539616, 0, -0.671821, -0.438352, 0, 0.392457)
+
+[node name="goldcoin8" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.47418, -1.11759e-08, 0.880426, -0.117326, 0.991081, 0.0631891, -0.872575, -0.13326, 0.469952, -1.90735e-06, 0.0324893, -0.272817)
+
+[node name="goldcoin7" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.514636, 0, -0.691143, 0, 0.861702, 0, 0.691143, 0, 0.514636, 0.337323, 0, -9.53674e-07)
+
+[node name="goldcoin9" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.0366428, 0, -0.999328, 0, 1, 0, 0.999328, 0, 0.0366428, -0.450711, 0, 0.0553608)
+
+[node name="goldcoin10" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(-0.671821, 0, -0.539616, 0, 0.861702, 0, 0.539616, 0, -0.671821, -0.438352, 0, 0.392457)
+
+[node name="goldcoin6" parent="goldcoin" instance=ExtResource("6_uxl52")]
+transform = Transform3D(0.889364, 0.13317, -0.437375, -0.117326, 0.991081, 0.0631891, 0.441887, -0.00488302, 0.897057, -0.178091, 0.0642552, 0.0453749)
+
+[node name="blackswordLATER2" parent="." instance=ExtResource("7_1icrp")]
+transform = Transform3D(0.999347, -0.0323965, 0.0159707, 0.00128198, 0.473702, 0.880685, -0.0360964, -0.880089, 0.473434, 3.96195, 0.959787, 1.70954)
+
+[node name="bottle" parent="." instance=ExtResource("8_af6pk")]
+transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.2, 4.45241, 2.31009, 2.92183)
+
+[node name="torch" parent="." instance=ExtResource("9_rbx0h")]
+transform = Transform3D(0.0625998, -0.933371, -0.353412, 0.992996, 0.0226961, 0.115948, -0.100202, -0.358195, 0.928254, 5.02278, 4.20096, 2.6066)
+
+[node name="fire_effect" type="GPUParticles3D" parent="torch"]
+transform = Transform3D(0.999998, 0.00101246, -0.000347093, -0.00101289, 1, -0.00119662, 0.000345506, 0.00119728, 1, -0.0402098, -0.0391569, -0.138028)
+cast_shadow = 0
+visibility_range_begin = 49.05
+visibility_range_begin_margin = 1177.3
+visibility_range_end = 588.65
+visibility_range_end_margin = 367.9
+visibility_range_fade_mode = 1
+amount = 18
+lifetime = 0.83
+speed_scale = 0.87
+randomness = 0.23
+collision_base_size = 2.3
+visibility_aabb = AABB(-4, -4, -3.52247, 8, 8, 7.04494)
+trail_lifetime = 0.65
+process_material = SubResource("ParticleProcessMaterial_klfnk")
+draw_pass_1 = SubResource("QuadMesh_h8bs2")
+draw_skin = SubResource("Skin_expkw")
+
+[node name="firelight" type="OmniLight3D" parent="torch"]
+transform = Transform3D(1, -2.23517e-08, -3.72529e-08, 0, 1, 2.68221e-07, 0, -2.08616e-07, 1, -0.00357819, 0.228359, -0.0140734)
+light_color = Color(0.917647, 0.568627, 0.247059, 1)
+omni_range = 4.097
+
+[node name="character" type="MeshInstance3D" parent="."]

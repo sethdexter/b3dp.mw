@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://bteohv4w6prwy"]
+
+[ext_resource type="Script" path="res://systems/character/basecharacter.gd" id="1_y0om1"]
+[ext_resource type="PackedScene" path="res://systems/components/controller.gd.tscn" id="2_1jxqw"]
+[ext_resource type="Script" path="res://systems/components/equipmentComponent.gd" id="2_dw050"]
+[ext_resource type="Script" path="res://systems/components/attributesComponent.gd" id="2_ffpwu"]
+[ext_resource type="Script" path="res://systems/components/statsComponent.gd" id="3_mbq3d"]
+[ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="4_u02w6"]
+[ext_resource type="Script" path="res://systems/components/inventoryComponent.gd" id="5_4dlq4"]
+[ext_resource type="Script" path="res://systems/components/skillsComponent.gd" id="6_2vq5e"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
+height = 3.26727
+
+[node name="character" type="CharacterBody3D" unique_id=1976811291 node_paths=PackedStringArray("attributeComponent", "statComponent", "skillComponent", "combatComponent", "inventoryComponent", "equipmentComponent", "controllerComponent")]
+script = ExtResource("1_y0om1")
+char_id = 1
+Name = "Jack"
+attributeComponent = NodePath("attributes")
+statComponent = NodePath("stats")
+skillComponent = NodePath("skills")
+combatComponent = NodePath("combat")
+inventoryComponent = NodePath("inventory")
+equipmentComponent = NodePath("equipment")
+controllerComponent = NodePath("controller")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=739416636]
+shape = SubResource("CapsuleShape3D_lodx8")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1052576862]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.33427, -0.184626)
+fov = 60.0
+
+[node name="RayCast3D" type="RayCast3D" parent="Camera3D" unique_id=658856384]
+target_position = Vector3(0, -0.115, -2.195)
+debug_shape_custom_color = Color(0.172549, 0.172549, 0.172549, 0.407843)
+
+[node name="combat" type="Node" parent="." unique_id=1301558428 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_u02w6")
+currentCharacter = NodePath("..")
+
+[node name="controller" parent="." unique_id=310282654 node_paths=PackedStringArray("character", "camera_node", "interaction_raycast") instance=ExtResource("2_1jxqw")]
+character = NodePath("..")
+camera_node = NodePath("../Camera3D")
+interaction_raycast = NodePath("../Camera3D/RayCast3D")
+
+[node name="attributes" type="Node" parent="." unique_id=1948132631 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_ffpwu")
+currentCharacter = NodePath("..")
+
+[node name="stats" type="Node" parent="." unique_id=1006549031 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_mbq3d")
+currentCharacter = NodePath("..")
+
+[node name="skills" type="Node" parent="." unique_id=1897398979 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("6_2vq5e")
+currentCharacter = NodePath("..")
+
+[node name="inventory" type="Node" parent="." unique_id=1392631130 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("5_4dlq4")
+currentCharacter = NodePath("..")
+
+[node name="equipment" type="Node" parent="." unique_id=849924164 node_paths=PackedStringArray("currentCharacter", "characterCollision")]
+script = ExtResource("2_dw050")
+currentCharacter = NodePath("..")
+characterCollision = NodePath("../CollisionShape3D")
+metadata/_custom_type_script = "uid://mimqe18j4nga"

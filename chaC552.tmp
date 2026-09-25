@@ -1,0 +1,47 @@
+[gd_scene load_steps=12 format=3 uid="uid://d2hqmirwqnwod"]
+
+[ext_resource type="Script" path="res://systems/basecharacter.gd" id="1_kebnn"]
+[ext_resource type="Script" path="res://systems/attributesComponent.gd" id="2_wen8k"]
+[ext_resource type="Resource" uid="uid://dfn157k7ft1s7" path="res://systems/strength.tres" id="3_qjipi"]
+[ext_resource type="Script" path="res://systems/attribute.gd" id="3_y366n"]
+[ext_resource type="Resource" uid="uid://cb53h26v8hmar" path="res://systems/vigor.tres" id="4_nba4f"]
+[ext_resource type="Script" path="res://statsComponent.gd" id="4_r55gl"]
+[ext_resource type="Resource" uid="uid://b1w65bhiwloem" path="res://systems/health.tres" id="7_86pag"]
+[ext_resource type="Script" path="res://skillsComponent.gd" id="8_0paao"]
+
+[sub_resource type="Resource" id="Resource_3g1p6"]
+script = ExtResource("3_y366n")
+Name = "Agility"
+maxValue = 50
+
+[sub_resource type="Resource" id="Resource_6m22f"]
+script = ExtResource("3_y366n")
+Name = "Intelligance"
+maxValue = 50
+
+[sub_resource type="Resource" id="Resource_gkg0q"]
+script = ExtResource("3_y366n")
+Name = "Wisdom"
+maxValue = 50
+
+[node name="character" type="MeshInstance3D" node_paths=PackedStringArray("attributeComponent", "statsComponent")]
+script = ExtResource("1_kebnn")
+char_id = 1
+character_name = "jack"
+attributeComponent = NodePath("attributesComponent")
+statsComponent = NodePath("statsComponent")
+
+[node name="attributesComponent" type="Node" parent="."]
+script = ExtResource("2_wen8k")
+strength = ExtResource("3_qjipi")
+vigor = ExtResource("4_nba4f")
+agility = SubResource("Resource_3g1p6")
+intelligence = SubResource("Resource_6m22f")
+wisdom = SubResource("Resource_gkg0q")
+
+[node name="statsComponent" type="Node" parent="."]
+script = ExtResource("4_r55gl")
+health = ExtResource("7_86pag")
+
+[node name="skillsComponent" type="Node" parent="."]
+script = ExtResource("8_0paao")

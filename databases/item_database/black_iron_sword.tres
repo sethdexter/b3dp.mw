@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="WeaponItem" load_steps=2 format=3 uid="uid://bodek4g5ywk66"]
+
+[ext_resource type="Script" uid="uid://bylv06u854khh" path="res://databases/weaponItem.gd" id="1_1xd2d"]
+
+[resource]
+script = ExtResource("1_1xd2d")
+attackTypes = {
+"bludgeiningDamage": 1,
+"pierceDamage": 2,
+"slashDamage": 3
+}
+range = 1
+attackSpeed = 0.4
+governingSkill = ""
+Name = "Black Iron Sword"
+id = "0002"
+maxStackCount = 1
+weight = 5
+equippableSlots = Array[String]([])
+isEquipped = false
+isEquippable = true
+isConsumable = false
+isPickupable = false
+itemDesription = "defualt item despription."
+metadata/_custom_type_script = "uid://bylv06u854khh"

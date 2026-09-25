@@ -1,0 +1,43 @@
+[gd_scene load_steps=7 format=3 uid="uid://clyb8mrhq2uyw"]
+
+[ext_resource type="Script" uid="uid://caj58150wj2b4" path="res://chestdebug.gd" id="1_trlyu"]
+[ext_resource type="PackedScene" uid="uid://c60324i2fjxbc" path="res://assets/models/chest.glb" id="1_twpm2"]
+[ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://systems/components/inventoryComponent.gd" id="2_bp1or"]
+[ext_resource type="Script" uid="uid://c8rsbetux4hnk" path="res://systems/components/interactComponent.gd" id="3_trlyu"]
+[ext_resource type="FontFile" uid="uid://bo6tac5qmet7q" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="5_x7mpe"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_8uwsg"]
+size = Vector3(2.7308, 1.53621, 1.59251)
+
+[node name="chest" type="StaticBody3D"]
+script = ExtResource("1_trlyu")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+
+[node name="chestMesh" parent="MeshInstance3D" instance=ExtResource("1_twpm2")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.00682068, 0.177284, -0.00141144)
+shape = SubResource("BoxShape3D_8uwsg")
+
+[node name="InventoryComponent" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_bp1or")
+currentCharacter = NodePath("..")
+metadata/_custom_type_script = "uid://cbk70h0ponen2"
+
+[node name="InteractableComponent" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_trlyu")
+currentCharacter = NodePath("..")
+metadata/_custom_type_script = "uid://c8rsbetux4hnk"
+
+[node name="Label" type="Label" parent="InteractableComponent"]
+visible = false
+top_level = true
+offset_left = 1.0
+offset_right = 51.0
+offset_bottom = 23.0
+theme_override_fonts/font = ExtResource("5_x7mpe")
+text = "Open"
+horizontal_alignment = 1
+vertical_alignment = 1
+metadata/_edit_use_anchors_ = true

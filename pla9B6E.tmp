@@ -1,0 +1,59 @@
+[gd_scene load_steps=10 format=3 uid="uid://b350hgfk03e6p"]
+
+[ext_resource type="Script" path="res://systems/character/basecharacter.gd" id="1_y0om1"]
+[ext_resource type="Script" path="res://systems/component/attributesComponent.gd" id="2_ffpwu"]
+[ext_resource type="Script" path="res://systems/component/statsComponent.gd" id="3_mbq3d"]
+[ext_resource type="Script" path="res://systems/component/combatComponent.gd" id="4_u02w6"]
+[ext_resource type="Script" path="res://systems/component/inventoryComponent.gd" id="5_4dlq4"]
+[ext_resource type="Script" path="res://systems/component/skillsComponent.gd" id="6_2vq5e"]
+[ext_resource type="Script" path="res://systems/component/controllerComponent.gd" id="7_htuuy"]
+[ext_resource type="Script" path="res://state_machine_component.gd" id="8_tkdt1"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
+height = 3.26727
+
+[node name="character" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "skillComponent", "combatComponent", "inventoryComponent")]
+script = ExtResource("1_y0om1")
+char_id = 1
+Name = "Jack"
+attributeComponent = NodePath("components/attributes")
+statComponent = NodePath("components/stats")
+skillComponent = NodePath("components/skills")
+combatComponent = NodePath("components/combat")
+inventoryComponent = NodePath("components/inventory")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_lodx8")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.33427, -0.184626)
+fov = 60.0
+
+[node name="components" type="Node" parent="."]
+
+[node name="controller" type="Node" parent="components" node_paths=PackedStringArray("character", "camera", "hitbox")]
+script = ExtResource("7_htuuy")
+character = NodePath("../..")
+camera = NodePath("../../Camera3D")
+hitbox = NodePath("../../CollisionShape3D")
+
+[node name="movementStateMachineComponent" type="Node" parent="components/controller"]
+script = ExtResource("8_tkdt1")
+
+[node name="attributes" type="Node" parent="components"]
+script = ExtResource("2_ffpwu")
+
+[node name="stats" type="Node" parent="components" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_mbq3d")
+currentCharacter = NodePath("../..")
+
+[node name="combat" type="Node" parent="components" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_u02w6")
+currentCharacter = NodePath("../..")
+
+[node name="inventory" type="Node" parent="components" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("5_4dlq4")
+currentCharacter = NodePath("../..")
+
+[node name="skills" type="Node" parent="components"]
+script = ExtResource("6_2vq5e")

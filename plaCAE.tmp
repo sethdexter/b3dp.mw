@@ -1,0 +1,59 @@
+[gd_scene load_steps=10 format=3 uid="uid://b350hgfk03e6p"]
+
+[ext_resource type="Script" path="res://systems/character/basecharacter.gd" id="1_y0om1"]
+[ext_resource type="Script" path="res://systems/component/attributesComponent.gd" id="2_ffpwu"]
+[ext_resource type="Script" path="res://systems/component/statsComponent.gd" id="3_mbq3d"]
+[ext_resource type="Script" path="res://systems/component/combatComponent.gd" id="4_u02w6"]
+[ext_resource type="Script" path="res://systems/component/inventoryComponent.gd" id="5_4dlq4"]
+[ext_resource type="Script" path="res://systems/component/skillsComponent.gd" id="6_2vq5e"]
+[ext_resource type="Script" path="res://systems/component/controllerComponent.gd" id="7_htuuy"]
+[ext_resource type="Script" path="res://state_machine_component.gd" id="8_tkdt1"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_vhsie"]
+height = 3.0
+
+[node name="character" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "skillComponent", "combatComponent", "inventoryComponent")]
+script = ExtResource("1_y0om1")
+char_id = 1
+Name = "Jack"
+attributeComponent = NodePath("charComponents/attributesComponent")
+statComponent = NodePath("charComponents/statsComponent")
+skillComponent = NodePath("charComponents/skillsComponent")
+combatComponent = NodePath("charComponents/combatComponent")
+inventoryComponent = NodePath("charComponents/inventoryComponent")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.33427, -0.184626)
+fov = 60.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CylinderShape3D_vhsie")
+
+[node name="charComponents" type="Node" parent="."]
+
+[node name="controllerComponent" type="Node" parent="charComponents" node_paths=PackedStringArray("currentCharacter", "stateMachine", "camera")]
+script = ExtResource("7_htuuy")
+currentCharacter = NodePath("../..")
+stateMachine = NodePath("movementStateMachineComponent")
+camera = NodePath("../../Camera3D")
+
+[node name="movementStateMachineComponent" type="Node" parent="charComponents/controllerComponent"]
+script = ExtResource("8_tkdt1")
+
+[node name="attributesComponent" type="Node" parent="charComponents"]
+script = ExtResource("2_ffpwu")
+
+[node name="statsComponent" type="Node" parent="charComponents" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_mbq3d")
+currentCharacter = NodePath("../..")
+
+[node name="combatComponent" type="Node" parent="charComponents" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_u02w6")
+currentCharacter = NodePath("../..")
+
+[node name="inventoryComponent" type="Node" parent="charComponents" node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("5_4dlq4")
+currentCharacter = NodePath("../..")
+
+[node name="skillsComponent" type="Node" parent="charComponents"]
+script = ExtResource("6_2vq5e")

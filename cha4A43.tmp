@@ -1,0 +1,30 @@
+[gd_scene load_steps=7 format=3 uid="uid://d2hqmirwqnwod"]
+
+[ext_resource type="Script" path="res://systems/basecharacter.gd" id="1_kebnn"]
+[ext_resource type="Script" path="res://systems/attributesComponent.gd" id="2_wen8k"]
+[ext_resource type="Script" path="res://statsComponent.gd" id="4_r55gl"]
+[ext_resource type="Script" path="res://skillsComponent.gd" id="8_0paao"]
+[ext_resource type="Resource" uid="uid://dfwqunl2darqt" path="res://systems/short_blade.tres" id="9_ebr27"]
+[ext_resource type="Script" path="res://inventoryComponent.gd" id="10_vwu7d"]
+
+[node name="character" type="MeshInstance3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "skillComponent", "combatComponent")]
+script = ExtResource("1_kebnn")
+char_id = 1
+Name = "Jack"
+attributeComponent = NodePath("attributesComponent")
+statComponent = NodePath("statsComponent")
+skillComponent = NodePath("skillsComponent")
+combatComponent = NodePath("combatComponent")
+
+[node name="attributesComponent" type="Node" parent="."]
+script = ExtResource("2_wen8k")
+
+[node name="statsComponent" type="Node" parent="."]
+script = ExtResource("4_r55gl")
+
+[node name="skillsComponent" type="Node" parent="."]
+script = ExtResource("8_0paao")
+short_blade = ExtResource("9_ebr27")
+
+[node name="combatComponent" type="Node" parent="."]
+script = ExtResource("10_vwu7d")
