@@ -32,7 +32,7 @@ func interact(player: Node) -> void:
 		if item_instance and player.has_method("receive_item") and player.receive_item(item_instance, 1):
 			get_parent().queue_free()
 	else:
-		var container := get_node_or_null("containerComponent") as ContainerComponent
+		var container = get_node_or_null("containerComponent") as ContainerComponent
 		if container:
 			container.interact(player)
 		else:

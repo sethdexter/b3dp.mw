@@ -28,7 +28,7 @@ func _physics_process(_delta: float) -> void:
 				if child is InteractableComponent:
 					found_interactable = child
 					break
-			elif collider.has_method("interact"):
+			if not found_interactable and collider.has_method("interact"):
 				found_interactable = collider
 
 	if found_interactable == current_interactable:
