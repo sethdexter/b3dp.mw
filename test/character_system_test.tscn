@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://test/character_system_test.gd" id="1_test"]
+[ext_resource type="PackedScene" path="res://player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://systems/actors/enemy.tscn" id="3_enemy"]
+
+[node name="CharacterSystemTest" type="Node"]
+script = ExtResource("1_test")
+
+[node name="Character" parent="." instance=ExtResource("2_player")]
+
+[node name="Enemy" parent="." instance=ExtResource("3_enemy")]
+position = Vector3(0, 0, -3)

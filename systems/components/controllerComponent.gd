@@ -1,15 +1,11 @@
 class_name ControllerComponent
 extends Node
 
-## Self-contained movement, camera, and interaction controller for a CharacterBody3D.
+## Self-contained movement and camera controller for a CharacterBody3D.
 
 @export_category("References")
 @export var character: CharacterBody3D
 @export var camera_node: Node3D
-
-@export_category("Interaction Settings")
-@export var interaction_raycast: RayCast3D
-var current_interactable = null
 
 @export_category("Camera Settings")
 @export var mouse_sensitivity: float = 0.003
@@ -61,11 +57,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if character.velocity.y > 0:
 			character.velocity.y *= variable_jump_cut
 
-# Interaction trigger ('E' key or "interact" action)
-	var is_interact_press: bool = (InputMap.has_action("interact") and event.is_action_pressed("interact")) or (event is InputEventKey and event.pressed and not event.is_echo() and event.keycode == KEY_E)
-	if is_interact_press and current_interactable:
-		current_interactable.interact(character)
-
 func _physics_process(delta: float) -> void:
 	if not character:
 		return
@@ -73,7 +64,6 @@ func _physics_process(delta: float) -> void:
 	handle_movement(delta)
 	apply_gravity(delta)
 	character.move_and_slide()
-	handle_interaction()
 
 func handle_camera_rotation(relative_motion: Vector2) -> void:
 	if not character or not camera_node:
@@ -123,40 +113,6 @@ func handle_movement(delta: float) -> void:
 			character.velocity.x = lerp(character.velocity.x, 0.0, rate)
 			character.velocity.z = lerp(character.velocity.z, 0.0, rate)
 
-
-func handle_interaction() -> void:
-	if not interaction_raycast:
-		print("ERROR: Interaction RayCast3D reference is missing in the Player Inspector!")
-		return
-
-	interaction_raycast.force_raycast_update()
-	var found_interactable = null
-
-	if interaction_raycast.is_colliding():
-		var collider = interaction_raycast.get_collider()
-		print("Raycast hit: ", collider.name if collider else "Nothing")
-		
-		if collider:
-			if collider.has_node("InteractableComponent"):
-				found_interactable = collider.get_node("InteractableComponent")
-
-			elif collider.has_method("interact"):
-				found_interactable = collider
-
-	# Handle switching between interactables
-	if found_interactable != current_interactable:
-		if current_interactable and current_interactable.has_method("hide_prompt"):
-			current_interactable.hide_prompt()
-		
-		current_interactable = found_interactable
-		
-		if current_interactable and current_interactable.has_method("show_prompt"):
-			current_interactable.show_prompt()
-			print("Prompt shown for: ", current_interactable.name)
-
-	# Trigger input action (e.g., pressing 'E')
-	if current_interactable and Input.is_action_just_pressed("interact"):
-		current_interactable.interact(self)
 
 func apply_gravity(delta: float) -> void:
 	if not character.is_on_floor():

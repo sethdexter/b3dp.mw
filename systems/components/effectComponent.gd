@@ -1,7 +1,16 @@
-#extends Node
+extends Node
 class_name EffectComponent
 
-@export var effectName: String
-@export var effectText: String
+signal effects_changed
 
-@export var effect1: Skill
+var active_effects: Array[Effect] = []
+
+func add_effect(effect: Effect) -> void:
+	if not effect:
+		return
+	active_effects.append(effect)
+	effects_changed.emit()
+
+func remove_effect(effect: Effect) -> void:
+	if active_effects.erase(effect):
+		effects_changed.emit()

@@ -41,6 +41,7 @@ metadata/_edit_use_anchors_ = true
 
 [node name="containerComponent" type="Node" parent="interactableComponent" unique_id=979237232]
 script = ExtResource("4_x7mpe")
+item_ids = Array[String](["torch", "black_iron_sword"])
 metadata/_custom_type_script = "uid://lfw7r1omdqjv"
 
 [node name="inventoryComponent" type="Node" parent="interactableComponent/containerComponent" unique_id=282675802]

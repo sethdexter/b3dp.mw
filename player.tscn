@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="4_u02w6"]
 [ext_resource type="Script" path="res://systems/components/inventoryComponent.gd" id="5_4dlq4"]
 [ext_resource type="Script" path="res://systems/components/skillsComponent.gd" id="6_2vq5e"]
+[ext_resource type="Script" path="res://systems/components/interactionComponent.gd" id="7_interaction"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
 height = 3.26727
@@ -39,9 +40,13 @@ debug_shape_custom_color = Color(0.172549, 0.172549, 0.172549, 0.407843)
 script = ExtResource("4_u02w6")
 currentCharacter = NodePath("..")
 
-[node name="controller" parent="." unique_id=310282654 node_paths=PackedStringArray("character", "camera_node", "interaction_raycast") instance=ExtResource("2_1jxqw")]
+[node name="controller" parent="." unique_id=310282654 node_paths=PackedStringArray("character", "camera_node") instance=ExtResource("2_1jxqw")]
 character = NodePath("..")
 camera_node = NodePath("../Camera3D")
+
+[node name="interaction" type="Node" parent="." unique_id=1786934210 node_paths=PackedStringArray("actor", "interaction_raycast")]
+script = ExtResource("7_interaction")
+actor = NodePath("..")
 interaction_raycast = NodePath("../Camera3D/RayCast3D")
 
 [node name="attributes" type="Node" parent="." unique_id=1948132631 node_paths=PackedStringArray("currentCharacter")]

@@ -39,13 +39,8 @@ func attack(target_character: BaseCharacter, weapon: WeaponItem, attack_type: St
 	# 1. Get damage value from the weapon resource
 	var damage_value = weapon.attackTypes[attack_type]
 	
-	# 2. Find the health stat on the target automatically
-	var target_health = target_character.statComponent.health
-	
 	print("%s attacks %s for %d %s damage!" % [currentCharacter.Name, target_character.Name, damage_value, attack_type])
-	
-	# 3. Apply the damage via the target's combat component
-	target_character.combatComponent.take_damage(target_health, damage_value)
+	target_character.receive_damage(damage_value)
 	
 # Inside CombatComponent.gd
 
@@ -57,11 +52,9 @@ func heal(target_character: BaseCharacter, target_stat: Stat, amount: int):
 	var f_string = "%s heals %s for %d!..." % [currentCharacter.Name, target_character.Name, amount]
 	print(f_string)
 	
-	# We call the target's combatComponent to handle the actual resource change
-	# This ensures the logic (and any local mitigation/buffs) stays with the receiver
-	target_character.combatComponent.heal_damage(target_stat, amount)
+	target_character.receive_healing(amount)
 
 func heal_target(target_character: Node3D, amount: int):
 	print("%s casts heal on %s!" % [currentCharacter.name, target_character.name])
-	var target_health = target_character.statsComponent.health
-	target_character.combatComponent.heal_damage(target_health, amount)
+	if target_character.has_method("receive_healing"):
+		target_character.receive_healing(amount)

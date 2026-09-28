@@ -4,6 +4,8 @@ class_name EquipmentComponent
 @export var currentCharacter:   Node3D
 @export var characterCollision: CollisionShape3D
 
+signal equipment_changed
+
 var rightHandPosition: Vector3
 var leftHandPosition:  Vector3
 
@@ -23,11 +25,11 @@ func equip_item(item: Item) -> bool:
 	if item == null:
 		return false
 
-	if not item.equippable:
-		push_warning("Item '%s' is not equippable" % item.name)
+	if not item.isEquippable:
+		push_warning("Item '%s' is not equippable" % item.Name)
 		return false
 
-	for slot in item.equip_slots:
+	for slot in item.equippableSlots:
 		if not equipment.has(slot):
 			continue
 
@@ -36,25 +38,36 @@ func equip_item(item: Item) -> bool:
 			continue
 
 		equipment[slot] = item
-		print("Equipped %s to %s" % [item.name, slot])
+		item.isEquipped = true
+		equipment_changed.emit()
+		print("Equipped %s to %s" % [item.Name, slot])
 		return true
 
-	push_warning("No valid equipment slot found for %s" % item.name)
+	push_warning("No valid equipment slot found for %s" % item.Name)
 	return false
 
-func unequip_item(targetItem: Item):
-	targetItem.isEquipped = false
-	print(" you have unequipped %s." % targetItem)
-	pass
+func unequip_item(target_item: Item) -> bool:
+	if target_item == null:
+		return false
+
+	for slot in equipment:
+		if equipment[slot] != target_item:
+			continue
+
+		equipment[slot] = null
+		target_item.isEquipped = false
+		equipment_changed.emit()
+		print("Unequipped %s from %s" % [target_item.Name, slot])
+		return true
+
+	return false
 
 func show_equipment():
-	#pass
-	for i in equipment:
-		if !equipment[i].has_property("Name"):
-			break
-		else:
-			print(equipment[i].Name)
-		#print(i)
+	for slot in equipment:
+		var item: Item = equipment[slot]
+		if item == null:
+			continue
+		print("%s: %s" % [slot, item.Name])
 
 func _process(_delta):
 	pass

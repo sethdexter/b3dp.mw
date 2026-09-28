@@ -40,104 +40,53 @@ func add_item(item: Item, amount: int) -> void:
 	if item == null:
 		return
 		
-	if inventory.size() >= max_capacity and not inventory.has(item):
-		return
-		
-	if item.isUnique:
-		item = item.duplicate(true)
-		inventory[item] = 1
-	elif inventory.has(item):
-		inventory[item] += amount
-	else:
-		inventory[item] = amount
-		
-	inventory_updated.emit()
-	update_ui_list()
-	print(inventory)
+	class_name ContainerComponent
+	extends Node
 
-func remove_item(item: Item, amount: int) -> void:
-	if not inventory.has(item):
-		return
-		
-	inventory[item] -= amount
-	if inventory[item] <= 0:
-		inventory.erase(item)
-		
-	inventory_updated.emit()
-	update_ui_list()
-	print(inventory)
+	signal inventory_updated
+	signal opened
+	signal emptied
 
-func interact(player: Node = null) -> void:
-	if player:
-		active_player = player
-		
-	if container_panel:
-		container_panel.visible = not container_panel.visible
-		print("Container UI visibility toggled to: ", container_panel.visible)
-		if container_panel.visible:
-			selected_index = 0
-			update_ui_list()
-"""
-"""
-func update_ui_list() -> void:
-	if not item_list_container:
-		return
-		
-	for child in item_list_container.get_children():
+	@export var max_capacity: int = 20
+	@export var item_ids: Array[String] = []
 
-		child.queue_free()
+	var inventory: Dictionary[Item, int] = {}
+	var is_opened: bool = false
 
-	if inventory.is_empty():
-		var empty_lbl = Label.new()
+	func _ready() -> void:
+		for item_id in item_ids:
+			var item_instance := item_list.get_item_instance(item_id)
+			if item_instance:
+				add_item(item_instance, 1)
+
+	func add_item(item: Item, amount: int) -> bool:
+		if item == null or amount <= 0:
+			return false
+		if inventory.size() >= max_capacity and not inventory.has(item):
+			return false
+
+		if item.isUnique:
+			item = item.duplicate(true)
+			inventory[item] = 1
+		elif inventory.has(item):
+			inventory[item] += amount
+		else:
+			inventory[item] = amount
+
+		inventory_updated.emit()
+		return true
+
+	func interact(actor: Node) -> void:
+		if is_opened or not actor or not actor.has_method("receive_item"):
+			return
+
+		for item in inventory.keys():
+			if not actor.receive_item(item, inventory[item]):
+				return
+
+		is_opened = true
+		opened.emit()
+		inventory.clear()
+		inventory_updated.emit()
+		emptied.emit()
 		empty_lbl.text = "Container is empty"
-		item_list_container.add_child(empty_lbl)
-		return
-
-	var index = 0
-	for item in inventory:
-		var lbl = Label.new()
-		var count = inventory[item]
-		
-		if count > 1:
-			lbl.text = "%s x %d" % [item.Name, count]
-		else:
-			lbl.text = "%s" % [item.Name]
-			
-		if index == selected_index:
-			lbl.modulate = Color(1.2, 1.2, 0.4) # Highlight selected
-		else:
-			lbl.modulate = Color(1, 1, 1)
-			
-		item_list_container.add_child(lbl)
-		index += 1
-
-func navigate_selection(direction: int) -> void:
-	if inventory.is_empty():
-		return
-	var max_idx = inventory.size() - 1
-	selected_index = selected_index + direction
-	if selected_index > max_idx:
-		selected_index = 0
-	elif selected_index < 0:
-		selected_index = max_idx
-	update_ui_list()
-
-func take_selected_item() -> void:
-	if inventory.is_empty():
-		return
-		
-	var items = inventory.keys()
-	if selected_index >= items.size():
-		selected_index = items.size() - 1
-		
-	var target_item = items[selected_index]
-	
-	if active_player and "inventoryComponent" in active_player and active_player.inventoryComponent:
-		active_player.inventoryComponent.add_item(target_item, 1)
-	
-	remove_item(target_item, 1)
-	
-	if selected_index >= inventory.size() and selected_index > 0:
-		selected_index -= 1
-	update_ui_list()
- """

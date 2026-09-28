@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="Spell" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://systems/spell/spell.gd" id="1_spell"]
+[ext_resource type="Script" path="res://systems/spell/spell_effects.gd" id="2_effect"]
+
+[sub_resource type="Resource" id="Effect_fire_damage"]
+script = ExtResource("2_effect")
+id = "fire_damage"
+display_name = "Fire Damage"
+duration_seconds = 0.0
+additive_value = -5
+multiplicative_value = 1.0
+
+[resource]
+script = ExtResource("1_spell")
+id = "firebolt"
+display_name = "Firebolt"
+description = "A basic fire spell."
+cost_magicka = 8
+cooldown_seconds = 0.4
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_fire_damage")])

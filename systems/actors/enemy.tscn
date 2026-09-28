@@ -1,0 +1,58 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://systems/actors/enemy.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://systems/components/attributesComponent.gd" id="2_attributes"]
+[ext_resource type="Script" path="res://systems/components/statsComponent.gd" id="3_stats"]
+[ext_resource type="Script" path="res://systems/components/skillsComponent.gd" id="4_skills"]
+[ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="5_combat"]
+[ext_resource type="Script" path="res://systems/components/inventoryComponent.gd" id="6_inventory"]
+[ext_resource type="Script" path="res://systems/components/equipmentComponent.gd" id="7_equipment"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_enemy"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_enemy"]
+radius = 0.45
+height = 1.8
+
+[node name="Enemy" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "skillComponent", "combatComponent", "inventoryComponent", "equipmentComponent")]
+script = ExtResource("1_enemy")
+Name = "Enemy"
+attributeComponent = NodePath("Attributes")
+statComponent = NodePath("Stats")
+skillComponent = NodePath("Skills")
+combatComponent = NodePath("Combat")
+inventoryComponent = NodePath("Inventory")
+equipmentComponent = NodePath("Equipment")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_enemy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_enemy")
+
+[node name="Attributes" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_attributes")
+currentCharacter = NodePath("..")
+
+[node name="Stats" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_stats")
+currentCharacter = NodePath("..")
+
+[node name="Skills" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_skills")
+currentCharacter = NodePath("..")
+
+[node name="Combat" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("5_combat")
+currentCharacter = NodePath("..")
+
+[node name="Inventory" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("6_inventory")
+currentCharacter = NodePath("..")
+
+[node name="Equipment" type="Node" parent="." node_paths=PackedStringArray("currentCharacter", "characterCollision")]
+script = ExtResource("7_equipment")
+currentCharacter = NodePath("..")
+characterCollision = NodePath("../CollisionShape3D")

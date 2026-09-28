@@ -11,10 +11,9 @@ var isEncubmered := false
 #this dictionary handles the inventory items and stack count dict[item, stackcount]
 var inventory: Dictionary[Item, int] = {}
 
-func add_item(item: Item, amount: int):
-	if item == null:
-		print("item is null")
-		return
+func add_item(item: Item, amount: int) -> bool:
+	if item == null or amount <= 0:
+		return false
 
 	if item.isUnique:
 		item = item.duplicate(true)
@@ -35,6 +34,7 @@ func add_item(item: Item, amount: int):
 	print(inventory[item])
 	print("picked up a %s." % item.Name)
 	inventory_updated.emit()
+	return true
 
 func remove_item(item: Item, amount: int):
 	if not inventory.has(item):

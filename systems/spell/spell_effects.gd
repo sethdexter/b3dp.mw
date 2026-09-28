@@ -1,25 +1,16 @@
 extends Resource
 class_name Effect
 
-func effect_attribute(a: Attribute, additive_value: int, additive_modifier: float = 1):
-	a.updateValue(additive_value, additive_modifier)
-	return a
-	
-func timer(duration_msec: int) -> bool:
-	var init_time: int
-	if !init_time:
-		init_time = Time.get_ticks_msec()
-		print(init_time)
-	if Time.get_ticks_msec() < init_time + duration_msec:
-		return true
-	return false
+@export var id: String
+@export var display_name: String
+@export var duration_seconds: float = 0.0
+@export var additive_value: int = 0
+@export var multiplicative_value: float = 1.0
 
-#func cooldown(timer_amount: float) -> bool:
-#	if !is_on_cooldown:
-#		while timer(timer_amount):
-#			print("time is %s" % [time_pressed])
-#			is_on_cooldown = true
-#			return true
-#	print("cooldown has ended")
-#	is_on_cooldown = false
-#	return false
+func apply_to(attribute: Attribute, source_id: String) -> void:
+	if attribute:
+		attribute.add_modifier(source_id, additive_value, multiplicative_value)
+
+func remove_from(attribute: Attribute, source_id: String) -> void:
+	if attribute:
+		attribute.remove_modifier(source_id)
