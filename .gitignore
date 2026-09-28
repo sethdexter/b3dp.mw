@@ -15,3 +15,5 @@ export_credentials.cfg
 data_*/
 mono_crash.*.json
 scripts/project_complete_context.txt
+project_context_full.txt
+scripts/project_summary.txt
