@@ -1,60 +1,78 @@
 extends Node
 class_name EquipmentComponent
 
+signal equipment_changed(slot: String, item: Item)
+
 @export var currentCharacter:   Node3D
 @export var characterCollision: CollisionShape3D
 
 var rightHandPosition: Vector3
 var leftHandPosition:  Vector3
 
-var equipment: Dictionary                 
+var equipment: Dictionary[String, Item] = {
+	"right_hand" : null,
+	"left_hand"  : null,
+	"head"       : null,
+	"chest"      : null,
+	"feet"       : null,
+	"back"       : null,
+}
 
-func _ready():
-	equipment = {
-		"right_hand" : null,
-		"left_hand"  : null,
-		"head"       : null,
-		"chest"      : null,
-		"feet"       : null,
-		"back"       : null,
-		}
-
+## Equips into the first free slot listed in item.equippableSlots.
+## If all its slots are taken, swaps out whatever is in the first one.
 func equip_item(item: Item) -> bool:
 	if item == null:
 		return false
-
-	if not item.equippable:
-		push_warning("Item '%s' is not equippable" % item.name)
+	if not item.isEquippable:
+		push_warning("Item '%s' is not equippable" % item.Name)
 		return false
-
-	for slot in item.equip_slots:
-		if not equipment.has(slot):
-			continue
-
-		if equipment[slot] != null:
-			push_warning("Slot '%s' is already occupied" % slot)
-			continue
-
-		equipment[slot] = item
-		print("Equipped %s to %s" % [item.name, slot])
+	if get_slot_of(item) != "":
 		return true
 
-	push_warning("No valid equipment slot found for %s" % item.name)
-	return false
+	var valid_slots: Array[String] = []
+	for slot in item.equippableSlots:
+		if equipment.has(slot):
+			valid_slots.append(slot)
+	if valid_slots.is_empty():
+		push_warning("'%s' has no valid equippableSlots set" % item.Name)
+		return false
 
-func unequip_item(targetItem: Item):
+	var target := valid_slots[0]
+	for slot in valid_slots:
+		if equipment[slot] == null:
+			target = slot
+			break
+
+	if equipment[target] != null:
+		unequip_item(equipment[target])
+
+	equipment[target] = item
+	item.isEquipped = true
+	equipment_changed.emit(target, item)
+	print("Equipped %s to %s" % [item.Name, target])
+	return true
+
+func unequip_item(targetItem: Item) -> bool:
+	var slot := get_slot_of(targetItem)
+	if slot == "":
+		return false
+	equipment[slot] = null
 	targetItem.isEquipped = false
-	print(" you have unequipped %s." % targetItem)
-	pass
+	equipment_changed.emit(slot, null)
+	print("Unequipped %s from %s" % [targetItem.Name, slot])
+	return true
+
+## Slot name this exact item (stack) is equipped in, or "".
+func get_slot_of(item: Item) -> String:
+	for slot in equipment:
+		if equipment[slot] == item:
+			return slot
+	return ""
+
+func get_equipped(slot: String) -> Item:
+	return equipment.get(slot)
 
 func show_equipment():
-	#pass
-	for i in equipment:
-		if !equipment[i].has_property("Name"):
-			break
-		else:
-			print(equipment[i].Name)
-		#print(i)
-
-func _process(_delta):
-	pass
+	for slot in equipment:
+		var item: Item = equipment[slot]
+		print("%s: %s" % [slot, item.Name if item else "-"])

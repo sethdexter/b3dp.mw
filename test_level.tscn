@@ -19,7 +19,6 @@
 [ext_resource type="PackedScene" uid="uid://cvorvnf7hfanh" path="res://coinbag2.glb" id="16_x0u5v"]
 [ext_resource type="PackedScene" uid="uid://meblvp2k5rcf" path="res://torch.tscn" id="17_kvxjt"]
 [ext_resource type="PackedScene" uid="uid://bigg0ehuxnq58" path="res://systems/staff.glb" id="19_5obpc"]
-[ext_resource type="Script" uid="uid://bkriqbng2xhbc" path="res://assets/models/torch.gd" id="19_v7oe1"]
 [ext_resource type="PackedScene" uid="uid://d2hpekv1h3e7u" path="res://systems/character/staff02.glb" id="20_l8nbq"]
 [ext_resource type="PackedScene" uid="uid://cmt8n16ekc76d" path="res://systems/character/bottle03.glb" id="21_320nx"]
 [ext_resource type="PackedScene" uid="uid://dpfqfj2dkf4c6" path="res://chest.tscn" id="26_bxgge"]
@@ -307,7 +306,6 @@ transform = Transform3D(8.08862, 0.00242254, 2.24721, -0.0204701, 0.957248, -0.0
 [node name="torch+" parent="." unique_id=1347567648 instance=ExtResource("9_rbx0h")]
 transform = Transform3D(0.965536, 0.247085, 0.081785, -0.245004, 0.968901, -0.0347374, -0.0878253, 0.0135025, 0.996045, 3.5499, 2.63186, 1.63489)
 visible = false
-script = ExtResource("19_v7oe1")
 
 [node name="fire_effect" type="GPUParticles3D" parent="torch+" unique_id=1544154315]
 transform = Transform3D(0.999998, 0.00101246, -0.000347093, -0.00101289, 1, -0.00119662, 0.000345506, 0.00119728, 1, -0.0402098, -0.0391569, -0.138028)

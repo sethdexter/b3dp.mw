@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="Item" load_steps=3 format=3 uid="uid://crgvd71jss2mm"]
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://crgvd71jss2mm"]
 
-[ext_resource type="PackedScene" uid="uid://lkdn0w2cme7d" path="res://torch.tscn" id="1_a1dth"]
+[ext_resource type="PackedScene" uid="uid://meblvp2k5rcf" path="res://torch.tscn" id="1_a1dth"]
 [ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://databases/item.gd" id="2_ub7pu"]
 
 [resource]
@@ -8,12 +8,12 @@ script = ExtResource("2_ub7pu")
 itemScene = ExtResource("1_a1dth")
 Name = "Torch"
 id = "0004"
-maxStackCount = 3
 weight = 1
-equippableSlots = Array[String]([])
-isEquipped = false
+maxStackCount = 3
+equippableSlots = Array[String](["left_hand"])
 isEquippable = true
-isConsumable = false
 isPickupable = true
-itemDesription = "defualt item despription."
+heldPosition = Vector3(-0.3, 0.3, -0.3)
+heldRotation = Vector3(-15, 0, 0)
+heldScale = Vector3(0.4, 0.4, 0.4)
 metadata/_custom_type_script = "uid://clc3ta7ivy4ye"

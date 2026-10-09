@@ -1,13 +1,15 @@
 [gd_scene format=3 uid="uid://bteohv4w6prwy"]
 
-[ext_resource type="Script" path="res://systems/character/basecharacter.gd" id="1_y0om1"]
-[ext_resource type="PackedScene" path="res://systems/components/controller.gd.tscn" id="2_1jxqw"]
-[ext_resource type="Script" path="res://systems/components/equipmentComponent.gd" id="2_dw050"]
-[ext_resource type="Script" path="res://systems/components/attributesComponent.gd" id="2_ffpwu"]
-[ext_resource type="Script" path="res://systems/components/statsComponent.gd" id="3_mbq3d"]
-[ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="4_u02w6"]
-[ext_resource type="Script" path="res://systems/components/inventoryComponent.gd" id="5_4dlq4"]
-[ext_resource type="Script" path="res://systems/components/skillsComponent.gd" id="6_2vq5e"]
+[ext_resource type="Script" uid="uid://cr0tpb1a25h1f" path="res://systems/character/basecharacter.gd" id="1_y0om1"]
+[ext_resource type="PackedScene" uid="uid://mwxxggk7bxk3" path="res://systems/components/controller.gd.tscn" id="2_1jxqw"]
+[ext_resource type="Script" uid="uid://mimqe18j4nga" path="res://systems/components/equipmentComponent.gd" id="2_dw050"]
+[ext_resource type="Script" uid="uid://b4diwhly0gvuu" path="res://systems/components/attributesComponent.gd" id="2_ffpwu"]
+[ext_resource type="Script" uid="uid://dr4bb83mx07yt" path="res://systems/components/statsComponent.gd" id="3_mbq3d"]
+[ext_resource type="Script" uid="uid://c36jd280fd07y" path="res://systems/components/combatComponent.gd" id="4_u02w6"]
+[ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://systems/components/inventoryComponent.gd" id="5_4dlq4"]
+[ext_resource type="Script" uid="uid://cflpum6hcv14o" path="res://systems/components/skillsComponent.gd" id="6_2vq5e"]
+[ext_resource type="PackedScene" path="res://systems/ui/playerInventoryUI.tscn" id="7_invui"]
+[ext_resource type="Script" uid="uid://doqvwnimjdmut" path="res://systems/components/heldItemsComponent.gd" id="8_held"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
 height = 3.26727
@@ -34,6 +36,16 @@ fov = 60.0
 [node name="RayCast3D" type="RayCast3D" parent="Camera3D" unique_id=658856384]
 target_position = Vector3(0, -0.115, -2.195)
 debug_shape_custom_color = Color(0.172549, 0.172549, 0.172549, 0.407843)
+
+[node name="heldItems" type="Node3D" parent="Camera3D" unique_id=1266772654 node_paths=PackedStringArray("equipment")]
+script = ExtResource("8_held")
+equipment = NodePath("../../equipment")
+
+[node name="right_hand" type="Marker3D" parent="Camera3D/heldItems" unique_id=89834919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, -0.38, -0.6)
+
+[node name="left_hand" type="Marker3D" parent="Camera3D/heldItems" unique_id=1799305074]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35, -0.4, -0.55)
 
 [node name="combat" type="Node" parent="." unique_id=1301558428 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("4_u02w6")
@@ -65,3 +77,5 @@ script = ExtResource("2_dw050")
 currentCharacter = NodePath("..")
 characterCollision = NodePath("../CollisionShape3D")
 metadata/_custom_type_script = "uid://mimqe18j4nga"
+
+[node name="inventoryUI" parent="." unique_id=1057793105 instance=ExtResource("7_invui")]

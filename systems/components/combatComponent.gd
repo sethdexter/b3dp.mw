@@ -61,7 +61,7 @@ func heal(target_character: BaseCharacter, target_stat: Stat, amount: int):
 	# This ensures the logic (and any local mitigation/buffs) stays with the receiver
 	target_character.combatComponent.heal_damage(target_stat, amount)
 
-func heal_target(target_character: Node3D, amount: int):
+func heal_target(target_character: BaseCharacter, amount: int):
 	print("%s casts heal on %s!" % [currentCharacter.name, target_character.name])
-	var target_health = target_character.statsComponent.health
+	var target_health = target_character.statComponent.health
 	target_character.combatComponent.heal_damage(target_health, amount)

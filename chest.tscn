@@ -1,17 +1,14 @@
 [gd_scene format=3 uid="uid://dpfqfj2dkf4c6"]
 
-[ext_resource type="PackedScene" path="res://assets/models/chest.glb" id="1_twpm2"]
-[ext_resource type="Script" path="res://systems/components/interactableComponent.gd" id="3_trlyu"]
-[ext_resource type="Script" path="res://systems/components/containerComponent.gd" id="4_x7mpe"]
-[ext_resource type="Script" path="res://systems/components/inventoryComponent.gd" id="5_bv3sb"]
-[ext_resource type="FontFile" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="5_x7mpe"]
+[ext_resource type="PackedScene" uid="uid://c60324i2fjxbc" path="res://assets/models/chest.glb" id="1_twpm2"]
+[ext_resource type="Script" uid="uid://c8rsbetux4hnk" path="res://systems/components/interactableComponent.gd" id="3_trlyu"]
+[ext_resource type="Script" uid="uid://lfw7r1omdqjv" path="res://systems/components/containerComponent.gd" id="4_x7mpe"]
+[ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://systems/components/inventoryComponent.gd" id="5_bv3sb"]
+[ext_resource type="FontFile" uid="uid://bo6tac5qmet7q" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="5_x7mpe"]
+[ext_resource type="Script" uid="uid://ck3lmt0mjc1n4" path="res://systems/ui/itemListView.gd" id="6_view"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_8uwsg"]
 size = Vector3(2.7308, 1.53621, 1.59251)
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_d1s7b"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_kvxjt"]
 
 [node name="chest" type="StaticBody3D" unique_id=1431366980]
 
@@ -47,34 +44,32 @@ metadata/_custom_type_script = "uid://lfw7r1omdqjv"
 script = ExtResource("5_bv3sb")
 metadata/_custom_type_script = "uid://cbk70h0ponen2"
 
-[node name="containerUX" type="CanvasLayer" parent="interactableComponent/containerComponent" unique_id=577198621]
-offset = Vector2(0, 213.315)
-transform = Transform2D(1, 0, 0, 1, 0, 213.315)
+[node name="containerUX" type="CanvasLayer" parent="interactableComponent/containerComponent" unique_id=105243652]
 
-[node name="ContainerPanel" type="PanelContainer" parent="interactableComponent/containerComponent/containerUX" unique_id=1900995999]
+[node name="ContainerPanel" type="VBoxContainer" parent="interactableComponent/containerComponent/containerUX" unique_id=441002962]
+visible = false
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_left = 6.4814816
-offset_top = -260.2302
-offset_right = 210.0
-offset_bottom = -222.2302
+offset_left = 24.0
+offset_top = -624.0
+offset_right = 424.0
+offset_bottom = -24.0
 grow_vertical = 0
-theme_override_styles/panel = SubResource("StyleBoxEmpty_d1s7b")
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 2
+script = ExtResource("6_view")
 
-[node name="ItemList" type="ItemList" parent="interactableComponent/containerComponent/containerUX/ContainerPanel" unique_id=1131628070]
+[node name="Items" type="VBoxContainer" parent="interactableComponent/containerComponent/containerUX/ContainerPanel" unique_id=158638192]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/guide_color = Color(0.69803923, 0.69803923, 0.69803923, 0)
-theme_override_constants/h_separation = 4
-theme_override_constants/v_separation = 0
-theme_override_constants/line_separation = 0
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Details" type="Label" parent="interactableComponent/containerComponent/containerUX/ContainerPanel" unique_id=1748835155]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_fonts/font = ExtResource("5_x7mpe")
-theme_override_styles/panel = SubResource("StyleBoxEmpty_kvxjt")
-allow_search = false
-max_text_lines = 9
-auto_width = true
-auto_height = true
-item_count = 2
-item_0/text = "test1"
-item_1/text = "test 2"
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3

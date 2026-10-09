@@ -4,12 +4,14 @@ class_name ItemDB
 # --- Individual item variables (direct references) ---
 var torch: Item = preload("res://databases/item_database/torch.tres")
 var black_iron_sword: Item = preload("res://databases/item_database/black_iron_sword.tres")
+var rusty_sword: Item = preload("res://databases/item_database/rusty_sword.tres")
 
 
 # --- Optional dictionary for lookup by ID ---
 var item_list: Dictionary[String, Item] = {
 	"torch": torch,
 	"black_iron_sword": black_iron_sword,
+	"rusty_sword": rusty_sword,
 	# "health_potion": health_potion,
 }
 
@@ -30,5 +32,5 @@ func get_item_instance(item_id: String) -> Item:
 	var item = item_list[item_id]
 	# Duplicate if unique
 	if item.maxStackCount == 1:
-		return item.duplicate(true)
+		return item.make_instance()
 	return item

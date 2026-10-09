@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="WeaponItem" load_steps=2 format=3 uid="uid://bodek4g5ywk66"]
+[gd_resource type="Resource" script_class="WeaponItem" format=3 uid="uid://bodek4g5ywk66"]
 
 [ext_resource type="Script" uid="uid://bylv06u854khh" path="res://databases/weaponItem.gd" id="1_1xd2d"]
+[ext_resource type="PackedScene" uid="uid://cbype1dp2van0" path="res://assets/models/blackswordLATER.glb" id="9_held"]
 
 [resource]
 script = ExtResource("1_1xd2d")
@@ -9,17 +10,14 @@ attackTypes = {
 "pierceDamage": 2,
 "slashDamage": 3
 }
-range = 1
-attackSpeed = 0.4
-governingSkill = ""
 Name = "Black Iron Sword"
 id = "0002"
-maxStackCount = 1
 weight = 5
-equippableSlots = Array[String]([])
-isEquipped = false
+maxStackCount = 1
+equippableSlots = Array[String](["right_hand"])
 isEquippable = true
-isConsumable = false
-isPickupable = false
-itemDesription = "defualt item despription."
+heldScene = ExtResource("9_held")
+heldPosition = Vector3(0, 0.6, 0)
+heldRotation = Vector3(70, 2, 90)
+heldScale = Vector3(0.3, 0.3, 0.3)
 metadata/_custom_type_script = "uid://bylv06u854khh"

@@ -17,3 +17,15 @@ mono_crash.*.json
 scripts/project_complete_context.txt
 project_context_full.txt
 scripts/project_summary.txt
+
+# Editor/OS junk
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Large AI context dumps (root copies)
+project_complete_context.txt
+project_summary.txt
+
+# Source art (keep exports only)
+*.xcf

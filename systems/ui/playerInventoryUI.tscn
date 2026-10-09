@@ -1,0 +1,48 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://systems/ui/playerInventoryUI.gd" id="1_invui"]
+[ext_resource type="Script" path="res://systems/ui/itemListView.gd" id="2_view"]
+[ext_resource type="FontFile" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="3_font"]
+
+[node name="inventoryUI" type="CanvasLayer"]
+script = ExtResource("1_invui")
+
+[node name="PlayerPanel" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -424.0
+offset_top = -624.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 2
+script = ExtResource("2_view")
+align_right = true
+
+[node name="Items" type="VBoxContainer" parent="PlayerPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Details" type="Label" parent="PlayerPanel"]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 2
+autowrap_mode = 3
+
+[node name="Weight" type="Label" parent="PlayerPanel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.5, 0.4, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 2
