@@ -27,9 +27,16 @@ var abilities_dict = {
 	"slot_1": ""
 }
 
+## Look up a skill by id or name: "long_blade", "Long Blade". Null if unknown.
+func get_skill(skill_name: String) -> Skill:
+	if skill_name == "":
+		return null
+	var value = get(skill_name.to_lower().replace(" ", "_"))
+	return value if value is Skill else null
+
 func list_skills():
 	for i in skills_list:
-		print(i.Name)
+		print("%s: %d" % [i.Name, i.get_level()])
 	return
 	
 func _ready():

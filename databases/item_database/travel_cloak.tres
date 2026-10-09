@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://databases/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Name = "Travel Cloak"
+id = "0013"
+weight = 2
+maxStackCount = 1
+equippableSlots = Array[String](["back"])
+isEquippable = true
+itemDesription = "Weathered wool, warm against the road."
+armorRating = 0
+attributeModifiers = Dictionary[String, int]({
+"vigor": 1
+})

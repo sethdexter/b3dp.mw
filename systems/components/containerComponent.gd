@@ -13,6 +13,13 @@ signal closed
 	"torch": 5,
 	"black_iron_sword": 1,
 	"rusty_sword": 1,
+	"leather_cap": 1,
+	"leather_cuirass": 1,
+	"iron_boots": 1,
+	"travel_cloak": 1,
+	"health_potion": 3,
+	"magicka_potion": 3,
+	"stamina_potion": 3,
 }
 
 @onready var storage: InventoryComponent = _find_storage()

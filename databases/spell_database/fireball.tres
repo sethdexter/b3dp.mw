@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Spell" format=3]
+
+[ext_resource type="Script" path="res://systems/spell/spell.gd" id="1_spell"]
+[ext_resource type="PackedScene" path="res://systems/spell/fireballProjectile.tscn" id="2_proj"]
+
+[resource]
+script = ExtResource("1_spell")
+Name = "Fireball"
+description = "A ball of torch-fire hurled at a target."
+cost_magicka = 3
+cooldown = 0.6
+projectile = ExtResource("2_proj")
+damage = 6
+speed = 18.0
+max_range = 40.0

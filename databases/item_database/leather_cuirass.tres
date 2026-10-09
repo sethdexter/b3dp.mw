@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://dxyv2enuebvxp"]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://databases/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Name = "Leather Cuirass"
+id = "0011"
+weight = 6
+maxStackCount = 1
+equippableSlots = Array[String](["chest"])
+isEquippable = true
+itemDesription = "Stiff hide stitched over a padded jerkin."
+armorRating = 3
+armorSkill = "light_armor"

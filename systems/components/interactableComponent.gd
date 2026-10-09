@@ -7,6 +7,10 @@ extends Node
 @export var itemId: String = ""
 @export var isPickupable: bool = false
 
+## Set at runtime for dropped items: this exact item instance is picked up.
+var item: Item = null
+var amount: int = 1
+
 signal interacted(player)
 
 @onready var interactionPrompt: Label = _find_prompt()
@@ -47,7 +51,11 @@ func interact(player: Node) -> void:
 		return
 	interacted.emit(player)
 
-	if isPickupable and itemId != "":
+	if item != null:
+		if "inventoryComponent" in player and player.inventoryComponent:
+			player.inventoryComponent.add_item(item, amount)
+			get_parent().queue_free()
+	elif isPickupable and itemId != "":
 		var item_instance: Item = item_list.get_item_instance(itemId)
 		if item_instance and "inventoryComponent" in player and player.inventoryComponent:
 			player.inventoryComponent.add_item(item_instance, 1)

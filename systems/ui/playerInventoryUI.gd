@@ -8,10 +8,14 @@ extends CanvasLayer
 ##   LMB          = chest focused:  take one     | player focused + chest open: store one
 ##                  player focused, no chest: equip / unequip
 ##   Shift + LMB  = take / store the whole stack
+##   LMB on a consumable (no chest open) = use it
+##   Q            = drop the selected item in front of you (Shift + Q = whole stack)
 
 enum Side { PLAYER, CONTAINER }
 
 @export var character: BaseCharacter
+## Scene spawned when dropping an item.
+@export var dropped_item_scene: PackedScene = preload("res://systems/items/droppedItem.tscn")
 
 @onready var player_view: ItemListView = $PlayerPanel
 @onready var weight_label: Label = get_node_or_null("PlayerPanel/Weight")
@@ -99,11 +103,17 @@ func _is_toggle_event(event: InputEvent) -> bool:
 	return event is InputEventKey and event.pressed and not event.is_echo() and event.keycode == KEY_TAB
 
 func _unhandled_input(event: InputEvent) -> void:
+	if character and character.is_dead:
+		return
 	if _is_toggle_event(event):
 		toggle()
 		get_viewport().set_input_as_handled()
 		return
 	if not is_open:
+		return
+	if _is_drop_event(event):
+		_drop_selected(event.shift_pressed)
+		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
@@ -134,6 +144,8 @@ func _activate(whole_stack: bool) -> void:
 		_transfer(container.storage, character.inventoryComponent, item, amount)
 	elif container:
 		_transfer(character.inventoryComponent, container.storage, item, amount)
+	elif item.isConsumable:
+		_use_item(item)
 	else:
 		_toggle_equip(item)
 
@@ -155,6 +167,46 @@ func _toggle_equip(item: Item) -> void:
 		equip.unequip_item(item)
 	elif item.isEquippable:
 		equip.equip_item(item)
+
+func _use_item(item: Item) -> void:
+	var stats := character.statComponent
+	if not stats:
+		return
+	var restores := item.get_restores()
+	for stat_name in restores:
+		var stat: Stat = stats.get(stat_name)
+		if stat:
+			stat.change_current(restores[stat_name])
+	print("Used %s." % item.Name)
+	character.inventoryComponent.remove_item(item, 1)
+
+func _is_drop_event(event: InputEvent) -> bool:
+	if InputMap.has_action("drop") and event.is_action_pressed("drop"):
+		return true
+	return event is InputEventKey and event.pressed and not event.is_echo() and event.keycode == KEY_Q
+
+## Drops the selected item(s) from the player's list into the world.
+func _drop_selected(whole_stack: bool) -> void:
+	if focus_side == Side.CONTAINER and container:
+		return
+	var item := player_view.get_selected_item()
+	if item == null or dropped_item_scene == null:
+		return
+	var inv := character.inventoryComponent
+	var amount: int = inv.inventory.get(item, 0) if whole_stack else 1
+	var equip := character.equipmentComponent
+	if equip and amount >= inv.inventory.get(item, 0) and equip.get_slot_of(item) != "":
+		equip.unequip_item(item)
+	var removed := inv.remove_item(item, amount)
+	if removed <= 0:
+		return
+
+	var dropped := dropped_item_scene.instantiate()
+	get_tree().current_scene.add_child(dropped)
+	var cam := get_viewport().get_camera_3d()
+	var basis := cam.global_basis if cam else character.global_basis
+	var origin := (cam.global_position if cam else character.global_position) - basis.z * 1.0 - basis.y * 0.3
+	dropped.setup(item, removed, origin, -basis.z)
 
 func _update_weight() -> void:
 	if not weight_label:

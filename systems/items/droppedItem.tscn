@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://systems/items/droppedItem.gd" id="1_drop"]
+[ext_resource type="Script" path="res://systems/components/interactableComponent.gd" id="2_inter"]
+[ext_resource type="FontFile" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="3_font"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_drop"]
+friction = 1.0
+bounce = 0.1
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_drop"]
+size = Vector3(0.35, 0.25, 0.35)
+
+[node name="droppedItem" type="RigidBody3D"]
+mass = 2.0
+physics_material_override = SubResource("PhysicsMaterial_drop")
+angular_damp = 2.0
+script = ExtResource("1_drop")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_drop")
+
+[node name="visual" type="Node3D" parent="."]
+
+[node name="InteractableComponent" type="Node" parent="."]
+script = ExtResource("2_inter")
+
+[node name="prompt" type="Label" parent="InteractableComponent"]
+visible = false
+offset_right = 200.0
+offset_bottom = 23.0
+theme_override_colors/font_color = Color(0.92, 0.87, 0.74, 1)
+theme_override_fonts/font = ExtResource("3_font")
+text = "Take"

@@ -25,6 +25,20 @@ class_name Item
 @export var heldRotation := Vector3.ZERO
 @export var heldScale    := Vector3.ONE
 
+@export_group("Equipped effects")
+## Damage reduction added while equipped.
+@export var armorRating: int = 0
+## Skill this armour trains and scales with: "light_armor", "heavy_armor", or "" for none.
+@export var armorSkill: String = ""
+## Attribute bonuses while equipped, e.g. { "strength": 2, "vigor": -1 }
+@export var attributeModifiers: Dictionary[String, int] = {}
+
+@export_group("Consumable")
+## Points restored when used (needs isConsumable).
+@export var restoreHealth: int = 0
+@export var restoreMagicka: int = 0
+@export var restoreStamina: int = 0
+
 # --- Instancing ---------------------------------------------------------------
 ## The original .tres this item was copied from (null = this IS the original).
 ## Not exported, so it isn't saved; set by make_instance().
@@ -54,3 +68,22 @@ func get_held_rotation() -> Vector3:
 
 func get_held_scale() -> Vector3:
 	return get_template().heldScale
+
+# Equipped effects also read from the original .tres.
+func get_armor_rating() -> int:
+	return get_template().armorRating
+
+func get_attribute_modifiers() -> Dictionary[String, int]:
+	return get_template().attributeModifiers
+
+func get_armor_skill() -> String:
+	return get_template().armorSkill
+
+## { "health": n, "magicka": n, "stamina": n } for non-zero restores (from the original .tres).
+func get_restores() -> Dictionary[String, int]:
+	var t := get_template()
+	var out: Dictionary[String, int] = {}
+	if t.restoreHealth != 0: out["health"] = t.restoreHealth
+	if t.restoreMagicka != 0: out["magicka"] = t.restoreMagicka
+	if t.restoreStamina != 0: out["stamina"] = t.restoreStamina
+	return out

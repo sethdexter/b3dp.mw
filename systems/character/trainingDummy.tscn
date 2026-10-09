@@ -1,0 +1,77 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://systems/character/basecharacter.gd" id="1_base"]
+[ext_resource type="Script" path="res://systems/components/attributesComponent.gd" id="2_attr"]
+[ext_resource type="Script" path="res://systems/components/statsComponent.gd" id="3_stats"]
+[ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="4_combat"]
+[ext_resource type="Script" path="res://systems/character/trainingDummy.gd" id="5_dummy"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.35
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_straw"]
+albedo_color = Color(0.62, 0.5, 0.3, 1)
+roughness = 1.0
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+material = SubResource("StandardMaterial3D_straw")
+radius = 0.32
+height = 1.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_head"]
+material = SubResource("StandardMaterial3D_straw")
+radius = 0.2
+height = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_post"]
+albedo_color = Color(0.32, 0.22, 0.13, 1)
+roughness = 1.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_arms"]
+material = SubResource("StandardMaterial3D_post")
+top_radius = 0.05
+bottom_radius = 0.05
+height = 1.3
+
+[node name="trainingDummy" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent")]
+script = ExtResource("1_base")
+Name = "Training Dummy"
+attributeComponent = NodePath("attributes")
+statComponent = NodePath("stats")
+combatComponent = NodePath("combat")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="visual" type="Node3D" parent="."]
+
+[node name="body" type="MeshInstance3D" parent="visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="head" type="MeshInstance3D" parent="visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 0)
+mesh = SubResource("SphereMesh_head")
+
+[node name="arms" type="MeshInstance3D" parent="visual"]
+transform = Transform3D(-4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0, 1, 0, 1.25, 0)
+mesh = SubResource("CylinderMesh_arms")
+
+[node name="attributes" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_attr")
+currentCharacter = NodePath("..")
+
+[node name="stats" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_stats")
+currentCharacter = NodePath("..")
+
+[node name="combat" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_combat")
+currentCharacter = NodePath("..")
+
+[node name="dummy" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+script = ExtResource("5_dummy")
+character = NodePath("..")
+visual = NodePath("../visual")

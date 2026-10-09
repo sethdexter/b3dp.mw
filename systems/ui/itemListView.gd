@@ -173,5 +173,16 @@ func _update_details() -> void:
 		var dmg: Dictionary = item.attackTypes
 		info += "   Slash %d / Pierce %d / Blunt %d" % [
 			dmg.get("slashDamage", 0), dmg.get("pierceDamage", 0), dmg.get("bludgeiningDamage", 0)]
+	if item.get_armor_rating() != 0:
+		info += "   Armour %d" % item.get_armor_rating()
+		if item.get_armor_skill() != "":
+			info += " (%s)" % item.get_armor_skill().replace("_armor", "").capitalize()
+	var mods := item.get_attribute_modifiers()
+	for attr_name in mods:
+		info += "   %+d %s" % [mods[attr_name], attr_name.capitalize()]
+	if item.isConsumable:
+		var restores := item.get_restores()
+		for stat_name in restores:
+			info += "   Restores %d %s" % [restores[stat_name], stat_name.capitalize()]
 	lines.append(info)
 	details_label.text = "\n".join(lines)

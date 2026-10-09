@@ -1,9 +1,6 @@
 extends CharacterBody3D
 class_name BaseCharacter
 
-var test_stuff = Test.new()
-var effects = Effect.new()
-
 @export var char_id:	  int
 @export var Name: 		  String
 #@export var vicinityArea: Area2D
@@ -16,44 +13,44 @@ var effects = Effect.new()
 @export var equipmentComponent:  EquipmentComponent
 @export var controllerComponent: ControllerComponent
 
-func _init():
-	pass
+## Items given on spawn: { "item_id": amount } (needs an inventoryComponent).
+@export var starting_items: Dictionary[String, int] = {}
+## Runs the old self-heal / self-attack test on start. Off by default.
+@export var run_debug_tests := false
+
+## Set while dead; movement, attacks, spells and inventory ignore input.
+var is_dead := false
 
 func _ready():
-	print("--- DEBUG START: %s ---" % Name)
+	# Lets NPCs find the player without hard-coded paths.
+	if controllerComponent:
+		add_to_group("player")
 
-	# 1. Setup Test Items
+	if inventoryComponent:
+		for id in starting_items:
+			var item: Item = item_list.get_item_instance(id)
+			if item:
+				inventoryComponent.add_item(item, starting_items[id])
+
+	if run_debug_tests:
+		_debug_tests()
+
+	print("--- Character %s Initialized ---" % Name)
+
+func _debug_tests() -> void:
+	print("--- DEBUG START: %s ---" % Name)
 	var itemSword: WeaponItem = load("res://databases/item_database/black_iron_sword.tres")
-	
 	if inventoryComponent:
 		inventoryComponent.add_item(itemSword, 1)
 		inventoryComponent.check_inventory()
-	
-	# 2. Testing Combat Logic
-	# Note: CombatComponent now looks up the stat internally or takes the Stat object
 	if combatComponent and statComponent:
-		# Testing Heal
 		combatComponent.heal(self, statComponent.health, 5)
-		
-		# Testing Attack (Self-damage test)
-		# We pass 'self' as the target, and the 'stat' we want to hit
 		combatComponent.attack(self, itemSword, "pierceDamage")
 		combatComponent.attack(self, itemSword, "slashDamage")
-
-	# 3. Verify Values
-	# Using 'get_value()' for Attributes (calculates mods)
-	# Using 'currentValue' for Stats (the pool)
-	print("Strength Level: ", attributeComponent.strength.get_value())
-	print("Current Health: ", statComponent.health.currentValue)
-	print("Max Health: ", statComponent.health.get_max_value())
-	
+	if attributeComponent:
+		print("Strength Level: ", attributeComponent.strength.get_value())
+	if statComponent:
+		print("Current Health: ", statComponent.health.currentValue)
+		print("Max Health: ", statComponent.health.get_max_value())
 	if skillComponent:
 		skillComponent.list_skills()
-	
-	print("--- Character %s Initialized ---" % Name)
-	
-	print("character initialized...")
-
-func _process(_delta):
-	test_stuff.timer(10000)
-	pass

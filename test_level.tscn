@@ -22,6 +22,7 @@
 [ext_resource type="PackedScene" uid="uid://d2hpekv1h3e7u" path="res://systems/character/staff02.glb" id="20_l8nbq"]
 [ext_resource type="PackedScene" uid="uid://cmt8n16ekc76d" path="res://systems/character/bottle03.glb" id="21_320nx"]
 [ext_resource type="PackedScene" uid="uid://dpfqfj2dkf4c6" path="res://chest.tscn" id="26_bxgge"]
+[ext_resource type="PackedScene" path="res://systems/character/trainingDummy.tscn" id="30_dummy"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_c2cjb"]
 
@@ -344,3 +345,6 @@ omni_shadow_mode = 0
 
 [node name="chest2" parent="." unique_id=1196544682 instance=ExtResource("26_bxgge")]
 transform = Transform3D(0.836123, 0, 0.548541, 0, 1, 0, -0.548541, 0, 0.836123, 5.82915, 0.843027, 1.19314)
+
+[node name="trainingDummy" parent="." unique_id=287777644 instance=ExtResource("30_dummy")]
+transform = Transform3D(0.5573261, 0, -0.8302937, 0, 1, 0, 0.8302937, 0, 0.5573261, 6.242341, 1.9491043, -0.9302691)

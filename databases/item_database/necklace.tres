@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://5ofuf677v7ak"]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://databases/item.gd" id="1_jyk7h"]
+
+[resource]
+script = ExtResource("1_jyk7h")
+Name = "Necklace"
+id = "0005"
+weight = 1
+maxStackCount = 1
+isUnique = true
+isEquippable = true
+isPickupable = true
+metadata/_custom_type_script = "uid://clc3ta7ivy4ye"

@@ -10,6 +10,11 @@
 [ext_resource type="Script" uid="uid://cflpum6hcv14o" path="res://systems/components/skillsComponent.gd" id="6_2vq5e"]
 [ext_resource type="PackedScene" path="res://systems/ui/playerInventoryUI.tscn" id="7_invui"]
 [ext_resource type="Script" uid="uid://doqvwnimjdmut" path="res://systems/components/heldItemsComponent.gd" id="8_held"]
+[ext_resource type="PackedScene" path="res://systems/ui/screenEffects.tscn" id="9_fx"]
+[ext_resource type="Script" path="res://systems/components/spellCasterComponent.gd" id="10_cast"]
+[ext_resource type="Resource" path="res://databases/spell_database/fireball.tres" id="11_fireball"]
+[ext_resource type="Script" path="res://systems/components/meleeComponent.gd" id="12_melee"]
+[ext_resource type="Script" path="res://systems/components/respawnComponent.gd" id="13_respawn"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
 height = 3.26727
@@ -79,3 +84,23 @@ characterCollision = NodePath("../CollisionShape3D")
 metadata/_custom_type_script = "uid://mimqe18j4nga"
 
 [node name="inventoryUI" parent="." unique_id=1057793105 instance=ExtResource("7_invui")]
+
+[node name="screenEffects" parent="." instance=ExtResource("9_fx")]
+
+[node name="spellCaster" type="Node" parent="." node_paths=PackedStringArray("character", "cast_origin")]
+script = ExtResource("10_cast")
+character = NodePath("..")
+cast_origin = NodePath("../Camera3D")
+current_spell = ExtResource("11_fireball")
+
+[node name="melee" type="Node" parent="." node_paths=PackedStringArray("character", "aim_origin", "swing_pivot")]
+script = ExtResource("12_melee")
+character = NodePath("..")
+aim_origin = NodePath("../Camera3D")
+swing_pivot = NodePath("../Camera3D/heldItems/right_hand")
+
+[node name="respawn" type="Node" parent="." node_paths=PackedStringArray("character", "camera", "screen_effects")]
+script = ExtResource("13_respawn")
+character = NodePath("..")
+camera = NodePath("../Camera3D")
+screen_effects = NodePath("../screenEffects")

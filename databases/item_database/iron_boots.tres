@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://cs52jxx1t0di5"]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://databases/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Name = "Iron Boots"
+id = "0012"
+weight = 4
+maxStackCount = 1
+equippableSlots = Array[String](["feet"])
+isEquippable = true
+itemDesription = "Heavy iron greaves. Hard on the legs."
+armorRating = 2
+armorSkill = "heavy_armor"
+attributeModifiers = Dictionary[String, int]({
+"vigor": -1
+})

@@ -21,4 +21,5 @@ heldScene = ExtResource("9_held")
 heldPosition = Vector3(0, 0, 0)
 heldRotation = Vector3(-110, 0, 0)
 heldScale = Vector3(0.3, 0.3, 0.3)
+governingSkill = "long_blade"
 metadata/_custom_type_script = "uid://bylv06u854khh"

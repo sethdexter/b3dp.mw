@@ -1,0 +1,83 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://systems/spell/fireballProjectile.gd" id="1_proj"]
+[ext_resource type="Texture2D" path="res://assets/effects/fire_02.png" id="2_fire"]
+[ext_resource type="Script" path="res://firelight.gd" id="3_flicker"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_ball"]
+radius = 0.2
+
+[sub_resource type="Curve" id="Curve_anim"]
+_limits = [0.0, 200.0, 0.0, 1.0]
+_data = [Vector2(0, 2.59918), 0.0, 0.0, 0, 0, Vector2(1, 200), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_anim"]
+curve = SubResource("Curve_anim")
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_dir"]
+
+[sub_resource type="Curve" id="Curve_scale"]
+_data = [Vector2(0.0836364, 0.166915), 0.0, 0.0, 0, 0, Vector2(0.192727, 0.128167), 0.0, 0.0, 0, 0, Vector2(0.698182, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_scale"]
+width = 128
+curve = SubResource("Curve_scale")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fire"]
+lifetime_randomness = 0.18
+emission_shape = 1
+emission_sphere_radius = 0.08
+directional_velocity_min = 0.0
+directional_velocity_max = 0.0
+directional_velocity_curve = SubResource("CurveXYZTexture_dir")
+gravity = Vector3(0, 6.645, 0)
+scale_min = 0.0
+scale_max = 3.0
+scale_curve = SubResource("CurveTexture_scale")
+scale_over_velocity_max = 95.81
+anim_speed_max = 2.2
+anim_speed_curve = SubResource("CurveTexture_anim")
+turbulence_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fire"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+depth_draw_mode = 2
+shading_mode = 0
+albedo_color = Color(0.717647, 0.486275, 0.396078, 1)
+albedo_texture = ExtResource("2_fire")
+billboard_mode = 3
+billboard_keep_scale = true
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_fire"]
+material = SubResource("StandardMaterial3D_fire")
+
+[node name="fireballProjectile" type="Area3D"]
+script = ExtResource("1_proj")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_ball")
+
+[node name="flames" type="GPUParticles3D" parent="."]
+cast_shadow = 0
+amount = 48
+lifetime = 0.5
+randomness = 0.23
+visibility_aabb = AABB(-4, -4, -4, 8, 8, 8)
+process_material = SubResource("ParticleProcessMaterial_fire")
+draw_pass_1 = SubResource("QuadMesh_fire")
+
+[node name="light" type="OmniLight3D" parent="."]
+light_color = Color(0.917647, 0.568627, 0.247059, 1)
+light_energy = 1.6
+omni_range = 5.0
+omni_shadow_mode = 0
+script = ExtResource("3_flicker")
+min_energy = 1.0
+max_energy = 2.2

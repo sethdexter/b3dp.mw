@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://databases/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Name = "Magicka Potion"
+id = "0021"
+weight = 1
+maxStackCount = 10
+isConsumable = true
+itemDesription = "Cold and faintly glowing."
+restoreMagicka = 8
