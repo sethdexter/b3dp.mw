@@ -16,7 +16,6 @@ class_name BaseCharacter
 ## Items given on spawn: { "item_id": amount } (needs an inventoryComponent).
 @export var starting_items: Dictionary[String, int] = {}
 ## Runs the old self-heal / self-attack test on start. Off by default.
-@export var run_debug_tests := false
 
 ## Set while dead; movement, attacks, spells and inventory ignore input.
 var is_dead := false
@@ -32,25 +31,4 @@ func _ready():
 			if item:
 				inventoryComponent.add_item(item, starting_items[id])
 
-	if run_debug_tests:
-		_debug_tests()
-
 	print("--- Character %s Initialized ---" % Name)
-
-func _debug_tests() -> void:
-	print("--- DEBUG START: %s ---" % Name)
-	var itemSword: WeaponItem = load("res://databases/item_database/black_iron_sword.tres")
-	if inventoryComponent:
-		inventoryComponent.add_item(itemSword, 1)
-		inventoryComponent.check_inventory()
-	if combatComponent and statComponent:
-		combatComponent.heal(self, statComponent.health, 5)
-		combatComponent.attack(self, itemSword, "pierceDamage")
-		combatComponent.attack(self, itemSword, "slashDamage")
-	if attributeComponent:
-		print("Strength Level: ", attributeComponent.strength.get_value())
-	if statComponent:
-		print("Current Health: ", statComponent.health.currentValue)
-		print("Max Health: ", statComponent.health.get_max_value())
-	if skillComponent:
-		skillComponent.list_skills()

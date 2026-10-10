@@ -4,7 +4,6 @@
 [ext_resource type="Script" uid="uid://bpm811cavwhdq" path="res://test_level.gd" id="1_rmski"]
 [ext_resource type="PackedScene" uid="uid://crf5jxdbusrvw" path="res://assets/models/crate.glb" id="2_2pej0"]
 [ext_resource type="Texture2D" uid="uid://dcmsu2xb51nen" path="res://sigil2.png" id="3_ojlp5"]
-[ext_resource type="PackedScene" uid="uid://kntfqw1lmnhb" path="res://assets/effects/fireball.tscn" id="4_vixkd"]
 [ext_resource type="PackedScene" uid="uid://cn37mgtrtoyk1" path="res://assets/models/irondagger.glb" id="5_nw6v0"]
 [ext_resource type="PackedScene" uid="uid://c21xt0jft1ilw" path="res://platform_01.tscn" id="5_ygvdl"]
 [ext_resource type="PackedScene" uid="uid://synbn5a15vlk" path="res://assets/models/goldcoin.glb" id="6_uxl52"]
@@ -22,7 +21,8 @@
 [ext_resource type="PackedScene" uid="uid://d2hpekv1h3e7u" path="res://systems/character/staff02.glb" id="20_l8nbq"]
 [ext_resource type="PackedScene" uid="uid://cmt8n16ekc76d" path="res://systems/character/bottle03.glb" id="21_320nx"]
 [ext_resource type="PackedScene" uid="uid://dpfqfj2dkf4c6" path="res://chest.tscn" id="26_bxgge"]
-[ext_resource type="PackedScene" path="res://systems/character/trainingDummy.tscn" id="30_dummy"]
+[ext_resource type="PackedScene" path="res://systems/character/mobs/goblin.tscn" id="30_dummy"]
+[ext_resource type="PackedScene" path="res://systems/character/mobs/orc.tscn" id="31_brute"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_c2cjb"]
 
@@ -116,10 +116,6 @@ normal_fade = 0.999
 transform = Transform3D(1, 2.13163e-14, 0, 0, 1, 2.04281e-14, 0, 4.44089e-15, 1, -0.138381, 0.51097, -0.721476)
 trail_enabled = true
 process_material = SubResource("ParticleProcessMaterial_c2cjb")
-
-[node name="fireball" parent="character" unique_id=1971291210 instance=ExtResource("4_vixkd")]
-transform = Transform3D(-0.167199, -6.0617e-08, 0.985923, -4.4523e-08, 1, 5.3853e-08, -0.985923, -3.53511e-08, -0.167199, 0.512763, 0.910905, -0.596334)
-visible = false
 
 [node name="skylight" type="DirectionalLight3D" parent="." unique_id=579874614]
 transform = Transform3D(-0.134574, 0.0166843, -0.990763, 0.00224543, 0.999861, 0.0165325, 0.990901, 1.56489e-07, -0.134593, -37.7211, 16.8838, 9.96233)
@@ -346,5 +342,14 @@ omni_shadow_mode = 0
 [node name="chest2" parent="." unique_id=1196544682 instance=ExtResource("26_bxgge")]
 transform = Transform3D(0.836123, 0, 0.548541, 0, 1, 0, -0.548541, 0, 0.836123, 5.82915, 0.843027, 1.19314)
 
-[node name="trainingDummy" parent="." unique_id=287777644 instance=ExtResource("30_dummy")]
+[node name="goblin" parent="." unique_id=287777644 instance=ExtResource("30_dummy")]
 transform = Transform3D(0.5573261, 0, -0.8302937, 0, 1, 0, 0.8302937, 0, 0.5573261, 6.242341, 1.9491043, -0.9302691)
+
+[node name="goblin2" parent="." instance=ExtResource("30_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 2, 1.5)
+
+[node name="goblin3" parent="." instance=ExtResource("30_dummy")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 2, -3)
+
+[node name="orc" parent="." instance=ExtResource("31_brute")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 2.5, -3)

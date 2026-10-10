@@ -14,8 +14,10 @@ extends CanvasLayer
 enum Side { PLAYER, CONTAINER }
 
 @export var character: BaseCharacter
-## Scene spawned when dropping an item.
-@export var dropped_item_scene: PackedScene = preload("res://systems/items/droppedItem.tscn")
+## Scene spawned when dropping an item. Loaded on first drop if left empty
+## (not preloaded: preloading it creates a load cycle via InteractableComponent).
+@export var dropped_item_scene: PackedScene
+const DROPPED_ITEM_PATH := "res://systems/items/droppedItem.tscn"
 
 @onready var player_view: ItemListView = $PlayerPanel
 @onready var weight_label: Label = get_node_or_null("PlayerPanel/Weight")
@@ -190,6 +192,8 @@ func _drop_selected(whole_stack: bool) -> void:
 	if focus_side == Side.CONTAINER and container:
 		return
 	var item := player_view.get_selected_item()
+	if dropped_item_scene == null:
+		dropped_item_scene = load(DROPPED_ITEM_PATH)
 	if item == null or dropped_item_scene == null:
 		return
 	var inv := character.inventoryComponent

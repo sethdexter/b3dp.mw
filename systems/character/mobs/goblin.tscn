@@ -1,0 +1,84 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://systems/character/basecharacter.gd" id="1_base"]
+[ext_resource type="Script" path="res://systems/components/attributesComponent.gd" id="2_attr"]
+[ext_resource type="Script" path="res://systems/components/statsComponent.gd" id="3_stats"]
+[ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="4_combat"]
+[ext_resource type="Script" path="res://systems/character/trainingDummy.gd" id="5_dummy"]
+[ext_resource type="Script" path="res://systems/components/mobAIComponent.gd" id="6_ai"]
+[ext_resource type="Script" path="res://systems/character/mobModel.gd" id="7_model"]
+[ext_resource type="PackedScene" path="res://assets/models/characters/goblin/Goblin_Export.fbx" id="8_mesh"]
+[ext_resource type="Texture2D" path="res://assets/models/characters/goblin/goblin_body.png" id="10_tex"]
+[ext_resource type="Texture2D" path="res://assets/models/characters/goblin/goblin_weapon.png" id="11_tex"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.3
+height = 1.15
+
+[node name="goblin" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent")]
+script = ExtResource("1_base")
+Name = "Goblin"
+attributeComponent = NodePath("attributes")
+statComponent = NodePath("stats")
+combatComponent = NodePath("combat")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.575, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="visual" type="Node3D" parent="."]
+
+[node name="model" type="Node3D" parent="visual"]
+script = ExtResource("7_model")
+animations_folder = "res://assets/models/characters/goblin/anims"
+model_scene = ExtResource("8_mesh")
+target_height = 1.15
+model_yaw_degrees = 180
+albedo_default = ExtResource("10_tex")
+material_textures = Dictionary[String, Texture2D]({
+"pPipe": ExtResource("11_tex")
+})
+anim_reference_speed = 1.6
+
+[node name="attributes" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_attr")
+currentCharacter = NodePath("..")
+base_strength = 6
+base_vigor = 8
+base_agility = 14
+
+[node name="stats" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_stats")
+currentCharacter = NodePath("..")
+
+[node name="combat" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_combat")
+currentCharacter = NodePath("..")
+
+[node name="dummy" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+script = ExtResource("5_dummy")
+character = NodePath("..")
+visual = NodePath("../visual")
+respawns = false
+corpse_time = 8.0
+loot = Dictionary[String, int]({
+"rusty_sword": 1,
+"health_potion": 1
+})
+wobble_degrees = 8.0
+
+[node name="mobAI" type="Node" parent="." node_paths=PackedStringArray("character", "visual", "animator")]
+script = ExtResource("6_ai")
+character = NodePath("..")
+visual = NodePath("../visual")
+animator = NodePath("../visual/model")
+wander_radius = 6.0
+wander_speed = 1.6
+aggro_range = 9.0
+chase_speed = 3.6
+attack_range = 1.4
+attack_damage = 2
+attack_interval = 1.2
+telegraph_time = 0.3
+turn_speed = 8.0
+walk_bob_degrees = 2.0

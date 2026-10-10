@@ -40,7 +40,7 @@ fov = 60.0
 
 [node name="RayCast3D" type="RayCast3D" parent="Camera3D" unique_id=658856384]
 target_position = Vector3(0, -0.115, -2.195)
-debug_shape_custom_color = Color(0.172549, 0.172549, 0.172549, 0.407843)
+debug_shape_custom_color = Color(0, 0, 0, 0)
 
 [node name="heldItems" type="Node3D" parent="Camera3D" unique_id=1266772654 node_paths=PackedStringArray("equipment")]
 script = ExtResource("8_held")

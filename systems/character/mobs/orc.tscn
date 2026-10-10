@@ -1,0 +1,83 @@
+[gd_scene format=3 uid="uid://c5rkytmbmed03"]
+
+[ext_resource type="Script" uid="uid://cr0tpb1a25h1f" path="res://systems/character/basecharacter.gd" id="1_base"]
+[ext_resource type="Script" uid="uid://b4diwhly0gvuu" path="res://systems/components/attributesComponent.gd" id="2_attr"]
+[ext_resource type="Script" uid="uid://dr4bb83mx07yt" path="res://systems/components/statsComponent.gd" id="3_stats"]
+[ext_resource type="Script" uid="uid://c36jd280fd07y" path="res://systems/components/combatComponent.gd" id="4_combat"]
+[ext_resource type="Script" uid="uid://dxauf66r51dkp" path="res://systems/character/trainingDummy.gd" id="5_dummy"]
+[ext_resource type="Script" uid="uid://ne6op0noypt7" path="res://systems/components/mobAIComponent.gd" id="6_ai"]
+[ext_resource type="Script" uid="uid://4nwochjtas8n" path="res://systems/character/mobModel.gd" id="7_model"]
+[ext_resource type="PackedScene" uid="uid://dl4gl63kdbu0s" path="res://assets/models/characters/orc/ogre16.fbx" id="8_mesh"]
+[ext_resource type="Texture2D" uid="uid://btxq4sakmwffl" path="res://assets/models/characters/orc/orc_color.png" id="10_tex"]
+[ext_resource type="Texture2D" uid="uid://cirsjybuv04pq" path="res://assets/models/characters/orc/orc_normal.png" id="20_norm"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.55
+height = 2.6
+
+[node name="orc" type="CharacterBody3D" unique_id=413428926 node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent")]
+script = ExtResource("1_base")
+Name = "Orc"
+attributeComponent = NodePath("attributes")
+statComponent = NodePath("stats")
+combatComponent = NodePath("combat")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=186638693]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="visual" type="Node3D" parent="." unique_id=1766242939]
+
+[node name="model" type="Node3D" parent="visual" unique_id=664672256]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+script = ExtResource("7_model")
+animations_folder = "res://assets/models/characters/orc/anims"
+model_scene = ExtResource("8_mesh")
+target_height = 2.6
+albedo_default = ExtResource("10_tex")
+normal_map = ExtResource("20_norm")
+anim_reference_speed = 1.0
+
+[node name="attributes" type="Node" parent="." unique_id=2093680907 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_attr")
+currentCharacter = NodePath("..")
+base_strength = 30
+base_vigor = 30
+base_agility = 6
+
+[node name="stats" type="Node" parent="." unique_id=1710496043 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_stats")
+currentCharacter = NodePath("..")
+
+[node name="combat" type="Node" parent="." unique_id=1878560508 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_combat")
+currentCharacter = NodePath("..")
+
+[node name="dummy" type="Node" parent="." unique_id=1387667114 node_paths=PackedStringArray("character", "visual")]
+script = ExtResource("5_dummy")
+character = NodePath("..")
+visual = NodePath("../visual")
+respawns = false
+corpse_time = 15.0
+loot = Dictionary[String, int]({
+"black_iron_sword": 1,
+"stamina_potion": 2
+})
+wobble_degrees = 3.0
+
+[node name="mobAI" type="Node" parent="." unique_id=1109561768 node_paths=PackedStringArray("character", "visual", "animator")]
+script = ExtResource("6_ai")
+character = NodePath("..")
+visual = NodePath("../visual")
+animator = NodePath("../visual/model")
+wander_radius = 4.0
+wander_speed = 0.7
+lose_aggro_range = 12.0
+chase_speed = 1.8
+attack_range = 2.6
+attack_damage = 5
+attack_interval = 2.6
+telegraph_time = 0.65
+acceleration = 4.0
+turn_speed = 2.5
+walk_bob_degrees = 2.5

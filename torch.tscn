@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://meblvp2k5rcf"]
 
-[ext_resource type="Texture2D" path="res://assets/effects/fire_02.png" id="1_f2q60"]
-[ext_resource type="PackedScene" path="res://assets/models/torch.glb" id="2_2uogn"]
-[ext_resource type="Script" path="res://systems/components/interactableComponent.gd" id="2_w3qnr"]
-[ext_resource type="Script" path="res://firelight.gd" id="3_72pgl"]
-[ext_resource type="FontFile" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="4_kx7w4"]
+[ext_resource type="Texture2D" uid="uid://bf1h4vsace8wk" path="res://assets/effects/fire_02.png" id="1_f2q60"]
+[ext_resource type="PackedScene" uid="uid://bglf56do7dwkh" path="res://assets/models/torch.glb" id="2_2uogn"]
+[ext_resource type="Script" uid="uid://c8rsbetux4hnk" path="res://systems/components/interactableComponent.gd" id="2_w3qnr"]
+[ext_resource type="Script" uid="uid://cyixdg3yvq6vo" path="res://firelight.gd" id="3_72pgl"]
+[ext_resource type="FontFile" uid="uid://bo6tac5qmet7q" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="4_kx7w4"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_kx7w4"]
 size = Vector3(0.15, 1.515, 0.125)
@@ -99,7 +99,7 @@ draw_skin = SubResource("Skin_vegkv")
 [node name="firelight" type="OmniLight3D" parent="." unique_id=1363017543]
 transform = Transform3D(1, 3.10863e-15, -1.49012e-08, 0, 1, 2.08616e-07, 1.49012e-08, -2.08616e-07, 1, -0.000244975, 0.324003, 0.00196528)
 light_color = Color(0.917647, 0.568627, 0.247059, 1)
-omni_range = 4.097
+omni_range = 11.116
 omni_shadow_mode = 0
 script = ExtResource("3_72pgl")
 

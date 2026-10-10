@@ -1,0 +1,49 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://systems/character/trainingDummy.tscn" id="1_dummy"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_brute"]
+radius = 0.6
+height = 2.9
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brute"]
+albedo_color = Color(0.36, 0.27, 0.16, 1)
+roughness = 1.0
+
+[node name="bruteDummy" instance=ExtResource("1_dummy")]
+Name = "Straw Brute"
+
+[node name="CollisionShape3D" parent="." index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)
+shape = SubResource("CapsuleShape3D_brute")
+
+[node name="visual" parent="." index="1"]
+transform = Transform3D(1.6, 0, 0, 0, 1.6, 0, 0, 0, 1.6, 0, 0, 0)
+
+[node name="body" parent="visual" index="0"]
+material_override = SubResource("StandardMaterial3D_brute")
+
+[node name="head" parent="visual" index="1"]
+material_override = SubResource("StandardMaterial3D_brute")
+
+[node name="attributes" parent="." index="2"]
+base_strength = 30
+base_vigor = 30
+base_agility = 6
+
+[node name="dummy" parent="." index="5"]
+respawn_time = 6.0
+wobble_degrees = 5.0
+
+[node name="mobAI" parent="." index="6"]
+wander_radius = 4.0
+wander_speed = 0.7
+chase_speed = 1.8
+lose_aggro_range = 12.0
+attack_range = 2.6
+attack_damage = 5
+attack_interval = 2.6
+telegraph_time = 0.65
+acceleration = 4.0
+turn_speed = 2.5
+walk_bob_degrees = 2.5

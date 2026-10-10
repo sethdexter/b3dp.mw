@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://systems/components/statsComponent.gd" id="3_stats"]
 [ext_resource type="Script" path="res://systems/components/combatComponent.gd" id="4_combat"]
 [ext_resource type="Script" path="res://systems/character/trainingDummy.gd" id="5_dummy"]
+[ext_resource type="Script" path="res://systems/components/mobAIComponent.gd" id="6_ai"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.35
@@ -73,5 +74,10 @@ currentCharacter = NodePath("..")
 
 [node name="dummy" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
 script = ExtResource("5_dummy")
+character = NodePath("..")
+visual = NodePath("../visual")
+
+[node name="mobAI" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+script = ExtResource("6_ai")
 character = NodePath("..")
 visual = NodePath("../visual")

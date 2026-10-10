@@ -29,3 +29,9 @@ project_summary.txt
 
 # Source art (keep exports only)
 *.xcf
+
+# Source art too big for GitHub (blend files up to ~300MB)
+*.blend
+*.blend1
+*.psd
+assets/models/characters/orc/source/

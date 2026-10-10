@@ -38,9 +38,9 @@ var current_interactable = null
 
 @export_category("Stamina")
 ## Stamina per second while sprinting and moving.
-@export var sprint_stamina_per_sec: float = 1.5
+@export var sprint_stamina_per_sec: float = 4
 ## Stamina per dash. Can't dash without enough.
-@export var dash_stamina_cost: float = 2.0
+@export var dash_stamina_cost: float = 3
 
 @export_category("Slope Settings")
 @export_range(45.0, 89.0) var max_slope_angle: float = 88.0
