@@ -22,7 +22,7 @@
 [ext_resource type="PackedScene" uid="uid://cmt8n16ekc76d" path="res://systems/character/bottle03.glb" id="21_320nx"]
 [ext_resource type="PackedScene" uid="uid://dpfqfj2dkf4c6" path="res://chest.tscn" id="26_bxgge"]
 [ext_resource type="PackedScene" path="res://systems/character/mobs/goblin.tscn" id="30_dummy"]
-[ext_resource type="PackedScene" path="res://systems/character/mobs/orc.tscn" id="31_brute"]
+[ext_resource type="PackedScene" uid="uid://c5rkytmbmed03" path="res://systems/character/mobs/orc.tscn" id="31_brute"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_c2cjb"]
 
@@ -96,6 +96,11 @@ material = SubResource("StandardMaterial3D_fj4e4")
 [sub_resource type="Skin" id="Skin_expkw"]
 resource_local_to_scene = true
 
+[sub_resource type="NavigationMesh" id="NavigationMesh_mobs"]
+geometry_parsed_geometry_type = 1
+geometry_source_geometry_mode = 1
+geometry_source_group_name = &"navmesh"
+
 [node name="testLevel" type="Node3D" unique_id=2096568404]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0153959, 0.430239, -0.00489294)
 script = ExtResource("1_rmski")
@@ -129,7 +134,7 @@ transform = Transform3D(-0.933723, -0.127383, 0.334566, 0.0313036, 0.901922, 0.4
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1336319496]
 environment = SubResource("Environment_ryf73")
 
-[node name="testscene" type="StaticBody3D" parent="." unique_id=2037913265]
+[node name="testscene" type="StaticBody3D" parent="." unique_id=2037913265 groups=["navmesh"]]
 transform = Transform3D(0.558845, 0, -0.829271, 0, 1, 0, 0.829271, 0, 0.558845, 4.00318, 1.24526, 3.1284)
 
 [node name="torch2" parent="testscene" unique_id=871634101 instance=ExtResource("17_kvxjt")]
@@ -253,7 +258,7 @@ transform = Transform3D(-0.121638, 0.0169373, 0.20138, 0.00843557, 0.234495, 0.0
 visible = false
 
 [node name="coinbag2" parent="testscene" unique_id=475131474 instance=ExtResource("16_x0u5v")]
-transform = Transform3D(0.0294518, -0.000376694, -0.248259, 0.00070581, 0.249999, -0.000295597, 0.248258, -0.000666069, 0.0294528, 0.201953, 1.10683, -0.0811248)
+transform = Transform3D(0.028650977, -0.022022203, -0.24737474, 0.017739711, 0.24856077, -0.020073168, 0.24771845, -0.015252958, 0.030048788, 0.223176, 1.0982637, 0.0076065063)
 
 [node name="torch" parent="testscene" unique_id=712965582 instance=ExtResource("17_kvxjt")]
 transform = Transform3D(-0.323221, 0.938822, -0.118922, -0.186877, 0.0598692, 0.980557, 0.927689, 0.339161, 0.156094, -0.923274, 0.561052, 1.37005)
@@ -267,7 +272,7 @@ transform = Transform3D(0.49610108, -0.07262584, 0.47483796, 0, 0.662107, 0.1116
 [node name="bottle03" parent="testscene" unique_id=1680484432 instance=ExtResource("21_320nx")]
 transform = Transform3D(-0.13092549, -8.7091335e-05, -0.08827728, 0.000107854, 0.0557867, -0.000535214, 0.09529568, -0.00018279254, -0.12128269, 0.34980917, 0.99784994, -0.32724)
 
-[node name="wall" parent="." unique_id=1175704136 instance=ExtResource("5_ygvdl")]
+[node name="wall" parent="." unique_id=1175704136 groups=["navmesh"] instance=ExtResource("5_ygvdl")]
 transform = Transform3D(-0.0201136, 0.00454464, -2.20629, 0.768841, -0.139513, -0.0577874, -0.0537805, -1.99617, -0.000984212, -10.2357, 2.20012, 11.1905)
 
 [node name="platform08" parent="wall" unique_id=39823031 instance=ExtResource("5_ygvdl")]
@@ -297,7 +302,7 @@ transform = Transform3D(-0.0119513, -0.00913084, 1.40214, -0.0667751, 0.499055, 
 [node name="platform06" parent="wall" unique_id=334280799 instance=ExtResource("5_ygvdl")]
 transform = Transform3D(0.157081, 0.0200863, -1.40047, -0.068845, 0.498982, 0.00700551, 1.16486, 0.0239119, 0.0233861, 1.79916, -3.88816, -1.04344)
 
-[node name="platform01" parent="." unique_id=1615718262 instance=ExtResource("14_ekb5a")]
+[node name="platform01" parent="." unique_id=1615718262 groups=["navmesh"] instance=ExtResource("14_ekb5a")]
 transform = Transform3D(8.08862, 0.00242254, 2.24721, -0.0204701, 0.957248, -0.00568709, -2.05711, 0, 8.8362, -5.32442, -0.462675, -5.42235)
 
 [node name="torch+" parent="." unique_id=1347567648 instance=ExtResource("9_rbx0h")]
@@ -339,17 +344,20 @@ omni_range = 860.215
 omni_attenuation = 1.571
 omni_shadow_mode = 0
 
-[node name="chest2" parent="." unique_id=1196544682 instance=ExtResource("26_bxgge")]
+[node name="chest2" parent="." unique_id=1196544682 groups=["navmesh"] instance=ExtResource("26_bxgge")]
 transform = Transform3D(0.836123, 0, 0.548541, 0, 1, 0, -0.548541, 0, 0.836123, 5.82915, 0.843027, 1.19314)
 
 [node name="goblin" parent="." unique_id=287777644 instance=ExtResource("30_dummy")]
 transform = Transform3D(0.5573261, 0, -0.8302937, 0, 1, 0, 0.8302937, 0, 0.5573261, 6.242341, 1.9491043, -0.9302691)
 
-[node name="goblin2" parent="." instance=ExtResource("30_dummy")]
+[node name="goblin2" parent="." unique_id=1469252915 instance=ExtResource("30_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 2, 1.5)
 
-[node name="goblin3" parent="." instance=ExtResource("30_dummy")]
+[node name="goblin3" parent="." unique_id=740423277 instance=ExtResource("30_dummy")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 2, -3)
 
-[node name="orc" parent="." instance=ExtResource("31_brute")]
+[node name="orc" parent="." unique_id=180032380 instance=ExtResource("31_brute")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 2.5, -3)
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="." unique_id=1942470058]
+navigation_mesh = SubResource("NavigationMesh_mobs")

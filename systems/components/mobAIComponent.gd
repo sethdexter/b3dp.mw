@@ -6,8 +6,8 @@ extends Node
 ##   WANDER -> strolls to a random point near home
 ##   CHASE  -> spotted the player (or got hit): runs at them and attacks in range
 ##   RETURN -> lost the player / dragged too far from home: walks back
-## Movement is direct steering (no navmesh yet), so it can get snagged on walls;
-## when stuck it just picks a new spot.
+## Movement follows the navmesh via its own NavigationAgent3D (straight line if the
+## level has no navmesh); when stuck it just picks a new spot.
 
 enum State { IDLE, WANDER, CHASE, RETURN }
 
@@ -65,10 +65,12 @@ var _bob_time := 0.0
 var _last_health := -1
 var _last_pos: Vector3
 var _stuck_time := 0.0
+var _nav := NavigationAgent3D.new()
 
 func _ready() -> void:
 	if not character:
 		character = get_parent() as BaseCharacter
+	character.add_child.call_deferred(_nav)
 	_home = character.global_position
 	_last_pos = _home
 	_enter(State.IDLE)
@@ -126,7 +128,7 @@ func _physics_process(delta: float) -> void:
 			if to_target.length() < 0.4 or _state_time > 8.0 or _is_stuck(delta):
 				_enter(State.IDLE)
 			else:
-				desired = to_target.normalized()
+				desired = _path_dir(_target_point, to_target)
 				speed = wander_speed
 
 		State.CHASE:
@@ -141,7 +143,7 @@ func _physics_process(delta: float) -> void:
 				if is_attacking:
 					pass # stand still while swinging
 				elif dist > attack_range * 0.85:
-					desired = to_player.normalized()
+					desired = _path_dir(player.global_position, to_player)
 					speed = chase_speed
 				elif Time.get_ticks_msec() >= _next_attack_msec:
 					_attack(player)
@@ -151,7 +153,7 @@ func _physics_process(delta: float) -> void:
 			if to_home.length() < 0.5 or _is_stuck(delta):
 				_enter(State.IDLE)
 			else:
-				desired = to_home.normalized()
+				desired = _path_dir(_home, to_home)
 				speed = wander_speed * 1.5
 				# Can re-aggro once it's back near home.
 				if to_home.length() < wander_radius and _try_aggro(player):
@@ -190,6 +192,17 @@ func _steer(dir: Vector3, speed: float, delta: float) -> void:
 	var rate := 1.0 - exp(-acceleration * delta)
 	character.velocity.x = lerpf(character.velocity.x, target.x, rate)
 	character.velocity.z = lerpf(character.velocity.z, target.z, rate)
+
+## Direction to the next navmesh path point toward target; straight line if no navmesh yet.
+func _path_dir(target: Vector3, straight: Vector3) -> Vector3:
+	if not _nav.is_inside_tree() or NavigationServer3D.map_get_iteration_id(_nav.get_navigation_map()) == 0:
+		return straight.normalized()
+	if _nav.target_position.distance_to(target) > 0.5:
+		_nav.target_position = target
+	if _nav.is_navigation_finished():
+		return straight.normalized()
+	var dir := _flat(_nav.get_next_path_position() - character.global_position)
+	return dir.normalized() if dir.length() > 0.01 else straight.normalized()
 
 func _face(dir: Vector3, delta: float) -> void:
 	if dir.length() < 0.01:

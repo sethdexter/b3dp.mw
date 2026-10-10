@@ -90,15 +90,19 @@ func _on_depleted() -> void:
 	await get_tree().create_timer(respawn_time).timeout
 	_stand_up()
 
+## One loot sack at the corpse; each loot entry rolls 0..amount. Nothing rolled = no sack.
 func _drop_loot() -> void:
+	var rolled: Dictionary[String, int] = {}
 	for id in loot:
-		var item: Item = item_list.get_item_instance(id)
-		if not item:
-			continue
-		var dropped: DroppedItem = load("res://systems/items/droppedItem.tscn").instantiate()
-		get_tree().current_scene.add_child(dropped)
-		var dir := Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU)
-		dropped.setup(item, loot[id], character.global_position + Vector3.UP + dir * 0.3, dir)
+		var amount := randi_range(0, loot[id])
+		if amount > 0:
+			rolled[id] = amount
+	if rolled.is_empty():
+		return
+	var sack: Node3D = load("res://systems/items/lootSack.tscn").instantiate()
+	sack.get_node("interactableComponent/containerComponent").starting_items = rolled
+	get_tree().current_scene.add_child(sack)
+	sack.global_position = character.global_position
 
 func _find_mob_model() -> MobModel:
 	if visual:
