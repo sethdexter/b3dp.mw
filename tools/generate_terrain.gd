@@ -86,7 +86,7 @@ func _initialize() -> void:
 			var keep := (1.0 - beach) * (1.0 - snow)
 			w[GRASS] = ((t_grass - t_marsh) + t_desert * patch * 0.6) * keep
 			w[MARSH] = t_marsh * keep
-			w[SAND] = (t_desert + t_grass * patch * 0.8) * keep + beach
+			w[SAND] = (t_desert + t_grass * patch * 0.25) * keep + beach
 			w[ROCK] = t_mount * keep
 			w[SNOW] = snow
 			var a := 0

@@ -30,6 +30,9 @@ combatComponent = NodePath("combat")
 inventoryComponent = NodePath("inventory")
 equipmentComponent = NodePath("equipment")
 controllerComponent = NodePath("controller")
+starting_items = Dictionary[String, int]({
+"torch": 1
+})
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=739416636]
 shape = SubResource("CapsuleShape3D_lodx8")

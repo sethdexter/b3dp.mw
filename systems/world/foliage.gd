@@ -1,6 +1,6 @@
 extends Node3D
-## Wispy grass and desert shoots that wave in the wind around the player, plus rocks scattered over the island.
-## Reads the Terrain3D control map: grass/marsh texture -> grass shoots, sand -> desert shoots.
+## Wispy grass and taller shoots that wave in the wind around the player, plus rocks scattered over the island.
+## Reads the Terrain3D control map: both only grow on the grass texture.
 
 @export var terrain: Terrain3D
 @export var radius := 30.0 # foliage drawn this far around the player
@@ -10,8 +10,6 @@ extends Node3D
 @export var rock_seed := 7
 
 const GRASS := 0 # texture ids, matching the texture_list in test_level.tscn
-const SAND := 1
-const MARSH := 2
 const SEA_LEVEL := -10.0
 const ROCK_SCENES := ["res://demo/assets/models/RockA.tscn", "res://demo/assets/models/RockB.tscn", "res://demo/assets/models/RockC.tscn"]
 
@@ -27,7 +25,7 @@ var _blend_shift := int(log(Terrain3DUtil.enc_blend(1)) / log(2.0) + 0.5)
 func _ready() -> void:
 	assert(terrain, "Foliage needs the Terrain3D node")
 	_player = get_tree().get_first_node_in_group("player")
-	_grass = _make_layer(_strand_texture(8, Color(0.3, 0.32, 0.17), Color(0.74, 0.64, 0.72), 0.6), Vector2(0.7, 0.9), 0.3)
+	_grass = _make_layer(_strand_texture(8, Color(0.32, 0.22, 0.13), Color(0.78, 0.64, 0.45), 0.6), Vector2(0.7, 0.9), 0.3)
 	_shoots = _make_layer(_strand_texture(4, Color(0.34, 0.2, 0.13), Color(0.88, 0.68, 0.45), 0.25), Vector2(0.45, 1.1), 0.08)
 	_scatter_rocks()
 
@@ -60,17 +58,16 @@ func _build(center: Vector3) -> Array[PackedFloat32Array]:
 			var p := Vector3((gx + rng.randf()) * spacing, 0, (gz + rng.randf()) * spacing)
 			var dx := p.x - center.x
 			var dz := p.z - center.z
-			if dx * dx + dz * dz > r2:
+			var d2 := dx * dx + dz * dz
+			if d2 > r2 or rng.randf() < smoothstep(radius * 0.5, radius, sqrt(d2)): # thins out toward the edge so it fades instead of ending in a line
 				continue
 			var ctrl: int = data.get_control(p)
 			if (ctrl >> _blend_shift) & 0xFF > 127: # mid-blend between textures: skip
 				continue
 			var id := (ctrl >> _base_shift) & 0x1F
 			var layer: PackedFloat32Array
-			if id == GRASS or id == MARSH:
-				layer = grass
-			elif id == SAND and rng.randf() < 0.15: # sparse in the desert
-				layer = shoots
+			if id == GRASS:
+				layer = shoots if rng.randf() < 0.15 else grass # some taller shoots mixed in
 			else:
 				continue
 			p.y = data.get_height(p)
@@ -100,6 +97,7 @@ func _make_layer(tex: Texture2D, size: Vector2, sway: float) -> MultiMeshInstanc
 	mmi.multimesh = mm
 	mmi.material_override = mat
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.layers = 2 # render layer 2: the skylight skips it (light_cull_mask in test_level.tscn) so grass doesn't shine in the moonlight
 	add_child(mmi)
 	mmi.top_level = true # instance transforms are world positions
 	return mmi
@@ -130,7 +128,7 @@ func _strand_texture(strands: int, base: Color, tip: Color, lean: float) -> Text
 		for y in top:
 			var t := float(y) / 31.0
 			var x := clampi(int(x0 + bend * t * t), 0, 15)
-			img.set_pixel(x, 31 - y, base.lerp(tip, t))
+			img.set_pixel(x, 64 - y, base.lerp(tip, t))
 			if t < 0.5: # thicker at the root
 				img.set_pixel(clampi(x + 1, 0, 15), 31 - y, base.lerp(tip, t))
 	return ImageTexture.create_from_image(img)
