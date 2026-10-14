@@ -10,7 +10,6 @@
 [ext_resource type="PackedScene" uid="uid://cbype1dp2van0" path="res://assets/models/blackswordLATER.glb" id="7_1icrp"]
 [ext_resource type="PackedScene" uid="uid://b0es14bj0wpx1" path="res://assets/models/bottle.glb" id="8_af6pk"]
 [ext_resource type="PackedScene" uid="uid://bglf56do7dwkh" path="res://assets/models/torch.glb" id="9_rbx0h"]
-[ext_resource type="Texture2D" uid="uid://bf1h4vsace8wk" path="res://assets/effects/fire_02.png" id="10_oblv5"]
 [ext_resource type="PackedScene" uid="uid://bteohv4w6prwy" path="res://player.tscn" id="12_3ypq0"]
 [ext_resource type="Texture2D" uid="uid://coxr160f1d2tg" path="res://panorama_image(1).png" id="13_p7crs"]
 [ext_resource type="PackedScene" uid="uid://dohj18j3hmjuj" path="res://platform_02.tscn" id="14_ekb5a"]
@@ -30,11 +29,12 @@
 [ext_resource type="Script" uid="uid://clureojv50unt" path="res://systems/world/foliage.gd" id="50_foliage"]
 [ext_resource type="Shader" uid="uid://cnu13rg0m5c3s" path="res://systems/world/water.gdshader" id="51_water"]
 [ext_resource type="Script" uid="uid://cuom8ccko8tcg" path="res://systems/world/deadTrees.gd" id="52_trees"]
-[ext_resource type="PackedScene" path="res://systems/effects/torchFire.tscn" id="53_fire"]
-
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_c2cjb"]
+[ext_resource type="PackedScene" uid="uid://c84dpopa721nd" path="res://systems/effects/torchFire.tscn" id="53_fire"]
+[ext_resource type="Texture2D" uid="uid://cb36wuxx0balr" path="res://assets/effects/ash_16.png" id="60_ash"]
+[ext_resource type="PackedScene" uid="uid://cc7tshoojm8aj" path="res://campfire.tscn" id="80_campfire"]
 
 [sub_resource type="ParticleProcessMaterial" id="PPM_ash"]
+particle_flag_rotate_y = true
 emission_shape = 3
 emission_box_extents = Vector3(40, 1, 40)
 direction = Vector3(0.3, -1, 0.1)
@@ -44,13 +44,17 @@ initial_velocity_max = 2.0
 gravity = Vector3(0.3, -0.5, 0.1)
 scale_min = 0.5
 scale_max = 1.3
+color = Color(0.07565438, 0.07565438, 0.07565435, 0.85490197)
 turbulence_enabled = true
 turbulence_noise_strength = 0.4
 
 [sub_resource type="StandardMaterial3D" id="Mat_ash"]
-transparency = 1
+transparency = 2
+alpha_scissor_threshold = 0.5
+alpha_antialiasing_mode = 0
 shading_mode = 0
-albedo_color = Color(0.62, 0.6, 0.56, 0.9)
+albedo_texture = ExtResource("60_ash")
+texture_filter = 0
 billboard_mode = 3
 particles_anim_h_frames = 1
 particles_anim_v_frames = 1
@@ -243,7 +247,7 @@ shader_parameter/shallow_color = Color(0.25658786, 0.5338075, 0.34164926, 0.6)
 shader_parameter/foam_color = Color(0.8676848, 0.7236358, 0.43553802, 0.7882353)
 shader_parameter/foam_opacity = 0.442000020995
 shader_parameter/shallow_depth = 6.58
-shader_parameter/foam_depth = 1.23
+shader_parameter/foam_depth = 0.17
 shader_parameter/rim_width = 0.04
 shader_parameter/cell_size = 0.995
 shader_parameter/web_width = 0.06
@@ -263,62 +267,6 @@ shader_parameter/reflect_amount = 0.3
 material = SubResource("Mat_sea")
 size = Vector2(16384, 16384)
 
-[sub_resource type="Curve" id="Curve_6m5ii"]
-_limits = [0.0, 200.0, 0.0, 1.0]
-_data = [Vector2(0, 2.59918), 0.0, 0.0, 0, 0, Vector2(1, 200), 0.0, 0.0, 0, 0]
-point_count = 2
-
-[sub_resource type="CurveTexture" id="CurveTexture_bj83y"]
-curve = SubResource("Curve_6m5ii")
-
-[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_rdlt0"]
-
-[sub_resource type="Curve" id="Curve_nwd6h"]
-_data = [Vector2(0.0836364, 0.166915), 0.0, 0.0, 0, 0, Vector2(0.192727, 0.128167), 0.0, 0.0, 0, 0, Vector2(0.698182, 0), 0.0, 0.0, 0, 0]
-point_count = 3
-
-[sub_resource type="CurveTexture" id="CurveTexture_mqmbi"]
-width = 128
-curve = SubResource("Curve_nwd6h")
-
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_klfnk"]
-lifetime_randomness = 0.18
-emission_shape_offset = Vector3(0.115, 0.25, 0.175)
-emission_shape_scale = Vector3(1.095, 1.115, 1.285)
-emission_shape = 1
-emission_sphere_radius = 0.03
-directional_velocity_min = 0.0
-directional_velocity_max = 0.0
-directional_velocity_curve = SubResource("CurveXYZTexture_rdlt0")
-gravity = Vector3(0, 6.645, 0)
-scale_min = 0.0
-scale_max = 3.0
-scale_curve = SubResource("CurveTexture_mqmbi")
-scale_over_velocity_max = 95.81
-anim_speed_max = 2.2
-anim_speed_curve = SubResource("CurveTexture_bj83y")
-turbulence_enabled = true
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fj4e4"]
-transparency = 1
-blend_mode = 1
-cull_mode = 2
-depth_draw_mode = 2
-shading_mode = 0
-albedo_color = Color(0.717647, 0.486275, 0.396078, 1)
-albedo_texture = ExtResource("10_oblv5")
-billboard_mode = 3
-billboard_keep_scale = true
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
-
-[sub_resource type="QuadMesh" id="QuadMesh_h8bs2"]
-material = SubResource("StandardMaterial3D_fj4e4")
-
-[sub_resource type="Skin" id="Skin_expkw"]
-resource_local_to_scene = true
-
 [sub_resource type="NavigationMesh" id="NavigationMesh_mobs"]
 geometry_parsed_geometry_type = 1
 geometry_source_geometry_mode = 1
@@ -329,7 +277,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0153959, -0.5313661, -0.00
 script = ExtResource("1_rmski")
 
 [node name="character" parent="." unique_id=1535305342 instance=ExtResource("12_3ypq0")]
-transform = Transform3D(-0.167199, -3.8935e-08, -0.985923, -5.96048e-08, 1, -2.93828e-08, 0.985923, 5.3853e-08, -0.167199, 224.09373, 51.076797, -345.92642)
+transform = Transform3D(-0.167199, -3.8935e-08, -0.985923, -5.96048e-08, 1, -2.93828e-08, 0.985923, 5.3853e-08, -0.167199, -14.793468, 13.332426, -27.379995)
+starting_items = Dictionary[String, int]({
+"black_iron_sword": 1,
+"torch": 1
+})
 
 [node name="Decal" type="Decal" parent="character" unique_id=2076398385]
 transform = Transform3D(-0.167199, -5.96048e-08, 0.985923, -3.89351e-08, 1, 5.3853e-08, -0.985923, -2.93828e-08, -0.167199, -0.0920858, -0.480521, -0.00829148)
@@ -340,15 +292,9 @@ texture_emission = ExtResource("3_ojlp5")
 emission_energy = 0.0
 normal_fade = 0.999
 
-[node name="GPUParticles3D" type="GPUParticles3D" parent="character" unique_id=349937724]
-transform = Transform3D(1, 2.13163e-14, 0, 0, 1, 2.04281e-14, 0, 4.44089e-15, 1, -0.138381, 0.51097, -0.721476)
-trail_enabled = true
-process_material = SubResource("ParticleProcessMaterial_c2cjb")
-
 [node name="AshFall" type="GPUParticles3D" parent="character" unique_id=1873420653]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15, 0)
-visible = false
-amount = 400
+amount = 50
 amount_ratio = 0.4735
 lifetime = 10.0
 preprocess = 10.0
@@ -358,6 +304,7 @@ draw_pass_1 = SubResource("Quad_ash")
 
 [node name="RainFall" type="GPUParticles3D" parent="character" unique_id=1873420654]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
+visible = false
 amount = 200
 sub_emitter = NodePath("../RainSplash")
 lifetime = 1.2
@@ -380,12 +327,15 @@ size = Vector3(60, 60, 60)
 resolution = 0
 
 [node name="skylight" type="DirectionalLight3D" parent="." unique_id=579874614]
-transform = Transform3D(0.9193002, -0.22096698, 0.32566968, 0, 0.82750314, 0.56146115, -0.393557, -0.51615137, 0.7607238, -37.7211, 16.8838, 9.96233)
+transform = Transform3D(0.4526061, 0.64166707, 0.619202, 0.3067914, -0.7640599, 0.56753117, 0.83727336, -0.06690258, -0.5426762, -37.7211, 16.8838, 9.96233)
 light_color = Color(1, 0.95, 0.85, 1)
-light_energy = 0.05
-light_volumetric_fog_energy = 9.141
+light_energy = 0.3
+light_indirect_energy = 6.735
+light_volumetric_fog_energy = 0.0
+light_angular_distance = 0.8
 light_cull_mask = 4294967293
 shadow_enabled = true
+directional_shadow_mode = 0
 directional_shadow_max_distance = 150.0
 
 [node name="static_cam" type="Camera3D" parent="." unique_id=128732885]
@@ -406,19 +356,22 @@ metadata/_edit_lock_ = true
 script = ExtResource("50_foliage")
 terrain = NodePath("../Terrain3D")
 radius = 100.0
-rock_count = 20000
+rock_count = 30000
 
 [node name="DeadTrees" type="Node3D" parent="." unique_id=1421932566 node_paths=PackedStringArray("terrain")]
 script = ExtResource("52_trees")
 terrain = NodePath("../Terrain3D")
 tree_count = 80000
 bark_color = Color(0.31599233, 0.14670178, 0.08933737, 1)
-tree_scale = 10.0
+tree_scale = 12.0
 tree_color_variance = 0.051
 pixel_variance = 0.18
 
+[node name="campfire" parent="." unique_id=1873420661 instance=ExtResource("80_campfire")]
+transform = Transform3D(1, 0, 0, 0, 0.9760639, 0.21748397, 0, -0.21748397, 0.9760639, -10.85, -0.29267132, -55.083427)
+
 [node name="Sea" type="MeshInstance3D" parent="." unique_id=1873420652]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -10, 0)
+transform = Transform3D(0.22980253, 0, -0.9732373, 0, 1, 0, 0.9732373, 0, 0.22980253, 0, -10, 0)
 mesh = SubResource("PlaneMesh_sea")
 
 [node name="testscene" type="StaticBody3D" parent="." unique_id=2037913265 groups=["navmesh"]]
@@ -480,7 +433,7 @@ transform = Transform3D(0.111769, 0, 0.165855, 0, 0.2, 0, -0.165855, 0, 0.111769
 [node name="torch-" parent="testscene" unique_id=1144618617 instance=ExtResource("9_rbx0h")]
 transform = Transform3D(-0.0481111, -0.818652, 0.572273, 0.992996, 0.0226961, 0.115948, -0.10791, 0.573843, 0.811826, 0.137085, 2.9557, -1.13713)
 
-[node name="fire_effect" parent="testscene/torch-" instance=ExtResource("53_fire")]
+[node name="fire_effect" parent="testscene/torch-" unique_id=1563576686 instance=ExtResource("53_fire")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21, 0)
 
 [node name="firelight" type="OmniLight3D" parent="testscene/torch-" unique_id=1357372882]
@@ -491,7 +444,7 @@ omni_range = 4.097
 [node name="torch-2" parent="testscene" unique_id=189902629 instance=ExtResource("9_rbx0h")]
 transform = Transform3D(-0.0481111, -0.818652, 0.572273, 0.992996, 0.0226961, 0.115948, -0.10791, 0.573843, 0.811826, 3.15025, 1.62983, 13.3017)
 
-[node name="fire_effect" parent="testscene/torch-2" instance=ExtResource("53_fire")]
+[node name="fire_effect" parent="testscene/torch-2" unique_id=1717122458 instance=ExtResource("53_fire")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21, 0)
 
 [node name="firelight" type="OmniLight3D" parent="testscene/torch-2" unique_id=1964826129]
@@ -564,7 +517,7 @@ transform = Transform3D(8.08862, 0.00242254, 2.24721, -0.0204701, 0.957248, -0.0
 transform = Transform3D(0.965536, 0.247085, 0.081785, -0.245004, 0.968901, -0.0347374, -0.0878253, 0.0135025, 0.996045, 3.5499, 2.63186, 1.63489)
 visible = false
 
-[node name="fire_effect" parent="torch+" instance=ExtResource("53_fire")]
+[node name="fire_effect" parent="torch+" unique_id=1413690813 instance=ExtResource("53_fire")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.21, 0)
 
 [node name="firelight" type="OmniLight3D" parent="torch+" unique_id=950218873]

@@ -1,8 +1,8 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://c84dpopa721nd"]
 
 [ext_resource type="Texture2D" uid="uid://bf1h4vsace8wk" path="res://assets/effects/fire_02.png" id="1_tex"]
-[ext_resource type="Shader" path="res://systems/effects/torchFire.gdshader" id="2_shader"]
-
+[ext_resource type="Shader" uid="uid://21pmc6gog0ge" path="res://systems/effects/torchFire.gdshader" id="2_shader"]
+[ext_resource type="Script" path="res://systems/effects/uprightFire.gd" id="3_upright"]
 
 [sub_resource type="Gradient" id="Gradient_flame"]
 offsets = PackedFloat32Array(0, 0.2, 0.6, 1)
@@ -21,13 +21,13 @@ curve = SubResource("Curve_flame")
 [sub_resource type="ParticleProcessMaterial" id="PPM_flame"]
 emission_shape = 1
 emission_sphere_radius = 0.035
+angle_min = -180.0
+angle_max = 180.0
 direction = Vector3(0, 1, 0)
 spread = 12.0
 initial_velocity_min = 0.45
 initial_velocity_max = 0.8
 gravity = Vector3(0, 1.5, 0)
-angle_min = -180.0
-angle_max = 180.0
 scale_min = 0.18
 scale_max = 0.3
 scale_curve = SubResource("CurveTex_flame")
@@ -71,19 +71,20 @@ turbulence_noise_scale = 1.5
 turbulence_influence_min = 0.2
 turbulence_influence_max = 0.4
 
-[node name="torchFire" type="Node3D"]
+[node name="torchFire" type="Node3D" unique_id=41581858]
+script = ExtResource("3_upright")
 
-[node name="flames" type="GPUParticles3D" parent="."]
+[node name="flames" type="GPUParticles3D" parent="." unique_id=1202246259]
 cast_shadow = 0
-local_coords = true
 amount = 28
 lifetime = 0.6
 randomness = 0.3
 visibility_aabb = AABB(-0.6, -0.3, -0.6, 1.2, 1.5, 1.2)
+local_coords = true
 process_material = SubResource("PPM_flame")
 draw_pass_1 = SubResource("Quad_flame")
 
-[node name="embers" type="GPUParticles3D" parent="."]
+[node name="embers" type="GPUParticles3D" parent="." unique_id=1521446375]
 cast_shadow = 0
 amount = 6
 lifetime = 1.2

@@ -46,7 +46,7 @@ func cast(spell: Spell) -> bool:
 		+ basis.x * spawn_offset.x + basis.y * spawn_offset.y - basis.z * spawn_offset.z
 	var from := Transform3D(basis.orthonormalized(), origin)
 	if projectile.has_method("launch"):
-		projectile.launch(from, character, spell)
+		projectile.launch(from, character, spell, cast_origin, spawn_offset)
 	else:
 		projectile.global_transform = from
 	return true

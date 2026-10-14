@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Shader" path="res://systems/effects/smokeColumn.gdshader" id="1_shader"]
+
+[sub_resource type="ShaderMaterial" id="Mat_column"]
+render_priority = 1
+shader = ExtResource("1_shader")
+
+[sub_resource type="QuadMesh" id="Quad_column"]
+material = SubResource("Mat_column")
+size = Vector2(3.5, 7)
+center_offset = Vector3(0, 3.5, 0)
+
+[node name="smokeColumn" type="MeshInstance3D"]
+cast_shadow = 0
+extra_cull_margin = 3.0
+mesh = SubResource("Quad_column")

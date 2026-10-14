@@ -21,6 +21,17 @@ const SIDES := 6 # low poly: hexagonal branches
 const CHUNK := 500.0 # metres per scatter chunk
 const SEA_LEVEL := -10.0
 const MAX_HEIGHT := 200.0 # no trees up on the mountains
+const COLLIDE_CELL := 50.0 # metres per trunk lookup cell
+const COLLIDE_RADIUS := 60.0 # trunks within this of the player get a collider
+const COLLIDE_REFRESH := 10.0 # re-pick nearby trunks after the player moves this far
+
+var _trunks := {} # Vector2i cell -> Array of Vector4(x, y, z, scale)
+var _roots := {} # Vector2i cell -> Array of [Transform3D, variant], same order as _trunks
+var _root_shapes: Array[Shape3D] = [] # per variant: trimesh of just the roots
+var _body: StaticBody3D
+var _root_body: StaticBody3D
+var _collider_center := Vector3.INF
+var _player: Node3D
 
 func _ready() -> void:
 	_build()
@@ -28,6 +39,12 @@ func _ready() -> void:
 func _build() -> void:
 	for child in get_children():
 		child.queue_free()
+	_trunks.clear()
+	_roots.clear()
+	_root_shapes.clear()
+	_body = null
+	_root_body = null
+	_collider_center = Vector3.INF
 	if not terrain or not terrain.data:
 		return
 	var mat := StandardMaterial3D.new()
@@ -58,6 +75,12 @@ func _build() -> void:
 		if not chunks.has(key):
 			chunks[key] = []
 		chunks[key].append(Transform3D(basis, p - Vector3.UP * 0.2))
+		var cell := Vector2i(floori(p.x / COLLIDE_CELL), floori(p.z / COLLIDE_CELL))
+		if not _trunks.has(cell):
+			_trunks[cell] = []
+			_roots[cell] = []
+		_trunks[cell].append(Vector4(p.x, p.y - 0.2, p.z, s))
+		_roots[cell].append([Transform3D(basis, p - Vector3.UP * 0.2), key.z])
 		placed += 1
 	for key: Vector3i in chunks:
 		var mm := MultiMesh.new()
@@ -77,6 +100,65 @@ func _build() -> void:
 		mmi.top_level = true # instance transforms are world positions; set before add_child so the node's own transform is ignored
 		add_child(mmi)
 
+# Only trunks near the player get colliders: 80k static bodies would choke physics.
+func _process(_delta: float) -> void:
+	if Engine.is_editor_hint() or _trunks.is_empty():
+		return
+	if not is_instance_valid(_player):
+		_player = get_tree().get_first_node_in_group("player")
+		if not _player:
+			return
+	var at := _player.global_position
+	if at.distance_to(_collider_center) < COLLIDE_REFRESH:
+		return
+	_collider_center = at
+	if not _body:
+		_body = StaticBody3D.new()
+		_body.top_level = true # colliders are placed in world space
+		add_child(_body)
+		_root_body = StaticBody3D.new()
+		_root_body.top_level = true
+		add_child(_root_body)
+	var shapes := _body.get_children()
+	var root_cols := _root_body.get_children()
+	var used := 0
+	var reach := ceili(COLLIDE_RADIUS / COLLIDE_CELL)
+	var c0 := Vector2i(floori(at.x / COLLIDE_CELL), floori(at.z / COLLIDE_CELL))
+	for cz in range(c0.y - reach, c0.y + reach + 1):
+		for cx in range(c0.x - reach, c0.x + reach + 1):
+			var cell_trunks: Array = _trunks.get(Vector2i(cx, cz), [])
+			for k in cell_trunks.size():
+				var t: Vector4 = cell_trunks[k]
+				if Vector2(t.x - at.x, t.z - at.z).length() > COLLIDE_RADIUS:
+					continue
+				var rc: CollisionShape3D
+				if used < root_cols.size():
+					rc = root_cols[used]
+					rc.disabled = false
+				else:
+					rc = CollisionShape3D.new()
+					_root_body.add_child(rc)
+				var tree: Array = _roots[Vector2i(cx, cz)][k]
+				rc.shape = _root_shapes[tree[1]]
+				rc.transform = tree[0]
+				var col: CollisionShape3D
+				if used < shapes.size():
+					col = shapes[used]
+					col.disabled = false
+				else:
+					col = CollisionShape3D.new()
+					col.shape = CylinderShape3D.new()
+					_body.add_child(col)
+				var cyl := col.shape as CylinderShape3D
+				cyl.radius = 0.4 * t.w # trunk is 0.5 thick at the base, tapering; slightly inside so it doesn't feel sticky
+				cyl.height = 3.5 * t.w # trunk only; branches and roots don't collide
+				col.position = Vector3(t.x, t.y + cyl.height * 0.5 - 0.3 * t.w, t.z)
+				used += 1
+	for i in range(used, shapes.size()):
+		shapes[i].disabled = true
+	for i in range(used, root_cols.size()):
+		root_cols[i].disabled = true
+
 func make_tree(seed_: int) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_
@@ -84,10 +166,15 @@ func make_tree(seed_: int) -> ArrayMesh:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var lean := Vector3(rng.randf_range(-0.35, 0.35), 1.0, rng.randf_range(-0.35, 0.35)).normalized()
 	_branch(st, rng, Vector3(0, -0.3, 0), lean, rng.randf_range(3.0, 4.5), 0.5, 3, 5, 0.06)
+	var roots := SurfaceTool.new() # built separately so they can get their own collision shape
+	roots.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for r in rng.randi_range(4, 6): # roots: start low on the trunk, arc outward and dive into the ground
 		var a := TAU * (r + rng.randf_range(-0.3, 0.3)) / 5.0
 		var dir := Vector3(cos(a), rng.randf_range(0.0, 0.25), sin(a)).normalized()
-		_branch(st, rng, Vector3(0, rng.randf_range(0.4, 0.8), 0), dir, rng.randf_range(1.5, 2.6), 0.3, 1, 5, -0.2)
+		_branch(roots, rng, Vector3(0, rng.randf_range(0.4, 0.8), 0), dir, rng.randf_range(1.5, 2.6), 0.3, 1, 5, -0.2)
+	var root_mesh := roots.commit()
+	_root_shapes.append(root_mesh.create_trimesh_shape())
+	st.append_from(root_mesh, 0, Transform3D.IDENTITY)
 	st.generate_normals()
 	st.index()
 	# Auto-generated LODs: distant trees draw a few hundred triangles instead of ~1.6k.

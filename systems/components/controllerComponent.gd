@@ -38,7 +38,7 @@ var current_interactable = null
 
 @export_category("Stamina")
 ## Stamina per second while sprinting and moving.
-@export var sprint_stamina_per_sec: float = 4
+@export var sprint_stamina_per_sec: float = 2
 ## Stamina per dash. Can't dash without enough.
 @export var dash_stamina_cost: float = 3
 
