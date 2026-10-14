@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="WeaponItem" format=3 uid="uid://babk2wnl5eo0m"]
+
+[ext_resource type="Script" uid="uid://bylv06u854khh" path="res://items/weaponItem.gd" id="1_gyfji"]
+[ext_resource type="PackedScene" uid="uid://cbype1dp2van0" path="res://assets/models/blackswordLATER.glb" id="9_held"]
+
+[resource]
+script = ExtResource("1_gyfji")
+attackTypes = {
+"bludgeiningDamage": 1,
+"pierceDamage": 1,
+"slashDamage": 1
+}
+governingSkill = "long_blade"
+Name = "Rusty Sword"
+id = "0001"
+weight = 3
+maxStackCount = 1
+equippableSlots = Array[String](["right_hand"])
+isEquippable = true
+itemDesription = "rusted and dull, but heavy enough."
+heldScene = ExtResource("9_held")
+heldRotation = Vector3(-110, 0, 0)
+heldScale = Vector3(0.3, 0.3, 0.3)
+metadata/_custom_type_script = "uid://bylv06u854khh"

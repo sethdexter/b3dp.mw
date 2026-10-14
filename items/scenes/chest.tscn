@@ -1,0 +1,75 @@
+[gd_scene format=3 uid="uid://dpfqfj2dkf4c6"]
+
+[ext_resource type="PackedScene" uid="uid://c60324i2fjxbc" path="res://assets/models/chest.glb" id="1_twpm2"]
+[ext_resource type="Script" uid="uid://c8rsbetux4hnk" path="res://components/interactableComponent.gd" id="3_trlyu"]
+[ext_resource type="Script" uid="uid://lfw7r1omdqjv" path="res://components/containerComponent.gd" id="4_x7mpe"]
+[ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://components/inventoryComponent.gd" id="5_bv3sb"]
+[ext_resource type="FontFile" uid="uid://bo6tac5qmet7q" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="5_x7mpe"]
+[ext_resource type="Script" uid="uid://ck3lmt0mjc1n4" path="res://ui/itemListView.gd" id="6_view"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_8uwsg"]
+size = Vector3(2.7308, 1.53621, 1.59251)
+
+[node name="chest" type="StaticBody3D" unique_id=1431366980]
+
+[node name="meshInstance3D" type="MeshInstance3D" parent="." unique_id=855450514]
+
+[node name="ChestMesh" parent="meshInstance3D" unique_id=1874114146 instance=ExtResource("1_twpm2")]
+
+[node name="collisionShape3D" type="CollisionShape3D" parent="." unique_id=556311272]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.00682068, 0.177284, -0.00141144)
+shape = SubResource("BoxShape3D_8uwsg")
+
+[node name="interactableComponent" type="Node" parent="." unique_id=1298882245]
+script = ExtResource("3_trlyu")
+metadata/_custom_type_script = "uid://c8rsbetux4hnk"
+
+[node name="prompt" type="Label" parent="interactableComponent" unique_id=181387603]
+visible = false
+top_level = true
+offset_left = 1.0
+offset_right = 51.0
+offset_bottom = 23.0
+theme_override_fonts/font = ExtResource("5_x7mpe")
+text = "Open"
+horizontal_alignment = 1
+vertical_alignment = 1
+metadata/_edit_use_anchors_ = true
+
+[node name="containerComponent" type="Node" parent="interactableComponent" unique_id=979237232]
+script = ExtResource("4_x7mpe")
+metadata/_custom_type_script = "uid://lfw7r1omdqjv"
+
+[node name="inventoryComponent" type="Node" parent="interactableComponent/containerComponent" unique_id=282675802]
+script = ExtResource("5_bv3sb")
+metadata/_custom_type_script = "uid://cbk70h0ponen2"
+
+[node name="containerUX" type="CanvasLayer" parent="interactableComponent/containerComponent" unique_id=105243652]
+
+[node name="ContainerPanel" type="VBoxContainer" parent="interactableComponent/containerComponent/containerUX" unique_id=441002962]
+visible = false
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -624.0
+offset_right = 424.0
+offset_bottom = -24.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 6
+alignment = 2
+script = ExtResource("6_view")
+
+[node name="Items" type="VBoxContainer" parent="interactableComponent/containerComponent/containerUX/ContainerPanel" unique_id=158638192]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="Details" type="Label" parent="interactableComponent/containerComponent/containerUX/ContainerPanel" unique_id=1748835155]
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_fonts/font = ExtResource("5_x7mpe")
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3

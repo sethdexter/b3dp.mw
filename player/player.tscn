@@ -1,0 +1,166 @@
+[gd_scene format=3 uid="uid://bteohv4w6prwy"]
+
+[ext_resource type="Script" uid="uid://cr0tpb1a25h1f" path="res://characters/basecharacter.gd" id="1_y0om1"]
+[ext_resource type="PackedScene" uid="uid://mwxxggk7bxk3" path="res://components/controller.gd.tscn" id="2_1jxqw"]
+[ext_resource type="Script" uid="uid://mimqe18j4nga" path="res://components/equipmentComponent.gd" id="2_dw050"]
+[ext_resource type="Script" uid="uid://b4diwhly0gvuu" path="res://components/attributesComponent.gd" id="2_ffpwu"]
+[ext_resource type="Script" uid="uid://dr4bb83mx07yt" path="res://components/statsComponent.gd" id="3_mbq3d"]
+[ext_resource type="Script" uid="uid://c36jd280fd07y" path="res://components/combatComponent.gd" id="4_u02w6"]
+[ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://components/inventoryComponent.gd" id="5_4dlq4"]
+[ext_resource type="Script" uid="uid://cflpum6hcv14o" path="res://components/skillsComponent.gd" id="6_2vq5e"]
+[ext_resource type="PackedScene" path="res://ui/playerInventoryUI.tscn" id="7_invui"]
+[ext_resource type="Script" uid="uid://doqvwnimjdmut" path="res://components/heldItemsComponent.gd" id="8_held"]
+[ext_resource type="PackedScene" path="res://ui/screenEffects.tscn" id="9_fx"]
+[ext_resource type="Script" uid="uid://besyfedix7b7h" path="res://components/spellCasterComponent.gd" id="10_cast"]
+[ext_resource type="Resource" uid="uid://kfrpxu526jro" path="res://spells/data/flameBreath.tres" id="11_spell"]
+[ext_resource type="Script" uid="uid://bhs750wed5ph1" path="res://components/meleeComponent.gd" id="12_melee"]
+[ext_resource type="Script" uid="uid://caidhksef0c1o" path="res://components/respawnComponent.gd" id="13_respawn"]
+[ext_resource type="Script" uid="uid://b2jj6yvlyk65p" path="res://components/headBobComponent.gd" id="70_headbob"]
+[ext_resource type="Script" uid="uid://b6lh6rpwkevbm" path="res://components/meleeSwing.gd" id="80_swing"]
+[ext_resource type="Resource" uid="uid://bodek4g5ywk66" path="res://items/data/black_iron_sword.tres" id="82_sword"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
+height = 3.26727
+
+[sub_resource type="Resource" id="Swing_sword_forward"]
+script = ExtResource("80_swing")
+windup_rotation = Vector3(-80, 0, 0)
+windup_offset = Vector3(0.105, -1.164, 0.02)
+strike_rotation = Vector3(-58.31, 6.965, 1.595)
+strike_offset = Vector3(-0.165, 0.1, -0.45)
+
+[sub_resource type="Resource" id="Swing_sword_left"]
+script = ExtResource("80_swing")
+windup_rotation = Vector3(-16.84, 6.635, -94.48)
+windup_offset = Vector3(0.617, 0.092, -0.015)
+strike_rotation = Vector3(0, 105.05, -65)
+strike_offset = Vector3(-0.994, 0.163, -0.2)
+hand_leads = true
+
+[sub_resource type="Resource" id="Swing_sword_right"]
+script = ExtResource("80_swing")
+windup_rotation = Vector3(-16.84, -6.635, 94.48)
+windup_offset = Vector3(-0.628, 0.092, -0.015)
+strike_rotation = Vector3(0, -105.05, 65)
+strike_offset = Vector3(0.685, 0.163, -0.2)
+hand_leads = true
+
+[sub_resource type="Resource" id="Swing_sword_still"]
+script = ExtResource("80_swing")
+windup_rotation = Vector3(40, 0, 0)
+windup_offset = Vector3(-0.1, 0.12, 0.05)
+strike_rotation = Vector3(-80, 0, 0)
+strike_offset = Vector3(-0.32, -0.1, -0.3)
+
+[node name="character" type="CharacterBody3D" unique_id=1976811291 node_paths=PackedStringArray("attributeComponent", "statComponent", "skillComponent", "combatComponent", "inventoryComponent", "equipmentComponent", "controllerComponent")]
+script = ExtResource("1_y0om1")
+char_id = 1
+Name = "Jack"
+attributeComponent = NodePath("attributes")
+statComponent = NodePath("stats")
+skillComponent = NodePath("skills")
+combatComponent = NodePath("combat")
+inventoryComponent = NodePath("inventory")
+equipmentComponent = NodePath("equipment")
+controllerComponent = NodePath("controller")
+starting_items = Dictionary[String, int]({
+"torch": 1
+})
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=739416636]
+shape = SubResource("CapsuleShape3D_lodx8")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1052576862]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.33427, -0.184626)
+fov = 48.0
+
+[node name="RayCast3D" type="RayCast3D" parent="Camera3D" unique_id=658856384]
+target_position = Vector3(0, 0, -3.5)
+debug_shape_custom_color = Color(0, 0, 0, 0)
+
+[node name="heldItems" type="Node3D" parent="Camera3D" unique_id=1266772654 node_paths=PackedStringArray("equipment", "head_bob")]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
+script = ExtResource("8_held")
+equipment = NodePath("../../equipment")
+head_bob = NodePath("../headBob")
+right_turn_catch_up = 13.5
+right_bob_sway = 0.016
+left_pitch_lag = 0.81
+left_turn_lag_max_deg = 11.5
+left_turn_catch_up = 7.0
+left_bob_sway = 0.009
+left_bob_lag = 0.95
+
+[node name="right_hand" type="Marker3D" parent="Camera3D/heldItems" unique_id=89834919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, -0.38, -0.6)
+
+[node name="left_hand" type="Marker3D" parent="Camera3D/heldItems" unique_id=1799305074]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18061912, -0.19808516, -0.55)
+
+[node name="headBob" type="Node" parent="Camera3D" unique_id=1873420660 node_paths=PackedStringArray("character", "camera_node")]
+script = ExtResource("70_headbob")
+character = NodePath("../..")
+camera_node = NodePath("..")
+
+[node name="controller" parent="." unique_id=310282654 node_paths=PackedStringArray("character", "camera_node", "interaction_raycast") instance=ExtResource("2_1jxqw")]
+character = NodePath("..")
+camera_node = NodePath("../Camera3D")
+interaction_raycast = NodePath("../Camera3D/RayCast3D")
+
+[node name="attributes" type="Node" parent="." unique_id=1948132631 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_ffpwu")
+currentCharacter = NodePath("..")
+
+[node name="stats" type="Node" parent="." unique_id=1006549031 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_mbq3d")
+currentCharacter = NodePath("..")
+
+[node name="skills" type="Node" parent="." unique_id=1897398979 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("6_2vq5e")
+currentCharacter = NodePath("..")
+
+[node name="inventory" type="Node" parent="." unique_id=1392631130 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("5_4dlq4")
+currentCharacter = NodePath("..")
+
+[node name="equipment" type="Node" parent="." unique_id=849924164 node_paths=PackedStringArray("currentCharacter", "characterCollision")]
+script = ExtResource("2_dw050")
+currentCharacter = NodePath("..")
+characterCollision = NodePath("../CollisionShape3D")
+metadata/_custom_type_script = "uid://mimqe18j4nga"
+
+[node name="combat" type="Node" parent="." unique_id=1301558428 node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_u02w6")
+currentCharacter = NodePath("..")
+
+[node name="inventoryUI" parent="." unique_id=1057793105 instance=ExtResource("7_invui")]
+
+[node name="screenEffects" parent="." unique_id=352291870 instance=ExtResource("9_fx")]
+
+[node name="spellCaster" type="Node" parent="." unique_id=937532002 node_paths=PackedStringArray("character", "cast_origin")]
+script = ExtResource("10_cast")
+character = NodePath("..")
+cast_origin = NodePath("../Camera3D")
+current_spell = ExtResource("11_spell")
+
+[node name="melee" type="Node" parent="." unique_id=1691353386 node_paths=PackedStringArray("character", "swing_pivot")]
+script = ExtResource("12_melee")
+character = NodePath("..")
+swing_pivot = NodePath("../Camera3D/heldItems/right_hand")
+swings = Dictionary[String, Resource]({
+"sword_forward": SubResource("Swing_sword_forward"),
+"sword_left": SubResource("Swing_sword_left"),
+"sword_right": SubResource("Swing_sword_right"),
+"sword_still": SubResource("Swing_sword_still")
+})
+preview_item = ExtResource("82_sword")
+preview_swing = "sword_forward"
+preview_timeline = 0.008797690958054938
+preview_play = true
+show_preview = true
+
+[node name="respawn" type="Node" parent="." unique_id=744764761 node_paths=PackedStringArray("character", "camera", "screen_effects")]
+script = ExtResource("13_respawn")
+character = NodePath("..")
+camera = NodePath("../Camera3D")
+screen_effects = NodePath("../screenEffects")

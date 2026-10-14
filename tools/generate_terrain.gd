@@ -10,7 +10,7 @@ const SEA_LEVEL := -10.0 # keep in sync with the Sea node in test_level.tscn
 const ISLAND := Vector2(0.6, 0.9) # coast starts / ends, as a fraction of the map half-width
 const SPAWN_FLAT := Vector2(100.0, 400.0) # flat radius around origin, blend distance
 const SPAWN_NO_MOUNTAINS := Vector2(400.0, 1000.0) # no mountains within this, full mountains beyond
-const OUT_DIR := "res://terrain/data"
+const OUT_DIR := "res://world/terrain/data"
 
 func _initialize() -> void:
 	var biome := _noise(0.0005, 3, FastNoiseLite.FRACTAL_FBM, 1)

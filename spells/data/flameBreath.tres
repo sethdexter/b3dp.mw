@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="Spell" format=3 uid="uid://kfrpxu526jro"]
+
+[ext_resource type="Script" uid="uid://bl0yje4rd1pyv" path="res://spells/spell.gd" id="1_spell"]
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="1_yoaev"]
+[ext_resource type="PackedScene" uid="uid://b2ru783sfvduw" path="res://spells/projectile/spellProjectile.tscn" id="2_proj"]
+[ext_resource type="Script" uid="uid://dqwkcjwa87for" path="res://spells/delivery/projectileDelivery.gd" id="3_delivery"]
+[ext_resource type="Script" uid="uid://dd3b0j61ybo27" path="res://spells/effects/damageEffect.gd" id="4_damage"]
+
+[sub_resource type="Resource" id="Delivery_breath"]
+script = ExtResource("3_delivery")
+projectile = ExtResource("2_proj")
+spawn_offset = Vector3(-0.043, -0.363, 0.65)
+charge_time = 1.0
+fly_range = 4.0
+fly_time = 0.25
+fade_portion = 0.814
+grow_portion = 1.0
+
+[sub_resource type="Resource" id="Effect_fire"]
+script = ExtResource("4_damage")
+
+[resource]
+script = ExtResource("1_spell")
+Name = "Flame Breath"
+description = "Spit a gout of fire at whatever stands in front of you."
+delivery = SubResource("Delivery_breath")
+effects = Array[ExtResource("1_yoaev")]([SubResource("Effect_fire")])

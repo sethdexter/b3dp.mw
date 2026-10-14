@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://idkm82xu07v1"]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="1_nmpox"]
+[ext_resource type="Script" uid="uid://uh6oeygfc46c" path="res://spells/effects/restoreEffect.gd" id="9_restore"]
+
+[sub_resource type="Resource" id="Effect_restore"]
+script = ExtResource("9_restore")
+
+[resource]
+script = ExtResource("1_item")
+Name = "Health Potion"
+id = "0020"
+weight = 1
+maxStackCount = 10
+isConsumable = true
+itemDesription = "A bitter red draught."
+effects = Array[ExtResource("1_nmpox")]([SubResource("Effect_restore")])

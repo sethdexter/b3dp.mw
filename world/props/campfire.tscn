@@ -1,0 +1,79 @@
+[gd_scene format=3 uid="uid://cc7tshoojm8aj"]
+
+[ext_resource type="PackedScene" uid="uid://bglf56do7dwkh" path="res://assets/models/torch.glb" id="1_torch"]
+[ext_resource type="PackedScene" uid="uid://c84dpopa721nd" path="res://effects/torchFire.tscn" id="2_fire"]
+[ext_resource type="Script" uid="uid://cyixdg3yvq6vo" path="res://effects/firelight.gd" id="3_light"]
+[ext_resource type="PackedScene" path="res://effects/smoke.tscn" id="4_smoke"]
+[ext_resource type="PackedScene" path="res://effects/smokeColumn.tscn" id="5_column"]
+
+[sub_resource type="CylinderShape3D" id="Shape_fire"]
+height = 0.6
+radius = 0.6
+
+[node name="campfire" type="StaticBody3D" unique_id=692264145]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=759108274]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape = SubResource("Shape_fire")
+
+[node name="a" type="Node3D" parent="." unique_id=1066349109]
+transform = Transform3D(-0.20979726, -0.6371657, -1.5684764, -1.2310685, 0.3766858, -2.2836065, 2.7277238, 0.120954394, -1.1512221, 0.6371354, 0.19038197, -0.19639358)
+
+[node name="model" parent="a" unique_id=1850135614 instance=ExtResource("1_torch")]
+transform = Transform3D(0.99953914, 0.029909767, 0.005182117, -0.02998954, 0.99942094, 0.016071543, -0.004698366, -0.016219538, 0.99985737, 0, 0.45, 0)
+
+[node name="log1" type="Node3D" parent="." unique_id=786958566]
+transform = Transform3D(-2.5264258, -0.3153515, -1.0129528, 0.37170842, 0.34388423, -2.6401072, 1.5744894, -0.5872049, -1.0020615, 0.17747924, 0.06845507, 0.30999875)
+
+[node name="model" parent="log1" unique_id=1882780292 instance=ExtResource("1_torch")]
+transform = Transform3D(1.0000001, -7.450581e-09, -1.4901161e-08, 7.1525574e-07, 1, 0, -8.940697e-08, -2.2351742e-08, 1, -0.01726583, 0.31132975, -0.051929325)
+
+[node name="log2" type="Node3D" parent="." unique_id=1508605126]
+transform = Transform3D(-0.51164275, 0.73239535, -0.3940423, 2.4383254, 0.16105737, 1.6247361, 1.6712606, -0.010748975, -2.4910176, -0.5739144, 0.1334264, 0.006545067)
+
+[node name="model" parent="log2" unique_id=1147968399 instance=ExtResource("1_torch")]
+transform = Transform3D(0.99754477, 0.06956521, 0.008066386, -0.0692484, 0.9970087, -0.034323335, -0.010430127, 0.033678673, 0.99937785, 0.05183205, 0.79018104, 0.017768662)
+
+[node name="log3" type="Node3D" parent="." unique_id=1948743176]
+transform = Transform3D(2.9601803, 0.09966801, 0.27922505, -1.2514889e-07, 0.4302, -2.4575, -0.486807, 0.6062422, 1.6978741, -0.1917, 0.104118496, -0.4260493)
+
+[node name="model" parent="log3" unique_id=1922258982 instance=ExtResource("1_torch")]
+transform = Transform3D(0.99849224, 0.05104375, -0.020193607, -0.05229032, 0.9963863, -0.066937685, 0.016703844, 0.06789267, 0.99755305, 0.06014211, 0.6612102, 0.0030569285)
+
+[node name="log4" type="Node3D" parent="." unique_id=484107463]
+transform = Transform3D(1.953095, -0.43749642, -1.4568927, 0.4350565, 0.54270977, -2.0245135, 2.235222, 0.27668655, 1.6670527, 0.1844, 0.09113523, -0.2615)
+
+[node name="model" parent="log4" unique_id=1898884896 instance=ExtResource("1_torch")]
+transform = Transform3D(0.99137914, 0.112738125, 0.06676386, -0.09534359, 0.97024035, -0.22258437, -0.08987065, 0.21429908, 0.9726252, 0.033650607, 0.71397513, 0.13123977)
+
+[node name="flames" parent="." unique_id=1048313632 instance=ExtResource("2_fire")]
+transform = Transform3D(4.805, 0, 0, 0, 4.805, 0, 0, 0, 4.805, 0, 0.57235724, 0)
+visible = false
+
+[node name="flames2" parent="." unique_id=1194029680 instance=ExtResource("2_fire")]
+transform = Transform3D(2.875, 0, 0, 0, 2.875, 0, 0, 0, 4.4308643, 0.12, 0.6997901, -0.05099103)
+
+[node name="smoke" parent="flames2" unique_id=1873420662 instance=ExtResource("4_smoke")]
+transform = Transform3D(0.09003978, 0, 0, 0, 0.13635859, 0, 0, 0, 0.06630903, -0.001346603, 0.34683096, -0.005972404)
+transparency = 0.93
+amount = 56
+amount_ratio = 0.6494
+max_ratio = 0.89
+period = 4.0
+
+[node name="smokeColumn" parent="flames2" unique_id=1873420663 instance=ExtResource("5_column")]
+transform = Transform3D(-0.08347826, 0, 0, 0, -0.08347826, 0, 0, 0, -0.054165475, 0.011189818, 0.09939782, -0.0010188706)
+skeleton = NodePath("../..")
+
+[node name="firelight" type="OmniLight3D" parent="." unique_id=1893124499]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+light_color = Color(0.92, 0.55, 0.22, 1)
+light_energy = 12.584
+light_indirect_energy = 9.997
+light_size = 1.0
+shadow_enabled = true
+omni_range = 4096.0
+script = ExtResource("3_light")
+min_energy = 2.085
+max_energy = 20.0
+flicker_speed = 0.4
