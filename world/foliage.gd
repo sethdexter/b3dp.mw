@@ -13,6 +13,8 @@ const GRASS := 0 # texture ids, matching the texture_list in test_level.tscn
 const SEA_LEVEL := -10.0
 const ROCK_SCENES := ["res://world/props/rocks/RockA.tscn", "res://world/props/rocks/RockB.tscn", "res://world/props/rocks/RockC.tscn"]
 
+const ROCK_CHUNK := 400.0 # metres per rock chunk
+
 var _grass: MultiMeshInstance3D
 var _shoots: MultiMeshInstance3D
 var _center := Vector3.INF
@@ -21,6 +23,9 @@ var _task := -1
 var _result: Array[PackedFloat32Array]
 var _base_shift := int(log(Terrain3DUtil.enc_base(1)) / log(2.0) + 0.5) # control map bit offsets
 var _blend_shift := int(log(Terrain3DUtil.enc_blend(1)) / log(2.0) + 0.5)
+var _rock_bodies := {} # Vector2i chunk -> physics body RID
+var _rock_obstacles := []
+var _rock_shapes := []
 
 func _ready() -> void:
 	assert(terrain, "Foliage needs the Terrain3D node")
@@ -134,16 +139,26 @@ func _strand_texture(strands: int, base: Color, tip: Color, lean: float) -> Text
 				img.set_pixel(clampi(x + 1, 0, 15), H - 1 - y, base.lerp(tip, t))
 	return ImageTexture.create_from_image(img)
 
+## Rocks are drawn with one MultiMesh per rock type per chunk and collide through bare physics-server bodies
+## (one per chunk), so tens of thousands of rocks cost a few hundred draw calls and no scene nodes.
 func _scatter_rocks() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = rock_seed
-	var scenes := ROCK_SCENES.map(func(path): return load(path))
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = load("res://assets/terrain/lowres/rock030_alb_ht_96.png")
 	mat.albedo_color = Color(0.55, 0.5, 0.45)
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	mat.uv1_scale = Vector3(2, 2, 2)
 	mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	var protos := [] # per rock type: [mesh, mesh offset, collision shape, shape offset]
+	for path in ROCK_SCENES:
+		var inst: Node3D = load(path).instantiate()
+		var mi: MeshInstance3D = inst.find_children("*", "MeshInstance3D")[0]
+		var cs: CollisionShape3D = inst.find_children("*", "CollisionShape3D")[0]
+		protos.append([mi.mesh, mi.transform, cs.shape, cs.transform])
+		inst.queue_free()
+	var visuals := {} # Vector3i(chunk x, chunk z, rock type) -> Array[Transform3D]
+	var space := get_world_3d().space
 	var placed := 0
 	for i in rock_count * 4:
 		if placed >= rock_count:
@@ -152,16 +167,48 @@ func _scatter_rocks() -> void:
 		p.y = terrain.data.get_height(p)
 		if is_nan(p.y) or p.y < SEA_LEVEL + 1.0 or Vector2(p.x, p.z).length() < 60.0: # keep spawn clear
 			continue
-		var rock: Node3D = scenes[rng.randi() % scenes.size()].instantiate()
+		var type := rng.randi() % protos.size()
 		var s := rng.randf_range(0.15, 0.9) if rng.randf() < 0.85 else rng.randf_range(1.0, 2.0) # mostly small, a few boulders
-		rock.transform = Transform3D(Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)).scaled(Vector3.ONE * s), p - Vector3.UP * s)
-		for mesh: MeshInstance3D in rock.find_children("*", "MeshInstance3D"):
-			mesh.material_override = mat
-			mesh.visibility_range_end = 350.0 # fog hides them by then; saves most of the 700 draw calls
-		rock.add_to_group("navmesh_static") # mobs path around it (never moves, so navBaker indexes it once)
-		add_child(rock)
+		var xform := Transform3D(Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU)).scaled(Vector3.ONE * s), p - Vector3.UP * s)
+		var cell := Vector2i(floori(p.x / ROCK_CHUNK), floori(p.z / ROCK_CHUNK))
+		var key := Vector3i(cell.x, cell.y, type)
+		if not visuals.has(key):
+			visuals[key] = []
+		visuals[key].append(xform * protos[type][1])
+		if not _rock_bodies.has(cell):
+			var body := PhysicsServer3D.body_create()
+			PhysicsServer3D.body_set_mode(body, PhysicsServer3D.BODY_MODE_STATIC)
+			PhysicsServer3D.body_set_collision_layer(body, 1)
+			PhysicsServer3D.body_set_collision_mask(body, 3)
+			PhysicsServer3D.body_set_space(body, space)
+			_rock_bodies[cell] = body
+		var shape_xform: Transform3D = xform * protos[type][3]
+		PhysicsServer3D.body_add_shape(_rock_bodies[cell], protos[type][2].get_rid(), shape_xform)
+		_rock_obstacles.append([protos[type][2], shape_xform])
 		placed += 1
+	_rock_shapes = protos.map(func(proto): return proto[2]) # keep the shapes alive while the bodies use them
+	for key: Vector3i in visuals:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = protos[key.z][0]
+		mm.instance_count = visuals[key].size()
+		for i in visuals[key].size():
+			mm.set_instance_transform(i, visuals[key][i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = mat
+		mmi.visibility_range_end = 350.0 + ROCK_CHUNK * 0.71 # fog hides rocks by ~350 m; range is measured to the chunk centre
+		mmi.top_level = true
+		add_child(mmi)
+	add_to_group("navmesh_static") # mobs path around rocks; navBaker reads them through get_nav_obstacles()
+
+## [Shape3D, world Transform3D] for every rock, for navBaker.
+func get_nav_obstacles() -> Array:
+	return _rock_obstacles
 
 func _exit_tree() -> void:
 	if _task != -1:
 		WorkerThreadPool.wait_for_task_completion(_task)
+	for body: RID in _rock_bodies.values():
+		PhysicsServer3D.free_rid(body)
+	_rock_bodies.clear()

@@ -339,7 +339,7 @@ light_angular_distance = 0.8
 light_cull_mask = 4294967293
 shadow_enabled = true
 directional_shadow_mode = 0
-directional_shadow_max_distance = 150.0
+directional_shadow_max_distance = 80.0
 
 [node name="static_cam" type="Camera3D" parent="." unique_id=128732885]
 transform = Transform3D(-0.933723, -0.127383, 0.334566, 0.0313036, 0.901922, 0.430763, -0.356624, 0.412687, -0.838158, 7.08049, 5.10124, -4.21042)

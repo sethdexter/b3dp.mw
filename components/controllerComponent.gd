@@ -23,8 +23,12 @@ var current_interactable = null
 @export var run_speed: float = 3.8
 ## Hold "walk_run_modifier" (Shift) to sprint.
 @export var sprint_speed: float = 6.2
-@export var acceleration: float = 35.0
-@export var deceleration: float = 40.0
+## Overall weight of movement: 0 = instant start/stop, 1 = default, 2 = twice as slow to get going and to stop.
+@export_range(0.0, 3.0, 0.05) var momentum: float = 1.0
+## Seconds to reach full speed from standing (at momentum 1).
+@export var accel_time: float = 0.35
+## Seconds to coast to a stop from full speed after letting go (at momentum 1).
+@export var stop_time: float = 0.3
 
 @export_category("Dash")
 ## Short burst in the move direction ("dash", Alt).
@@ -153,15 +157,17 @@ func handle_movement(delta: float) -> void:
 			if stats:
 				stats.spend_stamina(sprint_stamina_per_sec * delta)
 
-		if transform_dir != Vector3.ZERO:
-			var target_vel := transform_dir * effective_speed
-			var rate := 1.0 - exp(-acceleration * delta)
-			character.velocity.x = lerp(character.velocity.x, target_vel.x, rate)
-			character.velocity.z = lerp(character.velocity.z, target_vel.z, rate)
+		# Steady push toward the target velocity: ramps up from a standstill and coasts down after release.
+		var target_vel := transform_dir * effective_speed
+		var flat := Vector3(character.velocity.x, 0.0, character.velocity.z)
+		var ramp := accel_time if transform_dir != Vector3.ZERO else stop_time
+		ramp *= momentum
+		if ramp <= 0.0:
+			flat = target_vel
 		else:
-			var rate := 1.0 - exp(-deceleration * delta)
-			character.velocity.x = lerp(character.velocity.x, 0.0, rate)
-			character.velocity.z = lerp(character.velocity.z, 0.0, rate)
+			flat = flat.move_toward(target_vel, maxf(effective_speed, get_current_speed()) / ramp * delta)
+		character.velocity.x = flat.x
+		character.velocity.z = flat.z
 
 ## Walk (toggled), run (default) or sprint (hold modifier).
 func get_current_speed() -> float:
@@ -182,12 +188,27 @@ func _slope_speed_scale() -> float:
 	var slope_factor := character.get_floor_normal().dot(Vector3.UP)
 	return remap(clamp(slope_factor, 0.0, 1.0), 0.0, 1.0, min_slope_speed_scale, 1.0)
 
+var _pressed_at := {} # move action -> msec it was last pressed
+
+func _input(event: InputEvent) -> void:
+	if event.is_echo():
+		return
+	for action in ["move_left", "move_right", "move_forward", "move_back", "ui_left", "ui_right", "ui_up", "ui_down"]:
+		if InputMap.has_action(action) and event.is_action_pressed(action):
+			_pressed_at[action] = Time.get_ticks_msec()
+
+## -1..1 along one axis. Holding both opposite keys keeps moving toward the one pressed first instead of stopping.
+func _axis(negative: String, positive: String) -> float:
+	if Input.is_action_pressed(negative) and Input.is_action_pressed(positive):
+		return 1.0 if _pressed_at.get(positive, 0) < _pressed_at.get(negative, 0) else -1.0
+	return Input.get_axis(negative, positive)
+
 ## World-space move direction from WASD, flattened to the ground plane.
 func get_move_direction() -> Vector3:
 	if InputMap.has_action("move_left"):
-		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+		input_dir = Vector2(_axis("move_left", "move_right"), _axis("move_forward", "move_back")).limit_length(1.0)
 	else:
-		input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+		input_dir = Vector2(_axis("ui_left", "ui_right"), _axis("ui_up", "ui_down")).limit_length(1.0)
 
 	var basis_source: Basis = camera_node.global_transform.basis if camera_node else character.global_transform.basis
 	var forward := basis_source.z

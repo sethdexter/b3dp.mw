@@ -24,6 +24,8 @@ extends Node
 ## Fraction of the swing spent winding up and striking; the rest is the return to rest (0-1).
 ## The blade can connect from the start of the strike until the swing ends.
 @export_range(0.0, 1.0) var hit_moment: float = 0.45
+## Last fraction of the swing (during the return to rest) where clicking again starts the next swing right away.
+@export_range(0.0, 0.5) var chain_window: float = 0.3
 
 @export_group("Editor preview")
 ## Weapon to hold in the preview (an Item .tres). Its attackSpeed sets the timeline length.
@@ -46,6 +48,8 @@ extends Node
 		_clear_preview()
 
 var _busy := false
+var _swing_tween: Tween
+var _chain_at_msec := 0 # from this time the current swing can be interrupted by the next one
 var _rest_rotation := Vector3.ZERO
 var _rest_position := Vector3.ZERO
 var _blade_weapon: WeaponItem # set while the blade can connect
@@ -88,7 +92,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		swing()
 
 func swing() -> void:
-	if _busy:
+	if _busy and Time.get_ticks_msec() < _chain_at_msec:
 		return
 	var weapon := _weapon()
 	if weapon == null:
@@ -98,20 +102,24 @@ func swing() -> void:
 	if stats and not stats.has_stamina(swing_stamina_cost):
 		print("Too tired to swing.")
 		return
+	var s: Resource = _pick_swing(weapon)
+	if not swing_pivot or not s:
+		return
 	if stats:
 		stats.spend_stamina(swing_stamina_cost)
+	if _swing_tween and _swing_tween.is_valid():
+		_swing_tween.kill() # chaining: the next swing winds up from wherever the last one got to
+	_blade_weapon = null
 	_busy = true
 
 	# attackSpeed = seconds per swing (0.4 by default).
 	var duration := maxf(0.15, weapon.attackSpeed)
 	var windup := duration * hit_moment
 	var recover := duration - windup
+	_chain_at_msec = Time.get_ticks_msec() + int(duration * (1.0 - chain_window) * 1000.0)
 
-	var s: Resource = _pick_swing(weapon)
-	if not swing_pivot or not s:
-		_busy = false
-		return
 	var t := create_tween()
+	_swing_tween = t
 	t.tween_property(swing_pivot, "rotation_degrees", _rest_rotation + s.windup_rotation, windup * 0.6) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	t.parallel().tween_property(swing_pivot, "position", _rest_position + s.windup_offset, windup * 0.6) \
@@ -131,7 +139,9 @@ func swing() -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.parallel().tween_property(swing_pivot, "position", _rest_position, recover) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	await t.finished
+	t.tween_callback(_end_swing) # not awaited: a chained swing kills this tween, and a killed tween never finishes
+
+func _end_swing() -> void:
 	_blade_weapon = null
 	_busy = false
 

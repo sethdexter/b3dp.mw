@@ -10,7 +10,7 @@ extends Node3D
 @export var variants := 6 # distinct tree meshes
 @export var tree_seed := 3
 @export var bark_color := Color(0.665, 0.341, 0.239, 1.0)
-@export var view_distance := 1500.0 # chunks further than this aren't drawn
+@export var view_distance := 1000.0 # chunks further than this aren't drawn (fog hides them)
 @export var tree_scale := 1.0 # size multiplier (scaling the node itself does nothing; trees are placed in world space)
 @export_group("Bark")
 @export_range(0.0, 1.0) var tree_color_variance := 0.15 # how much each tree's tint differs from bark_color
@@ -18,7 +18,7 @@ extends Node3D
 @export_range(4, 128) var bark_resolution := 32 # bark texture width in pixels (height is twice this)
 
 const SIDES := 6 # low poly: hexagonal branches
-const CHUNK := 500.0 # metres per scatter chunk
+const CHUNK := 250.0 # metres per scatter chunk
 const SEA_LEVEL := -10.0
 const MAX_HEIGHT := 200.0 # no trees up on the mountains
 const COLLIDE_CELL := 50.0 # metres per trunk lookup cell
