@@ -15,4 +15,5 @@ weight = 1
 maxStackCount = 10
 isConsumable = true
 itemDesription = "A bitter red draught."
+value = 12
 effects = Array[ExtResource("1_nmpox")]([SubResource("Effect_restore")])

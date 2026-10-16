@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="Item" format=3 uid="uid://bv3lx35660quv"]
 
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="1_3dj78"]
 [ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
 
 [resource]
@@ -11,5 +12,6 @@ maxStackCount = 1
 equippableSlots = Array[String](["head"])
 isEquippable = true
 itemDesription = "Boiled leather, cracked at the brim."
+value = 10
 armorRating = 1
 armorSkill = "light_armor"

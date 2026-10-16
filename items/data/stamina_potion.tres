@@ -16,4 +16,5 @@ weight = 1
 maxStackCount = 10
 isConsumable = true
 itemDesription = "Tastes of honey and salt."
+value = 10
 effects = Array[ExtResource("1_7axan")]([SubResource("Effect_restore")])

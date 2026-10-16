@@ -16,6 +16,8 @@ class_name Item
 @export var isConsumable   := false
 @export var isPickupable   := false
 @export var itemDesription := "defualt item despription."
+## Base price in coins. Traders sell at more and buy at less (see ContainerComponent shop settings).
+@export var value := 1
 
 @export_group("Held (first person)")
 ## Scene shown in hand when equipped. Falls back to itemScene.

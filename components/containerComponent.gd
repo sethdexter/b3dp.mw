@@ -6,6 +6,12 @@ extends Node
 ## Input (scroll / take / store) is handled by the player's PlayerInventoryUI.
 
 signal opened
+## A trader's wares instead of a chest: taking an item costs coins, putting one in pays you.
+@export var shop := false
+## Traders sell at value x this...
+@export_range(1.0, 5.0, 0.05) var sell_markup := 1.5
+## ...and buy at value x this (at least 1 coin).
+@export_range(0.0, 1.0, 0.05) var buy_ratio := 0.5
 signal closed
 
 ## Items placed in the container at start: { "item_id": amount }

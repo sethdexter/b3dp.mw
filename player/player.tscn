@@ -18,6 +18,8 @@
 [ext_resource type="Script" uid="uid://b2jj6yvlyk65p" path="res://components/headBobComponent.gd" id="70_headbob"]
 [ext_resource type="Script" uid="uid://b6lh6rpwkevbm" path="res://components/meleeSwing.gd" id="80_swing"]
 [ext_resource type="Resource" uid="uid://bodek4g5ywk66" path="res://items/data/black_iron_sword.tres" id="82_sword"]
+[ext_resource type="Script" path="res://components/needsComponent.gd" id="90_needs"]
+[ext_resource type="Script" path="res://components/darknessComponent.gd" id="91_dark"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
 height = 3.26727
@@ -64,7 +66,10 @@ inventoryComponent = NodePath("inventory")
 equipmentComponent = NodePath("equipment")
 controllerComponent = NodePath("controller")
 starting_items = Dictionary[String, int]({
-"torch": 1
+"torch": 1,
+"bread": 2,
+"water_skin": 2,
+"coin": 25
 })
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=739416636]
@@ -83,7 +88,7 @@ transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 script = ExtResource("8_held")
 equipment = NodePath("../../equipment")
 head_bob = NodePath("../headBob")
-right_pitch_lag = 0.06
+right_pitch_lag = 0.4
 right_turn_catch_up = 13.5
 right_bob_sway = 0.016
 left_pitch_lag = 0.81
@@ -102,7 +107,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18061912, -0.19808516, -0.
 script = ExtResource("70_headbob")
 character = NodePath("../..")
 camera_node = NodePath("..")
-bob_frequency = 2.3000000000000003
+sway_ratio = 0.8
+bob_frequency = 0.85
 
 [node name="controller" parent="." unique_id=310282654 node_paths=PackedStringArray("character", "camera_node", "interaction_raycast") instance=ExtResource("2_1jxqw")]
 character = NodePath("..")
@@ -116,6 +122,12 @@ currentCharacter = NodePath("..")
 [node name="stats" type="Node" parent="." unique_id=1006549031 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("3_mbq3d")
 currentCharacter = NodePath("..")
+
+[node name="needs" type="Node" parent="."]
+script = ExtResource("90_needs")
+
+[node name="darkness" type="Node" parent="."]
+script = ExtResource("91_dark")
 
 [node name="skills" type="Node" parent="." unique_id=1897398979 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("6_2vq5e")
@@ -157,8 +169,8 @@ swings = Dictionary[String, Resource]({
 })
 chain_window = 0.25
 preview_item = ExtResource("82_sword")
-preview_swing = "sword_forward"
-preview_timeline = 0.23540502429116603
+preview_swing = "sword_left"
+preview_timeline = 0.2949954456479774
 preview_play = true
 show_preview = true
 

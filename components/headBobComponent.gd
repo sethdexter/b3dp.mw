@@ -16,6 +16,8 @@ extends Node
 ## Speed that gives a full-size bob (the controller's run speed). Faster = bigger, up to max_scale.
 @export_range(0.5, 10.0, 0.1, "suffix:m/s") var reference_speed: float = 3.8
 @export_range(1.0, 3.0, 0.05) var max_scale: float = 1.6
+## How far the view sinks when fully crouched.
+@export_range(0.0, 2.0, 0.05, "suffix:m") var crouch_drop: float = 1.0
 ## How fast the bob eases in and out.
 @export_range(1.0, 30.0, 0.5) var smoothing: float = 8.0
 
@@ -39,7 +41,9 @@ func _process(delta: float) -> void:
 	_phase = fmod(_phase + delta * TAU * bob_frequency * maxf(_weight, 0.3), TAU * 2.0)
 	var amp := bob_amount * _weight
 	# dip twice per stride, sway side to side once
-	camera_node.position = _camera_rest + Vector3(sin(_phase) * amp * sway_ratio, -absf(sin(_phase)) * amp, 0.0)
+	var controller = character.get("controllerComponent")
+	var crouch: float = controller.crouch_blend if controller else 0.0
+	camera_node.position = _camera_rest + Vector3(sin(_phase) * amp * sway_ratio, -absf(sin(_phase)) * amp - crouch_drop * crouch, 0.0)
 
 ## Offset for a held item that sways `sway` metres and trails the camera's bob by `lag` radians of the stride.
 func held_offset(sway: float, lag: float) -> Vector3:

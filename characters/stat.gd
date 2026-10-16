@@ -11,6 +11,8 @@ var majorAttribute: Attribute
 var minorAttribute: Attribute
 
 var currentValue: int
+## While true, the value can only go up (testing: SimClock makes the player immortal when sped up).
+var locked := false
 
 # Default args so the engine can instantiate/duplicate this Resource.
 func _init(p_Name: String = "Stat", p_major: Attribute = null, p_minor: Attribute = null):
@@ -34,6 +36,8 @@ func get_max_value() -> int:
 	return max(1, int(base))
 
 func change_current(delta: int):
+	if locked and delta < 0:
+		return
 	var was_alive := currentValue > 0
 	currentValue = clamp(currentValue + delta, 0, get_max_value())
 

@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_jyk7h")
+value = 40
 Name = "Necklace"
 id = "0005"
 weight = 1

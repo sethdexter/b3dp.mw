@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="Item" format=3]
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://c1g52tqe7edhb"]
 
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="1_7n6px"]
 [ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
 
 [resource]
@@ -11,7 +12,7 @@ maxStackCount = 1
 equippableSlots = Array[String](["back"])
 isEquippable = true
 itemDesription = "Weathered wool, warm against the road."
-armorRating = 0
+value = 15
 attributeModifiers = Dictionary[String, int]({
 "vigor": 1
 })

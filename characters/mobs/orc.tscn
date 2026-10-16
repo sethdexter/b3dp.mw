@@ -61,7 +61,8 @@ respawns = false
 corpse_time = 15.0
 loot = Dictionary[String, int]({
 "black_iron_sword": 1,
-"stamina_potion": 2
+"stamina_potion": 2,
+"raw_meat": 3
 })
 wobble_degrees = 3.0
 

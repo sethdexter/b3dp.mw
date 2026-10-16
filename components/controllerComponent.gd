@@ -23,6 +23,12 @@ var current_interactable = null
 @export var run_speed: float = 3.8
 ## Hold "walk_run_modifier" (Shift) to sprint.
 @export var sprint_speed: float = 6.2
+## Speed while holding crouch.
+@export var crouch_speed: float = 1.6
+## Seconds to sink into / rise out of a crouch.
+@export var crouch_time: float = 0.18
+## Metres the collider shrinks when fully crouched (feet stay planted), so you fit under things.
+@export var crouch_shrink: float = 1.0
 ## Overall weight of movement: 0 = instant start/stop, 1 = default, 2 = twice as slow to get going and to stop.
 @export_range(0.0, 3.0, 0.05) var momentum: float = 1.0
 ## Seconds to reach full speed from standing (at momentum 1).
@@ -76,6 +82,14 @@ func _ready() -> void:
 
 	if not interaction_raycast:
 		push_error("ControllerComponent: interaction_raycast not assigned in the Inspector.")
+
+	_body_shape = character.get_node_or_null("CollisionShape3D") as CollisionShape3D if character else null
+	if _body_shape and _body_shape.shape is CapsuleShape3D:
+		_body_shape.shape = _body_shape.shape.duplicate() # this body's own capsule, safe to resize
+		_stand_height = _body_shape.shape.height
+		_stand_y = _body_shape.position.y
+	else:
+		_body_shape = null
 
 func _is_dead() -> bool:
 	return character != null and character.get("is_dead") == true
@@ -169,8 +183,42 @@ func handle_movement(delta: float) -> void:
 		character.velocity.x = flat.x
 		character.velocity.z = flat.z
 
-## Walk (toggled), run (default) or sprint (hold modifier).
+## 0 = standing, 1 = fully crouched (hold "crouch": C or Ctrl). Eases so the view sinks instead of snapping.
+var crouch_blend := 0.0
+
+func _process(delta: float) -> void:
+	var held := InputMap.has_action("crouch") and Input.is_action_pressed("crouch") and not _is_dead()
+	if not held and crouch_blend > 0.0 and _head_blocked():
+		held = true # something overhead: stay down until there's room to stand
+	crouch_blend = move_toward(crouch_blend, 1.0 if held else 0.0, delta / crouch_time)
+	if _body_shape:
+		var shrink := crouch_shrink * crouch_blend
+		_body_shape.shape.height = _stand_height - shrink
+		_body_shape.position.y = _stand_y - shrink * 0.5 # keep the feet where they were
+
+var _body_shape: CollisionShape3D
+var _stand_height := 0.0
+var _stand_y := 0.0
+var _stand_check: CapsuleShape3D
+
+## Would the standing capsule hit anything right now?
+func _head_blocked() -> bool:
+	if not _body_shape:
+		return false
+	if not _stand_check:
+		_stand_check = _body_shape.shape.duplicate()
+	_stand_check.height = _stand_height - 0.3 # trimmed 15 cm at each end so the floor itself doesn't count
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = _stand_check
+	q.transform = character.global_transform * Transform3D(_body_shape.transform.basis, Vector3(0, _stand_y + 0.15, 0))
+	q.exclude = [character.get_rid()]
+	q.margin = 0.02
+	return not character.get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+## Crouched, walk (toggled), run (default) or sprint (hold modifier).
 func get_current_speed() -> float:
+	if crouch_blend > 0.5:
+		return crouch_speed
 	if _is_sprinting():
 		return sprint_speed
 	return walk_speed if is_walking else run_speed

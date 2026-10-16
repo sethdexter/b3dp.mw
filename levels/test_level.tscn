@@ -33,6 +33,8 @@
 [ext_resource type="Texture2D" uid="uid://cb36wuxx0balr" path="res://assets/textures/effects/ash_16.png" id="60_ash"]
 [ext_resource type="PackedScene" uid="uid://cc7tshoojm8aj" path="res://world/props/campfire.tscn" id="80_campfire"]
 [ext_resource type="Script" uid="uid://bq20qwimdqhek" path="res://world/navBaker.gd" id="90_nav"]
+[ext_resource type="Script" uid="uid://do8qit37xjrgh" path="res://world/camps.gd" id="95_camps"]
+[ext_resource type="Script" uid="uid://5y0ea7ofsf2d" path="res://world/wind.gd" id="96_wind"]
 
 [sub_resource type="ParticleProcessMaterial" id="PPM_ash"]
 particle_flag_rotate_y = true
@@ -120,8 +122,8 @@ sky = SubResource("Sky_tdgch")
 sky_rotation = Vector3(3.22886, 1.16763, -1.35961)
 ambient_light_source = 2
 ambient_light_color = Color(0.5705187, 0.4213616, 0.29342407, 1)
-ambient_light_sky_contribution = 0.56
-ambient_light_energy = 0.14
+ambient_light_sky_contribution = 0.22
+ambient_light_energy = 0.02
 fog_enabled = true
 fog_light_color = Color(0.26382065, 0.18174137, 0.15310907, 1)
 fog_light_energy = 0.32
@@ -283,7 +285,10 @@ script = ExtResource("1_rmski")
 transform = Transform3D(-0.167199, -3.8935e-08, -0.985923, -5.96048e-08, 1, -2.93828e-08, 0.985923, 5.3853e-08, -0.167199, 2.1740897, 1.8016133, -0.4484687)
 starting_items = Dictionary[String, int]({
 "black_iron_sword": 1,
-"torch": 1
+"bread": 2,
+"coin": 25,
+"torch": 1,
+"water_skin": 2
 })
 
 [node name="Decal" type="Decal" parent="character" unique_id=2076398385]
@@ -332,7 +337,7 @@ resolution = 0
 [node name="skylight" type="DirectionalLight3D" parent="." unique_id=579874614]
 transform = Transform3D(0.4526061, 0.64166707, 0.619202, 0.3067914, -0.7640599, 0.56753117, 0.83727336, -0.06690258, -0.5426762, -37.7211, 16.8838, 9.96233)
 light_color = Color(1, 0.95, 0.85, 1)
-light_energy = 0.3
+light_energy = 0.01
 light_indirect_energy = 6.735
 light_volumetric_fog_energy = 0.0
 light_angular_distance = 0.8
@@ -370,11 +375,22 @@ tree_scale = 12.0
 tree_color_variance = 0.051
 pixel_variance = 0.18
 
+[node name="Wind" type="Node" parent="." unique_id=2138469017]
+script = ExtResource("96_wind")
+
+[node name="Camps" type="Node3D" parent="." unique_id=1415928770 node_paths=PackedStringArray("terrain", "trees")]
+script = ExtResource("95_camps")
+preview_full = true
+terrain = NodePath("../Terrain3D")
+trees = NodePath("../DeadTrees")
+remains_loot = PackedStringArray("bread", "water_skin", "dried_meat", "torch", "health_potion", "stamina_potion", "coin", "coin", "rusty_sword", "leather_cap")
+second_piece_chance = 0.1
+
 [node name="campfire" parent="." unique_id=1873420661 instance=ExtResource("80_campfire")]
 transform = Transform3D(1, 0, 0, 0, 0.9760639, 0.21748397, 0, -0.21748397, 0.9760639, -10.85, -0.29267132, -55.083427)
 
 [node name="Sea" type="MeshInstance3D" parent="." unique_id=1873420652]
-transform = Transform3D(0.22980253, 0, -0.9732373, 0, 1, 0, 0.9732373, 0, 0.22980253, 0, -10, 0)
+transform = Transform3D(0.22980253, 0, -0.9732373, 0, 1, 0, 0.9732373, 0, 0.22980253, -2.0576172, -14.894608, 4.746277)
 mesh = SubResource("PlaneMesh_sea")
 
 [node name="testscene" type="StaticBody3D" parent="." unique_id=2037913265 groups=["navmesh"]]

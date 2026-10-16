@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://b6tcneq568qj1"]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="2_effect"]
+[ext_resource type="Script" uid="uid://c5u7njgmnggr4" path="res://spells/effects/nourishEffect.gd" id="3_nourish"]
+
+[sub_resource type="Resource" id="Effect_nourish"]
+script = ExtResource("3_nourish")
+food = 35.0
+
+[resource]
+script = ExtResource("1_item")
+Name = "Bread"
+id = "0030"
+weight = 1
+maxStackCount = 10
+isConsumable = true
+itemDesription = "A heel of grey bread, hard as bark."
+value = 3
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_nourish")])

@@ -152,6 +152,8 @@ func _activate(whole_stack: bool) -> void:
 		_toggle_equip(item)
 
 func _transfer(from: InventoryComponent, to: InventoryComponent, item: Item, amount: int) -> void:
+	if container and container.shop and not _pay_for(from, item, amount):
+		return
 	var equip := character.equipmentComponent
 	# Moving a whole equipped stack out of the player -> unequip it first.
 	if equip and from == character.inventoryComponent and amount >= from.inventory.get(item, 0):
@@ -160,6 +162,37 @@ func _transfer(from: InventoryComponent, to: InventoryComponent, item: Item, amo
 	var moved := from.remove_item(item, amount)
 	if moved > 0:
 		to.add_item(item, moved)
+
+## Trading with a shop container: buying takes coins from you, selling gives them. False = can't afford / won't trade.
+func _pay_for(from: InventoryComponent, item: Item, amount: int) -> bool:
+	var coin: Item = item_list.get_item_instance("coin")
+	if InventoryComponent.is_same_item(item, coin):
+		return false # coins aren't goods
+	var mine := character.inventoryComponent
+	if from == container.storage: # buying
+		var cost := ceili(item.value * container.sell_markup) * amount
+		if mine.count_item(coin) < cost:
+			Talker.notify("You can't afford that (%d coin)." % cost)
+			return false
+		var left := cost
+		for key: Item in mine.inventory.keys():
+			if left > 0 and InventoryComponent.is_same_item(key, coin):
+				left -= mine.remove_item(key, left)
+		Talker.notify("Bought %s for %d coin." % [item.Name, cost])
+		_trade_rep()
+	else: # selling
+		var pay := maxi(1, floori(item.value * container.buy_ratio)) * amount
+		mine.add_item(coin, pay)
+		Talker.notify("Sold %s for %d coin." % [item.Name, pay])
+		_trade_rep()
+	return true
+
+## Trading warms a camp to you a little (see world/minds.gd).
+func _trade_rep() -> void:
+	var person := container.get_parent().get_parent() if container else null # wares > talker > person
+	var camps = get_tree().get_first_node_in_group("camps")
+	if person and person.has_meta("folk") and camps and camps.minds:
+		camps.minds.rep(person.get_meta("folk").camp, camps.minds.rep_trade)
 
 func _toggle_equip(item: Item) -> void:
 	var equip := character.equipmentComponent

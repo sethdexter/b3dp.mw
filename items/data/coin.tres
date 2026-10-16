@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 1
+Name = "Coin"
+id = "0040"
+weight = 0
+maxStackCount = 0
+isPickupable = true
+itemDesription = "Old coin, stamped with a face nobody remembers."

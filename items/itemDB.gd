@@ -12,6 +12,14 @@ var travel_cloak: Item = preload("res://items/data/travel_cloak.tres")
 var health_potion: Item = preload("res://items/data/health_potion.tres")
 var magicka_potion: Item = preload("res://items/data/magicka_potion.tres")
 var stamina_potion: Item = preload("res://items/data/stamina_potion.tres")
+var bread: Item = preload("res://items/data/bread.tres")
+var coin: Item = preload("res://items/data/coin.tres")
+var ash_cap: Item = preload("res://items/data/ash_cap.tres")
+var raw_meat: Item = preload("res://items/data/raw_meat.tres")
+var sunken_key: Item = preload("res://items/data/sunken_key.tres")
+var dried_meat: Item = preload("res://items/data/dried_meat.tres")
+var water_skin: Item = preload("res://items/data/water_skin.tres")
+var ash_wine: Item = preload("res://items/data/ash_wine.tres")
 
 
 # --- Optional dictionary for lookup by ID ---
@@ -26,6 +34,14 @@ var item_list: Dictionary[String, Item] = {
 	"health_potion": health_potion,
 	"magicka_potion": magicka_potion,
 	"stamina_potion": stamina_potion,
+	"bread": bread,
+	"coin": coin,
+	"ash_cap": ash_cap,
+	"raw_meat": raw_meat,
+	"sunken_key": sunken_key,
+	"dried_meat": dried_meat,
+	"water_skin": water_skin,
+	"ash_wine": ash_wine,
 }
 
 func _init():

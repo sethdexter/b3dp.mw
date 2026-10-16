@@ -13,6 +13,7 @@ extends NavigationRegion3D
 var _player: Node3D
 var _baked_at := Vector3.INF
 var _baking := false
+var _task := -1
 
 func _ready() -> void:
 	assert(navigation_mesh, "navBaker needs a NavigationMesh to use as its bake settings")
@@ -40,13 +41,24 @@ func _bake_around(center: Vector3) -> void:
 	# height reads, the same way the grass does, then bakes. Keeps walking hitch-free.
 	var data: Terrain3DData = terrain.data if terrain else null
 	var spacing: float = terrain.vertex_spacing if terrain else 1.0
-	WorkerThreadPool.add_task(func():
+	var me: WeakRef = weakref(self) # the level may be gone (quit) by the time the bake finishes
+	_task = WorkerThreadPool.add_task(func():
 		if data:
 			source.add_faces(_ground_faces(data, aabb, spacing), Transform3D.IDENTITY)
 		NavigationServer3D.bake_from_source_geometry_data(mesh, source)
-		_on_baked.call_deferred(mesh))
+		if me.get_ref():
+			me.get_ref()._on_baked.call_deferred(mesh))
+
+## Quitting mid-bake crashed the engine (the worker outlived the level): wait for it first.
+func _exit_tree() -> void:
+	if _task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_task)
+		_task = -1
 
 func _on_baked(mesh: NavigationMesh) -> void:
+	if _task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_task) # already done: just releases it
+		_task = -1
 	navigation_mesh = mesh
 	_baking = false
 

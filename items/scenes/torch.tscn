@@ -5,11 +5,13 @@
 [ext_resource type="Script" uid="uid://cyixdg3yvq6vo" path="res://effects/firelight.gd" id="3_72pgl"]
 [ext_resource type="FontFile" uid="uid://bo6tac5qmet7q" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="4_kx7w4"]
 [ext_resource type="PackedScene" uid="uid://c84dpopa721nd" path="res://effects/torchFire.tscn" id="9_fire"]
+[ext_resource type="Script" path="res://items/torchBurn.gd" id="10_burn"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_kx7w4"]
 size = Vector3(0.15, 1.515, 0.125)
 
-[node name="torch" type="StaticBody3D" unique_id=723185783]
+[node name="torch" type="StaticBody3D" unique_id=723185783 groups=["light_source"]]
+script = ExtResource("10_burn")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=176879766]
 

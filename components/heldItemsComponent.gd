@@ -83,6 +83,7 @@ func _on_equipment_changed(slot: String, item: Item) -> void:
 	if node == null:
 		return
 	_make_visual_only(node)
+	node.set_meta("item", item) # e.g. a torch keeps its fuel on the item
 	node.position = item.get_held_position()
 	node.rotation_degrees = item.get_held_rotation()
 	node.scale = item.get_held_scale()

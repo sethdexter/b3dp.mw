@@ -11,6 +11,8 @@ extends Node3D
 @export var tree_seed := 3
 @export var bark_color := Color(0.665, 0.341, 0.239, 1.0)
 @export var view_distance := 1000.0 # chunks further than this aren't drawn (fog hides them)
+## The same, but in the editor (lower = much faster editor viewport; the game uses view_distance).
+@export var editor_view_distance := 300.0
 @export var tree_scale := 1.0 # size multiplier (scaling the node itself does nothing; trees are placed in world space)
 @export_group("Bark")
 @export_range(0.0, 1.0) var tree_color_variance := 0.15 # how much each tree's tint differs from bark_color
@@ -96,9 +98,19 @@ func _build() -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.material_override = mat
-		mmi.visibility_range_end = view_distance
+		mmi.visibility_range_end = editor_view_distance if Engine.is_editor_hint() else view_distance
 		mmi.top_level = true # instance transforms are world positions; set before add_child so the node's own transform is ignored
 		add_child(mmi)
+
+## True if a tree's trunk or roots reach within `clearance` metres of p (the tall inner roots: about 2x the tree scale).
+func tree_near(p: Vector3, clearance: float) -> bool:
+	var reach := 2.0 * 2.2 * tree_scale + clearance # biggest tree's roots
+	for cz in range(floori((p.z - reach) / COLLIDE_CELL), floori((p.z + reach) / COLLIDE_CELL) + 1):
+		for cx in range(floori((p.x - reach) / COLLIDE_CELL), floori((p.x + reach) / COLLIDE_CELL) + 1):
+			for t: Vector4 in _trunks.get(Vector2i(cx, cz), []):
+				if Vector2(t.x - p.x, t.z - p.z).length() < 2.0 * t.w + clearance:
+					return true
+	return false
 
 # Only trunks near the player get colliders: 80k static bodies would choke physics.
 func _process(_delta: float) -> void:

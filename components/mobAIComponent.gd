@@ -36,6 +36,8 @@ enum State { IDLE, WANDER, CHASE, RETURN }
 @export var lose_aggro_range: float = 14.0
 ## Gives up when dragged this far from home.
 @export var leash_range: float = 18.0
+## Notices you this many times further off while you're in the dark (player's DarknessComponent).
+@export_range(1.0, 4.0, 0.05) var dark_aggro_multiplier := 1.6
 @export var chase_speed: float = 3.0
 
 @export_group("Attack")
@@ -53,6 +55,8 @@ enum State { IDLE, WANDER, CHASE, RETURN }
 @export var walk_bob_degrees: float = 4.0
 
 var state: State = State.IDLE
+## Set by group AI to fight someone other than the player; falls back to the player once it's dead.
+var foe: BaseCharacter
 var is_attacking := false
 
 var _home: Vector3
@@ -98,9 +102,31 @@ func _enter(new_state: State) -> void:
 			var r := sqrt(randf()) * wander_radius
 			_target_point = _home + Vector3(cos(angle) * r, 0.0, sin(angle) * r)
 
+## Beyond this from the player it holds still: terrain and tree colliders only exist near the player.
+const SLEEP_RANGE := 50.0
+var _asleep := false
+
+## Drops it onto whatever is under it now, so it doesn't wake up inside tree roots that weren't there before.
+func _settle() -> void:
+	var from := character.global_position + Vector3.UP * 12.0
+	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 30.0)
+	q.exclude = [character.get_rid()]
+	var hit := character.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit:
+		character.global_position = hit.position + Vector3.UP * 0.05
+	character.velocity = Vector3.ZERO
+
 func _physics_process(delta: float) -> void:
 	if not character:
 		return
+	var p := _find_player()
+	if p and _flat(p.global_position - character.global_position).length() > SLEEP_RANGE:
+		character.velocity = Vector3.ZERO
+		_asleep = true
+		return
+	if _asleep:
+		_asleep = false
+		_settle()
 	if character.is_dead:
 		# Collision is off while down/dead, so don't move at all (would fall through the floor).
 		_cancel_attack()
@@ -110,7 +136,7 @@ func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
 
 	_state_time += delta
-	var player := _find_player()
+	var player := foe if is_instance_valid(foe) and not foe.is_dead else _find_player()
 	var desired := Vector3.ZERO
 	var speed := 0.0
 
@@ -172,7 +198,9 @@ func _physics_process(delta: float) -> void:
 func _try_aggro(player: BaseCharacter) -> bool:
 	if not aggressive or player == null or player.is_dead:
 		return false
-	if _flat(player.global_position - character.global_position).length() > aggro_range:
+	var dark: Node = player.get_node_or_null("darkness")
+	var reach := aggro_range * (dark_aggro_multiplier if dark and dark.get("in_dark") else 1.0)
+	if _flat(player.global_position - character.global_position).length() > reach:
 		return false
 	if needs_line_of_sight and not _can_see(player):
 		return false

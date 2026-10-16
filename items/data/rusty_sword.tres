@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="WeaponItem" format=3 uid="uid://babk2wnl5eo0m"]
 
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="1_3l1mk"]
 [ext_resource type="Script" uid="uid://bylv06u854khh" path="res://items/weaponItem.gd" id="1_gyfji"]
 [ext_resource type="PackedScene" uid="uid://cbype1dp2van0" path="res://assets/models/blackswordLATER.glb" id="9_held"]
 
@@ -18,6 +19,7 @@ maxStackCount = 1
 equippableSlots = Array[String](["right_hand"])
 isEquippable = true
 itemDesription = "rusted and dull, but heavy enough."
+value = 12
 heldScene = ExtResource("9_held")
 heldRotation = Vector3(-110, 0, 0)
 heldScale = Vector3(0.3, 0.3, 0.3)

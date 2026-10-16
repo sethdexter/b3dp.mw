@@ -5,6 +5,10 @@ extends Node3D
 @export var terrain: Terrain3D
 @export var radius := 30.0 # foliage drawn this far around the player
 @export var spacing := 0.6 # grid step between foliage candidates
+## Extra grass this close to the player: from above you see the gaps underfoot that distance hides.
+@export var near_radius := 10.0
+## How many times denser it is right at your feet (fades back to normal by near_radius).
+@export_range(1.0, 6.0, 0.5) var near_density := 3.0
 @export var rebuild_distance := 6.0 # rebuild when the player moves this far
 @export var rock_count := 700
 @export var rock_seed := 7
@@ -53,18 +57,29 @@ func _build(center: Vector3) -> Array[PackedFloat32Array]:
 	var shoots := PackedFloat32Array()
 	var rng := RandomNumberGenerator.new()
 	var data := terrain.data
-	var steps := int(radius / spacing)
-	var r2 := radius * radius
-	var gx0 := int(floor(center.x / spacing))
-	var gz0 := int(floor(center.z / spacing))
+	# pass 0: the whole patch. pass 1: a finer extra grid near the player, fading out by near_radius.
+	for pass_i in 2:
+		var s := spacing if pass_i == 0 else spacing / sqrt(maxf(near_density - 1.0, 0.01))
+		var rad := radius if pass_i == 0 else near_radius
+		if pass_i == 1 and near_density <= 1.0:
+			break
+		_scatter(center, s, rad, pass_i, grass, shoots, rng, data)
+	return [grass, shoots]
+
+func _scatter(center: Vector3, s: float, rad: float, salt: int, grass: PackedFloat32Array, shoots: PackedFloat32Array,
+		rng: RandomNumberGenerator, data: Terrain3DData) -> void:
+	var steps := int(rad / s)
+	var r2 := rad * rad
+	var gx0 := int(floor(center.x / s))
+	var gz0 := int(floor(center.z / s))
 	for gz in range(gz0 - steps, gz0 + steps + 1):
 		for gx in range(gx0 - steps, gx0 + steps + 1):
-			rng.seed = hash(Vector2i(gx, gz)) # same blades every time this spot is rebuilt
-			var p := Vector3((gx + rng.randf()) * spacing, 0, (gz + rng.randf()) * spacing)
+			rng.seed = hash(Vector3i(gx, gz, salt)) # same blades every time this spot is rebuilt
+			var p := Vector3((gx + rng.randf()) * s, 0, (gz + rng.randf()) * s)
 			var dx := p.x - center.x
 			var dz := p.z - center.z
 			var d2 := dx * dx + dz * dz
-			if d2 > r2 or rng.randf() < smoothstep(radius * 0.5, radius, sqrt(d2)): # thins out toward the edge so it fades instead of ending in a line
+			if d2 > r2 or rng.randf() < smoothstep(rad * 0.5, rad, sqrt(d2)): # thins out toward the edge so it fades instead of ending in a line
 				continue
 			var ctrl: int = data.get_control(p)
 			if (ctrl >> _blend_shift) & 0xFF > 127: # mid-blend between textures: skip
@@ -84,7 +99,6 @@ func _build(center: Vector3) -> Array[PackedFloat32Array]:
 			var sn := sin(a) * sc
 			# MultiMesh TRANSFORM_3D row layout: basis rows + origin, Y-rotation and uniform scale only
 			layer.append_array([c, 0.0, sn, p.x, 0.0, sc, 0.0, p.y, -sn, 0.0, c, p.z])
-	return [grass, shoots]
 
 func _upload(layer: MultiMeshInstance3D, buffer: PackedFloat32Array) -> void:
 	layer.multimesh.instance_count = buffer.size() / 12
