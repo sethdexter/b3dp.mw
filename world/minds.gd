@@ -3,7 +3,7 @@ extends Node
 ## made at runtime) and calls think() on each person's record now and then, near you or not.
 ##
 ## Every person has:
-##   needs     0-100, 100 = satisfied: food, light, safety, coin, belonging, faith. They drain over time and
+##   needs     0-100, 100 = satisfied: food, water, light, safety, coin, belonging, faith. They drain over time and
 ##             are topped up by where they are (a fire gives light and belonging, a camp shares food...)
 ##   traits    0-1, rolled once: greed, courage, piety, cruelty, despair
 ##   memories  a few things that happened to them: lost_kin (where), fed_by_player, player_killed_kin
@@ -16,11 +16,14 @@ extends Node
 ##   turn       a starving, cruel drifter turns bandit (alone in the dark: an Ambush)
 ##   reform     a fed, gentle bandit becomes a drifter wanderer
 ##   hunt       someone whose kin you killed, with cruelty and courage, comes after you with others like them
+##   collapse   food, water or light at 0         -> drops where they are (a Starved encounter). Fed by you or a
+##              passing drifter, they get back up; otherwise they die after collapse_time.
 ## Camps remember you too (rep): feeding, jobs and trade raise it; killing their people drops it, and a camp
 ## that hates you attacks on sight. A drifter camp whose people are all gone goes cold (a Cold Fire).
 
 @export_group("Needs drain (per minute)")
 @export_range(0.0, 20.0, 0.1) var food_drain := 2.0
+@export_range(0.0, 20.0, 0.1) var water_drain := 3.0
 @export_range(0.0, 20.0, 0.1) var light_drain := 4.0
 @export_range(0.0, 20.0, 0.1) var safety_drain := 0.5
 @export_range(0.0, 20.0, 0.1) var coin_drain := 1.0
@@ -40,6 +43,7 @@ extends Node
 @export_group("Needs refill (per minute)")
 ## At a lit camp: food (shared out), light and company. Bandit camps also live off their takings (coin).
 @export_range(0.0, 50.0, 0.5) var camp_food := 2.5
+@export_range(0.0, 50.0, 0.5) var camp_water := 20.0 # the camp's water barrel
 @export_range(0.0, 50.0, 0.5) var camp_light := 20.0
 @export_range(0.0, 50.0, 0.5) var camp_belonging := 8.0
 @export_range(0.0, 50.0, 0.5) var bandit_coin := 1.5
@@ -60,6 +64,9 @@ extends Node
 ## Chance each think that a person acts on a decision (keeps the island from changing all at once).
 @export_range(0.0, 1.0, 0.05) var act_chance := 0.35
 
+## Someone who collapses lies there this many seconds (random in the range) waiting to be rescued, then dies.
+@export var collapse_time := Vector2(150.0, 240.0)
+
 @export_group("Reputation")
 @export_range(-100, 100) var rep_fed := 15
 @export_range(-100, 100) var rep_job := 10
@@ -75,6 +82,7 @@ extends Node
 @export_range(0.0, 1.0, 0.05) var need_talk_chance := 0.5
 @export var need_lines := {
 	"food": ["I haven't eaten in days.", "If you've bread, I'll listen to anything you say."],
+	"water": ["Water. Please. Anything.", "My tongue's like ash."],
 	"light": ["The fire's dying. When it goes, so do we.", "I can't stand the dark much longer."],
 	"safety": ["They came in the night. They'll come again.", "Keep your voice down. Something's close."],
 	"coin": ["Not a coin to my name.", "Everything costs. Even the ash."],
@@ -86,7 +94,7 @@ extends Node
 
 var camps: Node
 
-const NEEDS := ["food", "light", "safety", "coin", "belonging", "faith"]
+const NEEDS := ["food", "water", "light", "safety", "coin", "belonging", "faith"]
 const TRAITS := ["greed", "courage", "piety", "cruelty", "despair"]
 
 func _ready() -> void:
@@ -119,9 +127,13 @@ func think(f, now: float) -> void:
 	var minutes: float = (now - f.think_t + think_every) / 60.0
 	f.think_t = now + think_every
 	_drain_and_refill(f, minutes)
+	var c = f.camp
+	var dark: bool = f.needs.light <= 0.0 and c.kind == "drifter" # bandits carry torches and know the dark
+	if c.wild != "starved" and (dark or minf(f.needs.food, f.needs.water) <= 0.0):
+		_become(f, "starved", "drifter", false, now) # collapses where they stand
+		return
 	if now < f.locked_until or randf() > act_chance:
 		return
-	var c = f.camp
 	if c.wild == "" and not c.roaming:
 		_decide_in_camp(f, now)
 	elif c.wild == "wanderer" and c.job.get("settles", false):
@@ -135,7 +147,7 @@ func _drain_and_refill(f, minutes: float) -> void:
 	var c = f.camp
 	var at_fire: bool = c.wild == "" and not c.roaming and c.kind in ["drifter", "bandit"]
 	var company: int = camps._alive(c.members).size() - 1
-	var d := {"food": food_drain, "light": light_drain, "safety": safety_drain, "coin": coin_drain,
+	var d := {"food": food_drain, "water": water_drain, "light": light_drain, "safety": safety_drain, "coin": coin_drain,
 		"belonging": belonging_drain, "faith": faith_drain}
 	for n in NEEDS:
 		f.needs[n] = clampf(f.needs[n] - d[n] * minutes, 0.0, 100.0)
@@ -147,6 +159,7 @@ func _drain_and_refill(f, minutes: float) -> void:
 		f.needs.food += eat
 		c.supplies -= eat
 		f.needs.light = minf(100.0, f.needs.light + camp_light * minutes)
+		f.needs.water = minf(100.0, f.needs.water + camp_water * minutes)
 		f.needs.belonging = minf(100.0, f.needs.belonging + (camp_belonging if company > 0 else alone_belonging) * minutes)
 		if c.kind == "bandit":
 			f.needs.coin = minf(100.0, f.needs.coin + bandit_coin * minutes)
@@ -192,6 +205,9 @@ func _become(f, wild: String, kind: String, roams: bool, now: float, at = null) 
 	c.roaming = roams
 	c.heading = randf() * TAU
 	c.from = old
+	if wild == "starved": # collapsed or begging: dies unless someone helps in time
+		f.job["die_at"] = now + randf_range(collapse_time.x, collapse_time.y)
+		f.job.erase("fed") # fed before doesn't save them this time
 	if wild == "wanderer":
 		c.job["settles"] = true # unlike the island's born wanderers, these are looking for a new fire
 	c.members.append(f)

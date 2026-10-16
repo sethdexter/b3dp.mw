@@ -380,9 +380,11 @@ script = ExtResource("96_wind")
 
 [node name="Camps" type="Node3D" parent="." unique_id=1415928770 node_paths=PackedStringArray("terrain", "trees")]
 script = ExtResource("95_camps")
-preview_full = true
 terrain = NodePath("../Terrain3D")
 trees = NodePath("../DeadTrees")
+camp_chance = 0.5
+walk_speed = 1.7
+encounter_chance = 0.44
 remains_loot = PackedStringArray("bread", "water_skin", "dried_meat", "torch", "health_potion", "stamina_potion", "coin", "coin", "rusty_sword", "leather_cap")
 second_piece_chance = 0.1
 

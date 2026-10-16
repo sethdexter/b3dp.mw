@@ -168,7 +168,7 @@ func tick_spot(c, at: Vector3, now: float) -> void:
 func tick_people(c, at: Vector3, now: float) -> void:
 	match c.wild:
 		"toll":
-			if c.looted: # paid
+			if c.looted or c.members.is_empty(): # paid, or the toll-taker is gone
 				return
 			var toll = c.members[0]
 			if toll.dead or not toll.node:
@@ -182,6 +182,14 @@ func tick_people(c, at: Vector3, now: float) -> void:
 		"starved":
 			var s = c.members[0] if c.members.size() > 0 else null
 			if s and not s.dead and not s.job.has("fed"):
+				if now > s.job.get("die_at", INF): # collapsed and nobody came
+					s.dead = true
+					c.wild = "starved_dead"
+					c.members.clear()
+					if is_instance_valid(s.node) and s.node.statComponent:
+						s.node.statComponent.health.change_current(-100000) # dies where it lies (record is already dead, so nobody's blamed)
+					s.node = null
+					return
 				if camps._dist(s.pos, at) < 15.0:
 					s.job["seen"] = true
 				elif s.job.has("seen") and camps._dist(s.pos, at) > camps.despawn_radius:
@@ -195,7 +203,15 @@ func steer_band(b, now: float) -> bool:
 	if b.wild == "stalker":
 		var p: Node3D = camps._player
 		if now > b.raid_since + stalk_time or not is_instance_valid(p):
-			b.wild = "pack" # lost interest
+			b.wild = "leaving" # lost interest: wanders off and is gone once out of sight
+			return false
+		if b.wild == "leaving":
+			var alive: Array = camps._alive(b.members)
+			if alive.all(func(f): return not is_instance_valid(f.node)):
+				for f in alive:
+					f.dead = true
+				camps.camps.erase(b)
+				return true
 			return false
 		if now - b.waypoint_since > 3.0: # keep homing in on you
 			b.waypoint_since = now
@@ -546,6 +562,8 @@ func _fed(f) -> void:
 		m.rep(f.camp, m.rep_fed)
 		if not f.needs.is_empty():
 			f.needs.food = 100.0
+			f.needs.water = 100.0
+			f.needs.light = maxf(f.needs.light, 60.0) # you got them back on their feet: enough to reach a fire
 
 func _take_food(player: Node) -> bool:
 	var inv: InventoryComponent = player.inventoryComponent

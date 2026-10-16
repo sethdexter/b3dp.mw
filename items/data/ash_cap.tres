@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="Item" format=3]
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://n4mxqc5y7ad"]
 
 [ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
 [ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="2_effect"]
-[ext_resource type="Script" path="res://spells/effects/nourishEffect.gd" id="3_nourish"]
+[ext_resource type="Script" uid="uid://c5u7njgmnggr4" path="res://spells/effects/nourishEffect.gd" id="3_nourish"]
 
 [sub_resource type="Resource" id="Effect_nourish"]
 script = ExtResource("3_nourish")
@@ -11,11 +11,11 @@ water = 3.0
 
 [resource]
 script = ExtResource("1_item")
-value = 2
 Name = "Ash Cap"
 id = "0034"
 weight = 1
 maxStackCount = 10
 isConsumable = true
 itemDesription = "Pale fungus from the dead roots. Tastes of smoke and wet stone."
+value = 2
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_nourish")])

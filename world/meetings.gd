@@ -111,7 +111,10 @@ func _meet(c, o, now: float) -> void:
 				_log("A wanderer relit a cold fire")
 		"spring", "fungus":
 			for f in _alive(c):
-				_feed(f, 30.0 if o.wild == "fungus" else 10.0, 0.0)
+				if o.wild == "spring" and not f.needs.is_empty():
+					f.needs.water = 100.0
+				else:
+					_feed(f, 30.0, 0.0)
 	if randf() > friendly_chance or c.kind != "drifter" or o.kind != "drifter" or not _peopled(o):
 		return
 	if o.wild == "starved" and c.wild != "starved":
@@ -119,6 +122,8 @@ func _meet(c, o, now: float) -> void:
 			if not s.job.has("fed"):
 				s.job["fed"] = true
 				_feed(s, 60.0, 0.0)
+				s.needs.water = maxf(s.needs.water, 60.0)
+				s.needs.light = maxf(s.needs.light, 60.0) # walked to their fire with them
 				_log("Someone shared food with a starving stranger")
 	elif c.wild == "wanderer" and o.wild == "wanderer" and c.roaming and o.roaming and camps.camps.find(c) < camps.camps.find(o):
 		for f in _alive(o): # o's people walk on with c

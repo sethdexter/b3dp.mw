@@ -35,7 +35,7 @@ extends Node3D
 ## One camp at most per square cell this size (metres). Bigger = camps further apart (and fewer of them).
 @export_range(100, 2000, 10, "suffix:m") var cell_size := 800
 ## Chance each land cell actually has a camp.
-@export_range(0.0, 1.0, 0.01) var camp_chance := 0.4
+@export_range(0.0, 1.0, 0.01) var camp_chance := 0.48
 ## Chance a camp is bandits / goblins / orcs. Whatever's left over is drifters.
 @export_range(0.0, 1.0, 0.01) var bandit_chance := 0.6
 @export_range(0.0, 1.0, 0.01) var goblin_chance := 0.15
@@ -103,7 +103,7 @@ extends Node3D
 ## One encounter at most per cell this size; they're placed in the dark between camps.
 @export_range(50, 2000, 10, "suffix:m") var encounter_cell := 300
 ## Chance each land cell has an encounter.
-@export_range(0.0, 1.0, 0.01) var encounter_chance := 0.35
+@export_range(0.0, 1.0, 0.01) var encounter_chance := 0.42
 ## None closer than this to a camp fire (so the dark between camps stays dark).
 @export_range(0.0, 1000.0, 10.0, "suffix:m") var encounter_camp_gap := 250.0
 ## Relative weights of each kind (they don't need to add up to anything).
@@ -583,6 +583,10 @@ func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 				minds.on_death(f, by_player)
 			return
 		f.pos = f.node.global_position
+		if minds:
+			minds.think(f, now) # needs run near you too, not just off-screen
+			if f.node == null or f.dead:
+				return
 		if _dist(f.pos, at) > despawn_radius:
 			f.home = _ai(f).get("_home")
 			f.node.queue_free()

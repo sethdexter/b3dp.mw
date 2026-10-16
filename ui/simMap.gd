@@ -6,6 +6,8 @@ extends Control
 ## red lines = raids. Encounters: grey square = remains (hollow once looted), white star = cairn torch;
 ## lone wanderers and goblin packs show as their dots only. Grey x = hanged / a body, hollow orange = cold fire,
 ## blue = bell shrine. White arrow = you.
+## N / Shift+N = watch the next / previous lone wanderer (yellow capsule when they're too far off to have a body);
+## mouse orbits round them, wheel zooms, B = back to you.
 
 var camps: Node # the Camps node
 var _bg: ImageTexture
@@ -17,14 +19,147 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode == KEY_M:
 		visible = not visible
 		if visible and not _bg:
 			_bg = ImageTexture.create_from_image(_island())
+	elif event.keycode == KEY_N: # watch the next wanderer from above
+		var all: Array = camps.folk.filter(func(f): return not f.dead and f.camp.wild == "wanderer")
+		if all.is_empty():
+			return
+		_watch = all[posmod(all.find(_watch) + (-1 if event.shift_pressed else 1), all.size())] # Shift+N = back one
+		visible = false
+		if not _cam:
+			_cam = Camera3D.new()
+			_cam.far = 2000.0
+			# brighter ambient for this camera's view only: no lights are added, so nothing in the game sees it
+			var we := get_tree().current_scene.find_child("WorldEnvironment", true, false) as WorldEnvironment
+			if we and we.environment:
+				_cam.environment = we.environment.duplicate()
+				_cam.environment.ambient_light_energy = WATCH_AMBIENT
+			_marker = MeshInstance3D.new()
+			var m := CapsuleMesh.new()
+			m.radius = 0.4
+			m.height = 1.8
+			var mat := StandardMaterial3D.new()
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.albedo_color = Color(1.0, 0.9, 0.3)
+			m.material = mat
+			_marker.mesh = m
+			camps.add_child(_cam)
+			camps.add_child(_marker)
+		if not _cam.current:
+			_prev = get_viewport().get_camera_3d()
+		_cam.top_level = true
+		_marker.top_level = true
+		_cam.current = true
+		_marker.visible = true
+	elif event.keycode == KEY_B and _watch: # back to you
+		_stop_watching()
 
-func _process(_delta: float) -> void:
+# While watching, the mouse orbits the camera round them (wheel zooms) instead of turning you.
+func _input(event: InputEvent) -> void:
+	if not _watch:
+		return
+	if event is InputEventMouseMotion:
+		_yaw -= event.relative.x * 0.005
+		_pitch = clampf(_pitch - event.relative.y * 0.005, -1.45, -0.05)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_zoom = clampf(_zoom * (0.9 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.1), 3.0, 120.0)
+		get_viewport().set_input_as_handled()
+
+const WATCH_AMBIENT := 0.5 # the level's is 0.02
+var _yaw := 0.0
+var _pitch := -1.05 # radians below level
+var _zoom := 16.0 # metres from them
+var _focus := Vector3.INF # smoothed point the camera circles
+
+var _watch # the Folk being watched, or null
+var _cam: Camera3D
+var _prev: Camera3D # your camera, to go back to
+var _marker: MeshInstance3D # stands in for them when they're too far away to have a body
+
+## While the map or the watch camera is up you can't die: health is locked and hunger / thirst stay full.
+func _protect_player() -> void:
+	var p = camps._player
+	if not is_instance_valid(p):
+		return
+	var on: bool = visible or _watch != null
+	var stats = p.get("statComponent")
+	if stats and stats.health:
+		stats.health.locked = on or SimClock.speed > 1 # fast-forward keeps its own lock
+		if on:
+			stats.health.change_current(stats.health.get_max_value())
+	var needs = p.get_node_or_null("needs")
+	if on and needs:
+		needs.hunger = 100.0
+		needs.thirst = 100.0
+
+func _process(delta: float) -> void:
+	_protect_player()
 	if visible and Engine.get_process_frames() % 6 == 0:
 		queue_redraw() # ~10 times a second is plenty to watch it move
+	if _watch:
+		var p: Vector3 = _watch.node.global_position if is_instance_valid(_watch.node) else _watch.pos
+		var h: float = camps.terrain.data.get_height(p)
+		if not is_nan(h):
+			p.y = h
+		_marker.visible = not is_instance_valid(_watch.node)
+		_marker.global_position = p + Vector3(0, 0.9, 0)
+		var target := p + Vector3(0, 1, 0)
+		_focus = target if _focus.distance_to(target) > 50.0 else _focus.lerp(target, minf(1.0, delta * 3.0)) # jump to a new person, glide after the same one
+		_cam.global_position = _focus + Basis.from_euler(Vector3(_pitch, _yaw, 0)) * Vector3(0, 0, _zoom)
+		_cam.look_at(_focus)
+		if not _info:
+			_info = Label.new()
+			_info.position = Vector2(16, 16)
+			_info.add_theme_font_size_override("font_size", 14)
+			_info.add_theme_constant_override("outline_size", 4)
+			get_parent().add_child(_info)
+		_info.visible = true
+		_info.text = _describe(_watch)
+		if _watch.dead:
+			_stop_watching()
+
+var _info: Label # the watched person's action and stats, down the left
+
+func _describe(f) -> String:
+	var c = f.camp
+	var doing := "looking for a camp to join" if c.job.get("settles", false) else "wandering the dark"
+	if c.wild != "wanderer":
+		doing = "%s %s" % [c.kind, c.wild if c.wild != "" else "at camp"]
+	if c.raid:
+		doing += ", raiding"
+	if c.wild == "starved" and f.job.has("die_at") and not f.job.has("fed"):
+		doing = "COLLAPSED, dies in %.0f s unless helped" % (f.job.die_at - SimClock.now)
+	var s := "%s\n%s\nDoing: %s, %.0f m to waypoint\n" % [f.name if f.name != "" else "(unnamed)",
+		"has a body (near you)" if is_instance_valid(f.node) else "sim only", doing, camps._dist(f.pos, c.pos)]
+	s += "\nNeeds:\n"
+	for k in f.needs:
+		s += "  %s %.0f\n" % [k, f.needs[k]]
+	s += "\nTraits:\n"
+	for k in f.traits:
+		s += "  %s %.2f\n" % [k, f.traits[k]]
+	if not f.memories.is_empty():
+		s += "\nRemembers:\n"
+		for m in f.memories:
+			s += "  %s\n" % m.what
+	if not f.job.is_empty():
+		s += "\nJob: %s\n" % str(f.job)
+	return s
+
+func _stop_watching() -> void:
+	_watch = null
+	_marker.visible = false
+	if _info:
+		_info.visible = false
+	if is_instance_valid(_prev):
+		_prev.current = true
+	else:
+		_cam.current = false
 
 func _island() -> Image:
 	var img := Image.create(RES, RES, false, Image.FORMAT_RGB8)
@@ -103,6 +238,8 @@ func _draw() -> void:
 		draw_circle(p, 2.0, Color(1.0, 0.9, 0.3) if f.camp.kind == "drifter" else camps.KIND_COLORS[f.camp.kind])
 		if f.node:
 			draw_arc(p, 4.0, 0, TAU, 8, Color.WHITE, 1.0)
+		if f == _watch:
+			draw_arc(p, 8.0, 0, TAU, 16, Color(1, 0.15, 0.1), 2.0) # who the watch camera is on
 	if is_instance_valid(camps._player):
 		var p: Vector2 = to_map.call(camps._player.global_position)
 		var fwd: Vector3 = -camps._player.global_transform.basis.z
@@ -130,7 +267,7 @@ func _draw_key(at: Vector2) -> void:
 		["dot", k.orc, "Orc camp"], ["ring", Color(0.85, 0.85, 0.85), "Abandoned camp"],
 		["ring", Color(1.0, 0.55, 0.1), "Cold fire"], ["small", Color(1.0, 0.9, 0.3), "Drifter"],
 		["small", k.bandit, "Bandit"], ["small", k.goblin, "Goblin"], ["small", k.orc, "Orc"],
-		["near", Color.WHITE, "Near you (real)"], ["line", Color(0.4, 0.6, 1.0), "Drifters on the move"],
+		["near", Color.WHITE, "Near you (real)"], ["ring", Color(1, 0.15, 0.1), "Watched (N)"], ["line", Color(0.4, 0.6, 1.0), "Drifters on the move"],
 		["line", Color(1, 0.2, 0.1), "War band / raid"], ["square", Color(0.7, 0.7, 0.7), "Remains (hollow: looted)"],
 		["x", Color(0.7, 0.7, 0.7), "Hanged / a body"], ["tiny", Color.WHITE, "Cairn torch (or is it?)"],
 		["dot", Color(0.4, 0.7, 1.0), "Bell shrine"], ["tiny", Color(0.2, 0.9, 0.9), "Spring (water)"],
