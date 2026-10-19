@@ -14,6 +14,9 @@ extends StaticBody3D
 ## Item handed over per use ("" = none) and how many.
 @export var item := ""
 @export_range(0, 5) var item_count := 1
+## And sometimes this as well ("" = never), with this chance.
+@export var extra_item := ""
+@export_range(0.0, 1.0, 0.05) var extra_chance := 0.0
 ## Uses before it's dry / picked clean, and seconds for one use to come back.
 @export_range(1, 20) var stock := 4
 @export_range(5.0, 3600.0, 5.0, "suffix:s") var regrow := 120.0
@@ -21,16 +24,13 @@ extends StaticBody3D
 
 var record = null # a Camps record (Camp) whose `job` keeps the stock
 
+const LIFE := preload("res://world/camplife.gd")
+
 func _state() -> Dictionary:
 	var s: Dictionary = record.job if record else get_meta("state", {})
-	if not s.has("stock"):
-		s["stock"] = stock
-		s["at"] = SimClock.now
-	var now := SimClock.now
-	var back := int((now - s.at) / regrow)
-	if back > 0:
-		s.stock = mini(stock, s.stock + back)
-		s.at += back * regrow
+	var camps = get_tree().get_first_node_in_group("camps")
+	var slow: float = camps.camplife.bare_slow if camps and camps.camplife else 0.0
+	LIFE.regrow(s, stock, regrow, slow, SimClock.now) # the same regrowth the island's people see
 	if not record:
 		set_meta("state", s)
 	return s
@@ -64,5 +64,9 @@ func interact(player: Node) -> void:
 		var it: Item = db.get_item_instance(item)
 		inv.add_item(it, item_count)
 		said.append("take %d %s" % [item_count, it.Name])
+	if extra_item != "" and inv and randf() < extra_chance:
+		var ex: Item = db.get_item_instance(extra_item)
+		inv.add_item(ex, 1)
+		said.append("scrape off some %s" % ex.Name.to_lower())
 	var line := " and ".join(said)
 	Talker.notify(line.left(1).to_upper() + line.substr(1) + ".")

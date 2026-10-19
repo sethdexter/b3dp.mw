@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 8
+Name = "Bone Knife"
+id = "0072"
+weight = 1
+maxStackCount = 1
+isPickupable = true
+itemDesription = "A sliver of bone ground to an edge and bound with sinew. It won't last."
+isUnique = true
+tool = "knife"
+durability = 25
+salvage = Dictionary[String, int]({"bone": 1})

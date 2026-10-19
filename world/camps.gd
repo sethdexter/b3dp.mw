@@ -7,16 +7,21 @@ extends Node3D
 ##   - hit one member of a camp and the rest of the camp joins in
 ##   - bandit bands raid nearby drifter / goblin / orc camps (fought out for real near the player, by dice rolls
 ##     elsewhere), or send out war bands that roam the roads and hit whatever camp they come across
-## Camp kinds: drifter, bandit, goblin, orc. Goblin and orc camps are hostile and stay put.
-## Between the camps, wilderness encounters with no fire (their own sparser grid, see the Encounters sliders):
-##   wanderer = a lone drifter walking the dark, pack = goblins roaming nowhere to nowhere, ambush = bandits
-##   waiting in the dark, remains = an abandoned stash with a loot sack, cairn = a torch someone left burning
-##   (a little island of light to catch your breath in). Remains remember being looted.
-## More bleak ones (hanged, cold fire, mourner, pilgrims, false light, starved, toll, bell) and the ash storm
-## live in world/encounters.gd (child node "encounters", made at runtime; its sliders are on that script).
+## Camp kinds: drifter, bandit, goblin, orc. Goblin and orc dens are hostile.
+## Everyone is a character, and every character starts at a fire. What they're doing (living at a fire, wandering,
+## mourning, on pilgrimage, taking tolls, lying in ambush, collapsed, hunting you, a war band, a goblin pack, an orc
+## holding a false light, heading home) is just the state of the group they're in (Camp.wild), and they get into
+## and out of each state by their needs, nature and circumstances (minds.gd, here, encounters.gd). Nobody is
+## placed or removed by hand: new characters are pulled out of the dark toward lit fires and cairns (New
+## characters sliders), monsters come back to their dens, and the dead stay dead.
+## The world only places places (their own sparser grid, see the Places sliders): remains = an abandoned stash with
+## a loot sack, cairn = a torch someone left burning (a little island of light, and it pulls lost souls in),
+## hanged, cold fire, springs, ash fungus; plus bells and salt (world/encounters.gd, child node "encounters",
+## which also runs the ash storm and the bleak states' rules).
 ## What people want and do (needs, traits, memories, reputation) is world/minds.gd (child "minds"); groups
 ## meeting each other (fights, sharing, merging, looting...) is world/meetings.gd (child "meetings").
 ## Food and water: springs and ash fungus on the encounter grid, a water barrel at every drifter camp.
+## Real items: packs, camp barrels and crates, eating, drinking and chores are world/camplife.gd (child "camplife").
 ## Camp spots are fixed per cell of the map (same every run), in clearings away from tree roots.
 
 ## Editor: re-place the preview campfires after changing settings.
@@ -58,6 +63,11 @@ extends Node3D
 @export_group("Distances", "")
 ## Campfires are built this far out; a roaming band notices a fire from this far too.
 @export_range(50, 3000, 10, "suffix:m") var fire_radius := 1000
+## A wanderer looking for a home finds a cold fire's ring of ash this close, relights it and settles there.
+@export_range(0.0, 2000.0, 10.0, "suffix:m") var coldfire_spot := 600.0
+## Wanderers with a lit torch who've found no fire for this long make their own camp (not within fire_gap of another).
+@export_range(30.0, 7200.0, 10.0, "suffix:s") var found_after := 240.0
+@export_range(50.0, 3000.0, 10.0, "suffix:m") var fire_gap := 500.0
 ## People become real characters within this...
 @export_range(30.0, 500.0, 5.0, "suffix:m") var spawn_radius := 120.0
 ## ...and go back to being records past this (keep it above spawn_radius so they don't flicker).
@@ -69,8 +79,13 @@ extends Node3D
 @export_range(10, 2000, 10) var records_per_frame := 150
 ## How fast far-away (record) people walk. Near you the AI's own speeds apply.
 @export_range(0.2, 5.0, 0.1, "suffix:m/s") var walk_speed := 1.1
+## A character near you snagged on something this long (making no headway toward where the sim sends them)
+## steps past it, so loaded and unloaded people end up in the same places.
+@export_range(1.0, 120.0, 1.0, "suffix:s") var unstick_after := 12.0
 ## Seconds between a camp thinking about moving on (drifters) or raiding (bandits): random in (min, max).
 @export var migrate_every := Vector2(90, 300)
+## When a drifter camp moves on, this many stay behind to keep the fire alive (0 = everyone leaves, the fire dies).
+@export_range(0, 5) var keepers := 1
 
 @export_group("Roaming bands", "")
 ## Each waypoint is this far on from the last (random in range).
@@ -99,34 +114,80 @@ extends Node3D
 ## ...and the chance it's a defender rather than a bandit.
 @export_range(0.0, 1.0, 0.01) var bandit_win_chance := 0.6
 
-@export_group("Encounters", "")
-## One encounter at most per cell this size; they're placed in the dark between camps.
+## A war band heads home after this long out, or sooner once its water runs low.
+@export_range(60.0, 3600.0, 10.0, "suffix:s") var war_band_time := 900.0
+@export_range(0.0, 100.0, 1.0) var war_band_thirst := 50.0
+
+@export_group("Monsters", "")
+## When a goblin den acts, chance it sends out a hunting pack of this size (someone always stays home)...
+@export_range(0.0, 1.0, 0.01) var pack_out_chance := 0.5
+@export var pack_size := Vector2i(2, 3)
+## In an ash storm dens send packs out this many times as often.
+@export_range(1.0, 10.0, 0.5) var storm_packs := 3.0
+## ...that roams this long (random in range) before going back.
+@export var pack_roam_time := Vector2(300, 900)
+## When an orc den acts, chance one goes out into the dark this far (random in range) to hold up a torch and wait:
+## a false light. It waits this long for something to come to it, then goes home.
+@export_range(0.0, 1.0, 0.01) var lure_chance := 0.35
+@export var lure_distance := Vector2(250, 600)
+@export_range(60.0, 3600.0, 10.0, "suffix:s") var lure_time := 900.0
+## A den short of its full size grows by one when its larder holds this much raw meat (eaten up in the
+## making), at most once per den_regrow. A den starts with den_start_meat per monster.
+@export_range(1, 50) var breed_meat := 6
+@export_range(30.0, 3600.0, 10.0, "suffix:s") var den_regrow := 400.0
+@export_range(0, 20) var den_start_meat := 3
+## A hungry pack smells game this far off and goes for it; with a kill it heads home to the den.
+@export_range(50.0, 3000.0, 10.0, "suffix:m") var smell_range := 800.0
+
+@export_group("Game", "")
+## Herds of game roam the dark: the meat everyone hunts. This many at the start, of this many head each.
+@export_range(0, 300) var herds := 45
+@export var herd_size := Vector2i(3, 7)
+## Each herd breeds toward herd_cap: births per minute = herd_growth x head x (1 - head / herd_cap). A full herd
+## splits in two, up to herds_max herds on the island. Hunted to nothing, a herd is gone.
+@export_range(1, 50) var herd_cap := 12
+@export_range(0.0, 1.0, 0.005) var herd_growth := 0.03
+@export_range(1, 1000) var herds_max := 90
+## A herd drifts this far (random in range) every minute or so.
+@export var herd_drift := Vector2(15, 50)
+## Near you a herd is real greyhorns (up to this many bodies; the rest of the herd is out of sight). They bolt
+## from you once you're this close.
+@export var greyhorn_scene: PackedScene = preload("res://characters/game/greyhorn.tscn")
+@export_range(1, 30) var herd_show_max := 8
+@export_range(2.0, 60.0, 1.0, "suffix:m") var flee_range := 18.0
+
+@export_group("New characters", "")
+## Lit fires and cairns pull lost souls out of the dark. The island tends toward this many human characters: the
+## closer it is, the rarer new ones are; over it, nobody new comes.
+@export_range(0, 2000) var souls_target := 220
+## Seconds between chances of someone being pulled in.
+@export_range(5.0, 600.0, 5.0, "suffix:s") var pull_every := 30.0
+## They come up out of the dark this far from the light that pulls them (random in range), never near you.
+## Keep it short: the dark wears them down on the way in as it would you.
+@export var pull_distance := Vector2(30, 70)
+## A body left lying where someone died far from you is gone after this long.
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var body_decay := 3600.0
+## Share of new souls a bandit fire pulls in (they come as bandits); the rest go to drifter fires and cairns.
+@export_range(0.0, 1.0, 0.05) var pull_bandit_share := 0.3
+
+@export_group("Places", "")
+## One place at most per cell this size; they're put in the dark between camps.
 @export_range(50, 2000, 10, "suffix:m") var encounter_cell := 300
-## Chance each land cell has an encounter.
+## Chance each land cell has a place.
 @export_range(0.0, 1.0, 0.01) var encounter_chance := 0.42
 ## None closer than this to a camp fire (so the dark between camps stays dark).
 @export_range(0.0, 1000.0, 10.0, "suffix:m") var encounter_camp_gap := 250.0
 ## Relative weights of each kind (they don't need to add up to anything).
-@export_range(0.0, 10.0, 0.1) var wanderer_weight := 3.0
-@export_range(0.0, 10.0, 0.1) var pack_weight := 2.0
-@export_range(0.0, 10.0, 0.1) var ambush_weight := 1.0
 @export_range(0.0, 10.0, 0.1) var remains_weight := 3.0
 @export_range(0.0, 10.0, 0.1) var cairn_weight := 1.5
 @export_range(0.0, 10.0, 0.1) var hanged_weight := 1.5
 @export_range(0.0, 10.0, 0.1) var coldfire_weight := 1.0
-@export_range(0.0, 10.0, 0.1) var mourner_weight := 1.0
-@export_range(0.0, 10.0, 0.1) var pilgrims_weight := 0.7
-@export_range(0.0, 10.0, 0.1) var falselight_weight := 1.0
-@export_range(0.0, 10.0, 0.1) var starved_weight := 1.0
-@export_range(0.0, 10.0, 0.1) var toll_weight := 1.0
 ## Food and water sources between the camps.
 @export_range(0.0, 10.0, 0.1) var spring_weight := 2.0
 @export_range(0.0, 10.0, 0.1) var fungus_weight := 2.5
-## Goblins in a pack / bandits in an ambush (random in range).
-@export var pack_size := Vector2i(2, 3)
-@export var ambush_size := Vector2i(2, 4)
 ## What a remains' loot sack can hold, and how many things (random in range).
-@export var remains_loot: PackedStringArray = ["bread", "water_skin", "dried_meat", "torch", "health_potion", "stamina_potion", "coin", "coin", "rusty_sword", "leather_cap"]
+@export var remains_loot: PackedStringArray = ["bread", "water_skin", "dried_meat", "torch", "health_potion", "stamina_potion", "coin", "coin", "rusty_sword", "leather_cap",
+	"scrap_metal", "scrap_metal", "cloth", "bone", "sinew", "bone_knife"]
 @export var remains_items := Vector2i(1, 3)
 ## Coins per "coin" entry rolled for a remains' sack.
 @export var remains_coins := Vector2i(3, 15)
@@ -178,11 +239,14 @@ class Camp:
 	var raid_since := 0.0
 	var roaming := false # a band on the move: pos is its next waypoint, no fire
 	var from: Camp # the camp a roaming band left (it won't settle straight back there)
+	var den: Camp # the camp a band belongs to and goes back to (war bands, packs, hunters, false lights)
 	var heading := 0.0
 	var waypoint_since := 0.0
 	var rep := 0 # how this camp feels about the player (-100..100, see minds.gd)
 	var empty_since := 0.0
-	var supplies := -1.0 # minds.gd: the camp's food store (-1 = not stocked yet)
+	var barrel := {} # camplife.gd: water skins in the camp's barrel (item id -> count)
+	var crate := {} # camplife.gd: food and goods in the camp's crate
+	var stocked := false
 
 class Folk:
 	var name := "" # picked by the talker on first spawn, then kept
@@ -199,6 +263,12 @@ class Folk:
 	var memories := [] # minds.gd: [{what, at, pos}]
 	var think_t := 0.0
 	var locked_until := 0.0
+	var task := {} # camplife.gd: a chore they're out doing (forage / water / supply / evacuate)
+	var inv := {} # camplife.gd: what they carry (item id -> count)
+	var history := [] # what they've been doing lately: [{t, text}] (shown on the watch camera)
+	var packed := false
+	var hp := 100.0 # health, 0-100 (near you their body's health tracks it too)
+	var dark_s := 0.0 # seconds out of the light this time
 
 var camps: Array[Camp] = []
 var _by_cell := {} # Vector2i -> Camp, for finding camps near a spot
@@ -209,6 +279,23 @@ var _camp_i := 0
 var _rng := RandomNumberGenerator.new()
 var enc: Node # world/encounters.gd (runtime only)
 var minds: Node # world/minds.gd (runtime only)
+var camplife: Node # world/camplife.gd (runtime only)
+## Everything noted on anyone lately, newest last: [{t, who, text}] (the watch camera's world log).
+var world_log := []
+const PERSON_LOG := 12
+const WORLD_LOG := 40
+
+## Notes something a person did, for their own log and (unless it's everyday stuff) the world log.
+func note(f, text: String, worldwide := true) -> void:
+	var e := {"t": SimClock.now, "text": text}
+	f.history.append(e)
+	if f.history.size() > PERSON_LOG:
+		f.history.pop_front()
+	if not worldwide:
+		return
+	world_log.append({"t": e.t, "who": f.name if f.name != "" else "someone", "text": text})
+	if world_log.size() > WORLD_LOG:
+		world_log.pop_front()
 
 func new_camp() -> Camp:
 	return Camp.new()
@@ -233,10 +320,18 @@ func _ready() -> void:
 	var clock: Node = load("res://world/simClock.gd").new() # the sim's own clock, and [ ] to change its speed
 	clock.name = "clock"
 	add_child(clock)
+	camplife = load("res://world/camplife.gd").new()
+	camplife.name = "camplife"
+	add_child(camplife)
 	var meetings: Node = load("res://world/meetings.gd").new()
 	meetings.name = "meetings"
 	add_child(meetings)
 	_generate()
+	var names := RandomNumberGenerator.new()
+	names.seed = 4242
+	for f in folk: # every person gets a name of their own up front (monsters stay "Goblin" / "Orc")
+		if not f.camp.kind in ["goblin", "orc"]:
+			f.name = minds._unique_name(names, f.camp.kind == "bandit")
 	print("Camps: %d camps, %d people (%d ms)" % [camps.size(), folk.size(), Time.get_ticks_msec() - t])
 	var layer := CanvasLayer.new() # overhead debug map of the whole simulation (press M)
 	var map: Control = preload("res://ui/simMap.gd").new()
@@ -260,6 +355,18 @@ func _generate() -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 991
 		enc.make_bells(rng)
+		enc.make_salt(rng)
+	var game := RandomNumberGenerator.new()
+	game.seed = 4711
+	var made := 0
+	for attempt in herds * 20:
+		if made >= herds:
+			break
+		var p := _ground(Vector3(game.randf_range(-HALF_MAP, HALF_MAP), 0, game.randf_range(-HALF_MAP, HALF_MAP)))
+		if is_nan(p.y) or p.y < SEA_LEVEL + 1.5 or p.y > MAX_HEIGHT or camps.any(func(c: Camp): return c.wild == "" and _dist(c.pos, p) < encounter_camp_gap):
+			continue
+		_new_herd(p, game.randi_range(herd_size.x, maxi(herd_size.x, herd_size.y)))
+		made += 1
 
 func _make_encounter(cell: Vector2i) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -272,9 +379,7 @@ func _make_encounter(cell: Vector2i) -> void:
 	for c in camps:
 		if c.wild == "" and _dist(c.pos, pos) < encounter_camp_gap:
 			return
-	var weights := {"wanderer": wanderer_weight, "pack": pack_weight, "ambush": ambush_weight, "remains": remains_weight, "cairn": cairn_weight,
-		"hanged": hanged_weight, "coldfire": coldfire_weight, "mourner": mourner_weight, "pilgrims": pilgrims_weight,
-		"falselight": falselight_weight, "starved": starved_weight, "toll": toll_weight,
+	var weights := {"remains": remains_weight, "cairn": cairn_weight, "hanged": hanged_weight, "coldfire": coldfire_weight,
 		"spring": spring_weight, "fungus": fungus_weight}
 	var total := 0.0
 	for k in weights:
@@ -291,31 +396,8 @@ func _make_encounter(cell: Vector2i) -> void:
 	var c := Camp.new()
 	c.pos = pos
 	c.wild = wild
-	c.next_move = INF # encounters never move camp or raid
-	c.kind = {"wanderer": "drifter", "pack": "goblin", "ambush": "bandit"}.get(wild, "drifter")
-	c.bandit = c.kind == "bandit"
+	c.next_move = INF # places never move or raid
 	camps.append(c)
-	var count: int = {"wanderer": 1, "pack": rng.randi_range(pack_size.x, maxi(pack_size.x, pack_size.y)),
-		"ambush": rng.randi_range(ambush_size.x, maxi(ambush_size.x, ambush_size.y))}.get(wild, 0)
-	var roams := wild == "wanderer" or wild == "pack"
-	if enc and count == 0:
-		var who: Array = enc.people_for(wild, rng)
-		c.kind = who[0]
-		c.bandit = c.kind == "bandit"
-		count = who[1]
-		roams = who[2]
-	for i in count:
-		var f := Folk.new()
-		f.camp = c
-		f.home = _around(pos, rng)
-		if wild == "toll" and i > 0: # the toll man's friends wait out in the dark
-			f.home = pos + Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * rng.randf_range(14.0, 20.0)
-		f.pos = f.home
-		c.members.append(f)
-		folk.append(f)
-	if roams:
-		c.roaming = true # walks the dark forever, never settles
-		c.heading = rng.randf() * TAU
 
 ## Remains and cairns: no people, just things on the ground, built when you're near and freed when you leave.
 func _tick_spot(c: Camp, at: Vector3) -> void:
@@ -334,27 +416,64 @@ func _tick_spot(c: Camp, at: Vector3) -> void:
 			torch.rotation_degrees.x = rng.randf_range(-10, 10)
 			c.fire.add_child(torch)
 			return
-		var piece: Node3D = CLUTTER.build(rng, {"top_max": 2, "crates_max": 1, "leaners_max": 1, "floor_max": 4})
+		remains_stock(c)
+		var piece: Node3D = CLUTTER.build(rng, {"top_max": 2, "crates_max": 1, "leaners_max": 1, "floor_max": 4, "have": c.crate.keys()})
 		c.fire.add_child(piece)
 		for part in piece.get_children():
 			if part is Node3D and (part.scene_file_path.contains("barrel") or part.scene_file_path.contains("crate")):
 				_settle(part)
 				_solid(part)
-		if not c.looted:
-			var loot: Dictionary[String, int] = {}
-			for k in rng.randi_range(remains_items.x, maxi(remains_items.x, remains_items.y)):
-				var id: String = remains_loot[rng.randi() % remains_loot.size()]
-				loot[id] = loot.get(id, 0) + (rng.randi_range(remains_coins.x, maxi(remains_coins.x, remains_coins.y)) if id == "coin" else 1)
-			var sack: Node3D = load("res://items/scenes/lootSack.tscn").instantiate()
-			sack.get_node("interactableComponent/containerComponent").starting_items = loot
-			sack.position = _ground(c.pos + Vector3(2.2, 0, 0)) - c.pos
-			sack.name = "sack"
-			c.fire.add_child(sack)
+		_make_real(piece, c) # what's left lying about is what's really there: in the crates, or set out
 	elif d > reach * 1.2 and is_instance_valid(c.fire):
-		var sack := c.fire.get_node_or_null("sack")
-		var inv = sack.find_child("inventoryComponent", true, false) if sack else null
-		c.looted = c.looted or sack == null or (inv != null and inv.inventory.is_empty())
 		c.fire.queue_free()
+	c.looted = c.stocked and c.crate.is_empty() and c.barrel.is_empty()
+
+## What an abandoned stash holds, rolled once (same every run) the first time anyone comes to it, you or not.
+func remains_stock(c: Camp) -> void:
+	if c.stocked:
+		return
+	c.stocked = true
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(roundi(c.pos.x), roundi(c.pos.z)))
+	for k in rng.randi_range(remains_items.x, maxi(remains_items.x, remains_items.y)):
+		var id: String = remains_loot[rng.randi() % remains_loot.size()]
+		c.crate[id] = c.crate.get(id, 0) + (rng.randi_range(remains_coins.x, maxi(remains_coins.x, remains_coins.y)) if id == "coin" else 1)
+
+## Turns a set piece real (in the game; in the editor it stays models): every barrel and crate in it becomes a
+## container holding its share of the camp's barrel (water) or crate (food and goods), and every small thing on
+## or around them (bottles, coins, daggers, staffs, swords) a pickup that shows only while the camp has one.
+const DISPLAY := preload("res://world/props/campDisplay.gd")
+func _make_real(piece: Node3D, c: Camp) -> void:
+	if Engine.is_editor_hint():
+		return
+	for n: Node in piece.find_children("*", "Node3D", true, false):
+		if n.has_meta("item"):
+			var d: StaticBody3D = DISPLAY.new()
+			d.record = c
+			d.id = n.get_meta("item")
+			d.take = 5 if d.id == "coin" else 1
+			n.add_child(d)
+		elif n is Node3D and (n.scene_file_path.contains("barrel") or n.scene_file_path.contains("crate")):
+			var body: StaticBody3D = null
+			for k in n.get_children():
+				if k is StaticBody3D:
+					body = k
+			if not body:
+				continue
+			var chest: Node = CHEST.instantiate() # borrow a chest's container (and its UI) for this barrel or crate
+			var inter: Node = chest.get_node("interactableComponent")
+			chest.remove_child(inter)
+			chest.free()
+			var cont := inter.find_child("containerComponent", true, false)
+			var nothing: Dictionary[String, int] = {}
+			cont.starting_items = nothing
+			var which := "barrel" if n.scene_file_path.contains("barrel") else "crate"
+			(inter.get_node("prompt") as Label).text = "Water barrel" if which == "barrel" else "Supplies"
+			body.add_child(inter)
+			var sync: Node = load("res://world/props/campStoreSync.gd").new()
+			sync.record = c
+			sync.which = which
+			body.add_child(sync)
 
 ## Editor only: every camp's fire with a label, so you can see where they'll be. Not saved (no owner).
 func _editor_preview() -> void:
@@ -423,9 +542,12 @@ func _marker(pos: Vector3, text: String, col: Color, big: bool) -> Node3D:
 const CLUTTER := preload("res://world/props/campClutter.gd")
 const CHEST := preload("res://items/scenes/chest.tscn")
 const BANDIT_LOOT := ["rusty_sword", "health_potion", "stamina_potion", "leather_cap", "iron_boots", "torch",
+	"scrap_metal", "scrap_metal", "bone_knife", "hatchet", "resin", "salt", "cloth",
 	"bread", "dried_meat", "water_skin", "ash_wine", "ash_wine"]
 
 func _dress(c: Camp, fire: Node3D) -> void:
+	if camplife and not Engine.is_editor_hint():
+		camplife.stock(c) # so what's set out is what they have
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(Vector2i(roundi(c.pos.x), roundi(c.pos.z)))
 	var kinds: Array[String] = ["clutter"]
@@ -433,8 +555,10 @@ func _dress(c: Camp, fire: Node3D) -> void:
 		kinds.append("clutter")
 	if c.bandit:
 		kinds.append("chest")
-	elif c.kind == "drifter":
-		kinds.append("water") # a barrel of water anyone can drink from
+	if c.kind == "drifter" or c.kind == "bandit":
+		kinds.append("barrel") # the camp's water, a real container
+	if c.kind == "drifter":
+		kinds.append("crate") # its food and goods (a bandit camp's chest is theirs)
 	var a0 := rng.randf() * TAU
 	for i in kinds.size():
 		var a := a0 + TAU * i / kinds.size() + rng.randf_range(-0.3, 0.3)
@@ -443,15 +567,14 @@ func _dress(c: Camp, fire: Node3D) -> void:
 		spot.position = _flat_spot(c.pos + Vector3(cos(a), 0, sin(a)) * rng.randf_range(clutter_radius_min, clutter_radius_max), footprint) - c.pos
 		spot.rotation.y = a + PI * 0.5 + rng.randf_range(-0.4, 0.4) # side-on to the fire, like it was set down there
 		fire.add_child(spot)
-		if kinds[i] == "water":
-			var barrel: Node3D = load("res://world/props/waterBarrel.tscn").instantiate()
-			barrel.set("record", c)
-			spot.add_child(barrel)
-			_settle(barrel.get_node("barrel"))
+		if kinds[i] == "barrel" or kinds[i] == "crate":
+			if camplife:
+				camplife.stock(c)
+			spot.add_child(_store(c, kinds[i]))
 			continue
 		var n: Node3D = CHEST.instantiate() if kinds[i] == "chest" else CLUTTER.build(rng, {"barrel_chance": barrel_chance, "top_min": top_items_min,
 			"top_max": top_items_max, "crates_max": crates_max, "stack_chance": stack_chance,
-			"leaners_max": leaners_max, "floor_max": floor_items_max})
+			"leaners_max": leaners_max, "floor_max": floor_items_max, "have": [] if Engine.is_editor_hint() else c.crate.keys()})
 		spot.add_child(n)
 		for part in n.get_children():
 			if part is Node3D and (part.scene_file_path.contains("barrel") or part.scene_file_path.contains("crate")):
@@ -460,6 +583,8 @@ func _dress(c: Camp, fire: Node3D) -> void:
 				for top: Node in part.get_children():
 					if top.scene_file_path.contains("crate"):
 						_solid(top) # stacked crate
+		if kinds[i] == "clutter":
+			_make_real(n, c)
 		if kinds[i] == "chest":
 			var db = get_node_or_null("/root/item_list")
 			var inv = n.find_child("inventoryComponent", true, false)
@@ -468,6 +593,39 @@ func _dress(c: Camp, fire: Node3D) -> void:
 				for k in rng.randi_range(chest_items_min, chest_items_max):
 					inv.add_item(db.get_item_instance(BANDIT_LOOT[rng.randi() % BANDIT_LOOT.size()]), 1)
 				inv.add_item(db.get_item_instance("coin"), rng.randi_range(chest_coins_min, maxi(chest_coins_min, chest_coins_max)))
+			if camplife and not Engine.is_editor_hint(): # the bandits' chest is their crate too: the sim keeps it, you see it
+				camplife.stock(c)
+				var sync: Node = load("res://world/props/campStoreSync.gd").new()
+				sync.record = c
+				sync.which = "crate"
+				sync.absorb = not c.job.has("chest_filled") # its first loot roll becomes theirs; after that the record rules
+				c.job["chest_filled"] = true
+				n.add_child(sync)
+
+## A camp's barrel or crate: a chest (container + UI) wearing a barrel or crate model, kept in sync with the
+## camp's record by world/props/campStore.gd.
+func _store(c: Camp, which: String, chest: Node3D = null) -> Node3D:
+	var n: Node3D = chest if chest else CHEST.instantiate()
+	var cont := n.find_child("containerComponent", true, false)
+	if cont and not chest:
+		var nothing: Dictionary[String, int] = {}
+		cont.starting_items = nothing # the chest scene comes stocked for the start scene
+	if not chest:
+		var looks := n.get_node_or_null("meshInstance3D")
+		if looks:
+			looks.visible = false
+		var model: Node3D = load("res://assets/models/%s.glb" % ("barrel" if which == "barrel" else "crate")).instantiate()
+		model.position = Vector3.UP * (0.6 if which == "barrel" else 0.5)
+		model.scale = Vector3.ONE * (0.6 if which == "barrel" else 0.5)
+		n.add_child(model)
+	var prompt := n.find_child("prompt", true, false) as Label
+	if prompt:
+		prompt.text = "Water barrel" if which == "barrel" else "Supplies"
+	var sync: Node = load("res://world/props/campStoreSync.gd").new()
+	sync.record = c
+	sync.which = which
+	n.add_child(sync)
+	return n
 
 ## Sits a ground-level barrel/crate (2 m, centred pivot) on the real ground under it, tilted to the slope.
 func _settle(n: Node3D) -> void:
@@ -565,6 +723,9 @@ func _process(_delta: float) -> void:
 	for i in mini(records_per_frame / 4, camps.size()):
 		_camp_i = (_camp_i + 1) % camps.size()
 		_tick_camp(camps[_camp_i], at, now)
+	if now > _next_pull:
+		_next_pull = now + pull_every
+		_pull(at, now)
 
 func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 	if f.dead:
@@ -577,16 +738,41 @@ func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 			if is_instance_valid(f.node):
 				var foe = f.node.get_node("mobAI").get("foe")
 				by_player = not is_instance_valid(foe)
+				if not by_player and foe.has_meta("folk"):
+					_feed(foe.get_meta("folk"), f) # a real fight near you feeds the winner just like one far off
 			f.dead = true # killed: stays gone (its corpse cleans itself up)
 			f.node = null
 			if minds:
 				minds.on_death(f, by_player)
 			return
+		_hp_from_body(f) # hurt near you stays hurt
+		var held := _ai(f)
+		if held and held._asleep: # loaded but too far to move itself: it walks the sim's walk, so it never stalls
+			var step := Vector3(f.home.x - f.pos.x, 0, f.home.z - f.pos.z).limit_length(walk_speed * dt)
+			if step.length() > 0.01:
+				f.node.global_position = _ground(f.pos + step) + Vector3.UP * 0.1
+		elif held and held.state != MobAIComponent.State.CHASE and _dist(f.pos, f.home) > held.wander_radius * 2.0:
+			# Awake but away from where the sim says they're going: head there, and if they're snagged on
+			# something for a while, they find a way round (step along the sim's walk).
+			if held.state != MobAIComponent.State.RETURN:
+				held._home = f.home
+				held._enter(MobAIComponent.State.RETURN)
+			var d := _dist(f.pos, f.home)
+			var best: float = f.node.get_meta("best_d", INF)
+			if d < best - 1.0:
+				f.node.set_meta("best_d", d)
+				f.node.set_meta("best_t", now)
+			elif now - f.node.get_meta("best_t", now) > unstick_after:
+				f.node.global_position = _ground(f.pos + Vector3(f.home.x - f.pos.x, 0, f.home.z - f.pos.z).limit_length(4.0)) + Vector3.UP * 0.1
+				f.node.set_meta("best_t", now)
 		f.pos = f.node.global_position
 		if minds:
 			minds.think(f, now) # needs run near you too, not just off-screen
 			if f.node == null or f.dead:
 				return
+			_hp_to_body(f) # the dark or hunger hurt them: so does the body
+		if camplife and not f.task.is_empty():
+			camplife.step(f, now) # chores are walked out for real near you
 		if _dist(f.pos, at) > despawn_radius:
 			f.home = _ai(f).get("_home")
 			f.node.queue_free()
@@ -596,9 +782,11 @@ func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 		minds.think(f, now)
 		if f.node == null and f.dead:
 			return
+	if camplife and not f.task.is_empty():
+		camplife.step(f, now)
 	var to := Vector3(f.home.x - f.pos.x, 0, f.home.z - f.pos.z) # off-screen: just walk straight home
 	f.pos += to.limit_length(walk_speed * dt)
-	if _dist(f.pos, at) < spawn_radius:
+	if _dist(f.pos, at) < spawn_radius and f.camp.wild != "falselight": # the false light's holder is unseen until it springs
 		_spawn(f)
 
 func _spawn(f: Folk) -> void:
@@ -610,10 +798,30 @@ func _spawn(f: Folk) -> void:
 	person.get_node("mobAI")._asleep = true # settles onto the ground once it's near the player
 	add_child(person)
 	person.get_node("mobAI")._home = f.home
-	if f.name.is_empty():
-		f.name = person.Name
+	if f.name.is_empty(): # someone new since the start (a monster, or the sim made them): give them a name
+		f.name = minds._unique_name(_rng, f.camp.kind == "bandit") if minds and not f.camp.kind in ["goblin", "orc"] else person.Name
 	person.Name = f.name
 	person.set_meta("folk", f) # lets their Talker keep jobs on the record
+	_hp_to_body(f)
+	var wares: Node = person.get_node_or_null("talker/wares")
+	if wares: # a trader sells what they really have: their camp's crate, or their pack on the road
+		var nothing: Dictionary[String, int] = {}
+		wares.starting_items = nothing
+		wares.get_node("inventoryComponent").inventory.clear()
+		var sync: Node = load("res://world/props/campStoreSync.gd").new()
+		sync.record = f.camp if f.camp.wild == "" and not f.camp.roaming else f
+		sync.which = "crate" if f.camp.wild == "" and not f.camp.roaming else "pack"
+		sync.whole = true
+		wares.add_child(sync)
+	var dummy := person.get_node_or_null("dummy")
+	if dummy:
+		var carried: Dictionary[String, int] = {}
+		if f.camp.kind in ["goblin", "orc"]:
+			carried[f.camp.kind + "_carcass"] = 1 # their body
+		for id in f.inv: # what they really carry is what they drop
+			carried[id] = carried.get(id, 0) + f.inv[id]
+		dummy.loot = carried
+		dummy.exact_loot = true
 	f.node = person
 	if enc and f.camp.wild != "":
 		enc.on_spawn(f, person)
@@ -624,8 +832,19 @@ func _ai(f: Folk) -> MobAIComponent:
 	return f.node.get_node("mobAI") if f.node and is_instance_valid(f.node) and not f.node.is_dead else null
 
 func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
+	if c.wild == "herd":
+		_tick_herd(c, at, now)
+		return
 	if minds:
 		minds.check_cold(c, now)
+	if c.wild == "sack":
+		_tick_sack(c, at)
+		return
+	if c.wild == "starved_dead" and now - c.job.get("since", now) > body_decay:
+		if is_instance_valid(c.fire):
+			c.fire.queue_free()
+		camps.erase(c) # the ash takes it
+		return
 	if c.wild == "remains" or c.wild == "cairn":
 		_tick_spot(c, at)
 		return
@@ -665,20 +884,41 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 	elif now > c.next_move:
 		c.next_move = now + randf_range(migrate_every.x, migrate_every.y)
 		c.members = _alive(c.members)
-		if c.members.is_empty() or c.kind == "goblin" or c.kind == "orc":
-			return # monsters hold their ground
-		if not c.bandit:
-			_send_band(c, c.members, now)
+		if c.members.is_empty():
 			return
-		if _rng.randf() < war_band_chance and c.members.size() >= 2:
+		if c.kind == "goblin" or c.kind == "orc":
+			_den_acts(c, now)
+			return
+		# Nobody sets out for anywhere their light won't get them (a torch's worth of walking: _reach()).
+		if not c.bandit:
+			var to := _camp_near(c.pos, _reach(), c, minf(coldfire_spot, _reach()))
+			if to and c.members.size() > keepers: # someone always stays to keep the fire; the rest move on
+				_send_band(c, c.members.slice(keepers), now)
+				var band: Camp = camps[-1]
+				band.job["settle_at"] = to
+				band.pos = to.pos
+				for f: Folk in band.members:
+					_send(f, to.pos)
+			return
+		var prey := _prey_near(c.pos, _reach(), c)
+		if prey and _rng.randf() < war_band_chance and c.members.size() >= 2:
 			_send_band(c, c.members.slice(0, maxi(1, roundi(c.members.size() * war_band_share))), now)
+			var band: Camp = camps[-1]
+			band.raid = prey
+			band.raid_since = now
+			for f: Folk in band.members:
+				_send(f, prey.pos)
 			return
 		var dest := _pick_camp(c)
-		if dest and not _alive(dest.members).is_empty():
+		if dest and _dist(dest.pos, c.pos) < _reach() and not _alive(dest.members).is_empty():
 			for f: Folk in c.members:
 				_send(f, dest.pos)
 			c.raid = dest
 			c.raid_since = now
+
+## How far anyone sets out from a fire: what one torch lights them for, with some to spare.
+func _reach() -> float:
+	return camplife.npc_torch_time * walk_speed * 0.8 if camplife else float(fire_radius)
 
 ## Splits `who` off camp c into a band that roams. Drifter bands settle at the first drifter fire they see;
 ## bandit war bands raid whatever camp they come across and keep roaming.
@@ -688,6 +928,8 @@ func _send_band(c: Camp, who: Array, now: float) -> void:
 	band.kind = c.kind
 	band.bandit = c.bandit
 	band.from = c
+	band.den = c
+	band.job["out_since"] = now
 	band.pos = c.pos
 	band.heading = _rng.randf() * TAU
 	band.members = who
@@ -704,15 +946,56 @@ func _tick_band(b: Camp, now: float) -> void:
 		camps.erase(b)
 		return
 	var lead: Folk = alive[0]
-	if b.wild == "wanderer" and b.job.get("settles", false): # a wanderer who lost their camp looks for a new fire
-		var home := _camp_near(lead.pos, fire_radius, b.from)
+	if camplife and b.kind in ["drifter", "bandit"]:
+		camplife.tend_torch(b, alive, now) # their light burns whatever they're doing
+		if b.raid == null and camplife.need_light(b, alive, now):
+			return # light first, whatever they were about
+	if b.wild == "homeward":
+		var parched: bool = camplife and minf(camplife._avg(alive, "water"), camplife._avg(alive, "food")) < 30.0
+		if (parched or b.job.has("goal")) and b.raid == null and camplife.steer(b, now):
+			return # on the way, if it's bad, they go for water or food first
+		_tick_homeward(b, alive, now)
+		return
+	if b.wild == "lurer": # an orc walking out to hold a false light
+		if _dist(lead.pos, b.pos) < waypoint_reached or now - b.waypoint_since > waypoint_give_up:
+			b.wild = "falselight"
+			b.roaming = false
+			b.pos = lead.pos
+			b.job["until"] = now + lure_time
+		return
+	if b.wild == "pack" and _pack_hunts(b, alive, now):
+		return
+	if b.wild == "pack" and now > b.job.get("until", INF):
+		_go_home(b, now)
+		return
+	# A drifter band on the move, or a wanderer, settles at the first fire it finds (and can leave again: minds.gd).
+	if (b.kind == "drifter" and b.wild in ["", "wanderer"] or b.kind == "bandit" and b.wild == "wanderer") and b.raid == null:
+		var home: Camp = b.job.get("settle_at") if b.job.get("settle_at") in camps else _camp_near(lead.pos, minf(fire_radius, _reach()), b.from, minf(coldfire_spot, _reach()), b.kind)
+		if home and _dist(lead.pos, home.pos) > 15.0: # seen it: walk there together (with their torch) before joining
+			if b.job.get("settle_at") != home or now - b.waypoint_since > waypoint_give_up:
+				b.job["settle_at"] = home
+				b.pos = home.pos
+				b.waypoint_since = now
+				for f: Folk in alive:
+					_send(f, home.pos)
+			if camplife and minf(camplife._avg(alive, "water"), camplife._avg(alive, "food")) < 30.0 and camplife.steer(b, now):
+				pass # parched on the way: water or food first
+			return
 		if home:
+			_relight(home, lead)
 			for f: Folk in alive:
 				f.camp = home
 				_send(f, home.pos)
 			home.members.append_array(alive)
 			camps.erase(b)
 			return
+		if not b.job.has("wander_since"):
+			b.job["wander_since"] = now
+		elif now - b.job.wander_since > found_after and b.job.get("fuel", 0.0) > 0.0 and _room_for_fire(lead.pos):
+			_found_camp(b, alive, now) # no fire anywhere near: they make one with the torch they carry
+			return
+	if camplife and b.raid == null and camplife.steer(b, now):
+		return # travellers going for a fire, water or food (torches, survival: camplife.gd)
 	if b.wild != "": # lone wanderers and goblin packs just keep walking
 		if enc and enc.steer_band(b, now):
 			return
@@ -720,6 +1003,9 @@ func _tick_band(b: Camp, now: float) -> void:
 			_next_waypoint(b, now)
 		return
 	if b.bandit:
+		if b.den and (now - b.job.get("out_since", now) > war_band_time or camplife and camplife._avg(alive, "water") < war_band_thirst):
+			_go_home(b, now) # out too long, or the water's running out
+			return
 		var prey := _prey_near(lead.pos, fire_radius, b.from)
 		if prey:
 			for f: Folk in alive:
@@ -729,15 +1015,434 @@ func _tick_band(b: Camp, now: float) -> void:
 		elif _dist(lead.pos, b.pos) < waypoint_reached or now - b.waypoint_since > waypoint_give_up:
 			_next_waypoint(b, now)
 		return
-	var dest := _camp_near(lead.pos, fire_radius, b.from)
-	if dest:
-		for f: Folk in alive:
-			f.camp = dest
-			_send(f, dest.pos)
-		dest.members.append_array(alive)
-		camps.erase(b)
-	elif _dist(lead.pos, b.pos) < waypoint_reached or now - b.waypoint_since > waypoint_give_up:
+	if _dist(lead.pos, b.pos) < waypoint_reached or now - b.waypoint_since > waypoint_give_up:
 		_next_waypoint(b, now)
+
+## Wanderers who've found no fire make their own: a new drifter camp where they stand, stocked with what they
+## carry (they keep one of each for themselves).
+func _found_camp(b: Camp, alive: Array, now: float) -> void:
+	var c := Camp.new()
+	c.kind = b.kind
+	c.bandit = b.bandit
+	c.pos = _ground(alive[0].pos)
+	c.next_move = now + _rng.randf_range(migrate_every.x, migrate_every.y)
+	c.stocked = true
+	camps.append(c)
+	for f: Folk in alive:
+		f.camp = c
+		_send(f, c.pos)
+		if camplife:
+			for id in f.inv.keys():
+				if id == "water_skin":
+					camplife.move(f.inv, c.barrel, id, f.inv[id] - 1)
+				elif camplife.nourish(id).x > 0.0:
+					camplife.move(f.inv, c.crate, id, f.inv[id] - 1)
+	c.members.append_array(alive)
+	camps.erase(b)
+	note(alive[0], "found no fire, so they made one and stayed")
+
+## Somewhere a new fire can go: on land, low enough, and not crowding another fire or place.
+func _room_for_fire(p: Vector3) -> bool:
+	var g := _ground(p)
+	if is_nan(g.y) or g.y < SEA_LEVEL + 1.5 or g.y > MAX_HEIGHT:
+		return false
+	for c in camps:
+		if not c.roaming and (c.wild == "" or c.wild == "coldfire") and _dist(c.pos, p) < fire_gap:
+			return false
+	if camplife: # nobody makes a fire where there's no water to be had
+		for c in camps:
+			if c.wild == "spring" and _dist(c.pos, p) < camplife.spring_range:
+				return true
+		return false
+	return true
+
+## A goblin den sends out a hunting pack, an orc den sends one out to hold a false light. Short of its full size,
+## a den grows by one now and then.
+func _den_acts(c: Camp, now: float) -> void:
+	var n := c.members.size()
+	var full: int = goblins_max if c.kind == "goblin" else orcs_max
+	if not c.stocked:
+		c.stocked = true
+		c.crate["raw_meat"] = n * den_start_meat
+	var meat: int = c.crate.get("raw_meat", 0)
+	if n < full and meat >= breed_meat and now - c.job.get("grew", 0.0) > den_regrow:
+		c.job["grew"] = now
+		c.crate["raw_meat"] = meat - breed_meat # fed well enough to bring up another
+		var f := Folk.new()
+		f.camp = c
+		f.home = _around(c.pos, _rng)
+		f.pos = f.home
+		c.members.append(f)
+		folk.append(f)
+	var hungry := meat < n # less than a meal each in the larder: they go hunting
+	var storm: float = storm_packs if enc and enc._storming else 1.0 # the ash storm brings them out
+	if (c.kind == "goblin" or hungry) and n >= (1 if hungry else 2) and _rng.randf() < pack_out_chance * (2.0 if hungry else 1.0) * storm:
+		var k := maxi(1, mini(n - (0 if hungry and n == 1 else 1), _rng.randi_range(pack_size.x, maxi(pack_size.x, pack_size.y))))
+		_send_band(c, c.members.slice(0, k), now)
+		var b: Camp = camps[-1]
+		b.wild = "pack"
+		b.job["until"] = now + _rng.randf_range(pack_roam_time.x, pack_roam_time.y)
+	elif c.kind == "orc" and _rng.randf() < lure_chance and not camps.any(func(o: Camp): return o.den == c and o.wild in ["lurer", "falselight"]):
+		_send_band(c, c.members.slice(0, 1), now)
+		var b: Camp = camps[-1]
+		b.wild = "lurer"
+		var a := _rng.randf() * TAU
+		var p := _ground(c.pos + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(lure_distance.x, lure_distance.y))
+		if is_nan(p.y) or p.y < SEA_LEVEL + 1.5:
+			p = c.pos
+		b.pos = p
+		for f: Folk in b.members:
+			_send(f, p)
+		b.waypoint_since = now
+
+## A hungry pack goes for the nearest herd it can smell; at it, they kill what they can and take the meat home.
+## True = this handled the pack's move.
+func _pack_hunts(b: Camp, alive: Array, now: float) -> bool:
+	if b.job.get("fed", false) or not minds or minds._avg_food(alive) > minds.monster_eat_below + 20.0:
+		return false
+	var herd: Camp = b.job.get("prey") if b.job.get("prey") in camps else null
+	if not herd:
+		for c in camps:
+			if c.wild == "herd" and _dist(c.pos, alive[0].pos) < smell_range and (not herd or _dist(c.pos, alive[0].pos) < _dist(herd.pos, alive[0].pos)):
+				herd = c
+		if not herd:
+			return false
+		b.job["prey"] = herd
+	if _dist(alive[0].pos, herd.pos) > 15.0:
+		if now - b.waypoint_since > 10.0: # keep after it, it moves
+			b.waypoint_since = now
+			b.pos = herd.pos
+			for f: Folk in alive:
+				_send(f, herd.pos)
+		return true
+	var kills: int = mini(herd.job.get("count", 0), alive.size())
+	herd.job.count -= kills
+	if camplife:
+		for i in kills:
+			camplife.add(alive[i % alive.size()].inv, "raw_meat", camplife.meat_per_kill)
+	b.job["fed"] = true
+	b.job.erase("prey")
+	_go_home(b, now) # back to the den with it
+	return true
+
+## A herd of game: breeds toward herd_cap, splits when full, drifts about, and is gone when hunted out.
+func _new_herd(p: Vector3, head: int) -> Camp:
+	var h := Camp.new()
+	h.wild = "herd"
+	h.kind = "game"
+	h.pos = p
+	h.next_move = INF
+	h.job = {"count": head, "t": SimClock.now, "acc": 0.0, "move": 0.0}
+	camps.append(h)
+	_herd_n += 1
+	return h
+
+var _herd_n := 0 # herds on the island (kept count: cheaper than counting)
+var _herd_bodies := {} # herd Camp -> Array of greyhorn bodies, for herds near you
+
+## Near you a herd is real: greyhorn bodies grazing round it, bolting from you or any hunter or pack that comes close. One you kill is one fewer in the
+## herd (its carcass is yours); one the sim's hunters take falls down where it stands (the meat is theirs).
+## The herd's spot follows its bodies while they're out.
+func _herd_bodies_tick(h: Camp, at: Vector3) -> void:
+	var near: bool = _dist(h.pos, at) < spawn_radius and h.job.count > 0
+	var bodies: Array = _herd_bodies.get(h, [])
+	if not near:
+		if _herd_bodies.has(h):
+			for b in bodies:
+				if is_instance_valid(b) and not b.is_dead:
+					b.queue_free()
+			_herd_bodies.erase(h)
+		return
+	var alive: Array = []
+	for b in bodies:
+		if not is_instance_valid(b):
+			continue
+		if b.is_dead:
+			if not b.has_meta("counted"):
+				b.set_meta("counted", true)
+				if not b.has_meta("sim_kill"):
+					h.job.count = maxi(0, h.job.count - 1) # killed for real (you, or anyone)
+			continue
+		alive.append(b)
+	var want: int = mini(h.job.count, herd_show_max)
+	while alive.size() < want:
+		var b: BaseCharacter = greyhorn_scene.instantiate()
+		b.top_level = true
+		b.position = _ground(_around(h.pos, _rng) + Vector3(_rng.randf_range(-6, 6), 0, _rng.randf_range(-6, 6))) + Vector3.UP * 0.1
+		b.rotation.y = _rng.randf() * TAU
+		b.get_node("mobAI")._asleep = true
+		add_child(b)
+		b.get_node("mobAI")._home = b.position
+		alive.append(b)
+	while alive.size() > want: # the sim's hunters took some: they drop where they stand
+		var b: BaseCharacter = alive.pop_back()
+		b.set_meta("sim_kill", true)
+		var nothing: Dictionary[String, int] = {}
+		b.get_node("dummy").loot = nothing # its meat is already in the hunter's pack
+		b.statComponent.health.change_current(-100000)
+	var threats: Array[Vector3] = [at] # you, and anyone else near enough to have a body (hunters, packs)
+	for f in folk:
+		if f.node and is_instance_valid(f.node) and not f.dead and _dist(f.pos, h.pos) < flee_range * 3.0:
+			threats.append(f.pos)
+	var mid := Vector3.ZERO
+	for b in alive:
+		mid += b.global_position
+		var ai: MobAIComponent = b.get_node("mobAI")
+		var from := Vector3(INF, 0, 0)
+		for t in threats:
+			var d := Vector3(b.global_position.x - t.x, 0, b.global_position.z - t.z)
+			if d.length() < from.length():
+				from = d
+		if from.length() < flee_range and ai.state != MobAIComponent.State.RETURN:
+			ai._home = _ground(b.global_position + from.normalized() * flee_range * 1.5)
+			ai._enter(MobAIComponent.State.RETURN) # bolt
+	if not alive.is_empty():
+		h.pos = mid / alive.size()
+	_herd_bodies[h] = alive + bodies.filter(func(b): return is_instance_valid(b) and b.is_dead)
+
+## A character's health lives on the record (0-100); its body near you shows the same.
+func _hp_from_body(f: Folk) -> void:
+	if is_instance_valid(f.node) and f.node.statComponent and f.node.statComponent.health:
+		var h: Stat = f.node.statComponent.health
+		f.hp = 100.0 * h.currentValue / maxf(1.0, h.get_max_value())
+
+func _hp_to_body(f: Folk) -> void:
+	if is_instance_valid(f.node) and f.node.statComponent and f.node.statComponent.health and not f.node.is_dead:
+		var h: Stat = f.node.statComponent.health
+		var want := maxi(1, roundi(h.get_max_value() * f.hp / 100.0))
+		if want != h.currentValue:
+			h.change_current(want - h.currentValue)
+
+## Something left lying in the world (a corpse's things, what you drop): a place holding those items, there for
+## anyone to find (you, or anyone passing) until it's emptied.
+func drop_sack(pos: Vector3, items: Dictionary) -> void:
+	if items.is_empty():
+		return
+	var s := Camp.new()
+	s.wild = "sack"
+	s.pos = pos
+	s.next_move = INF
+	s.stocked = true
+	for id in items:
+		s.crate[id] = s.crate.get(id, 0) + items[id]
+	camps.append(s)
+
+func _tick_sack(s: Camp, at: Vector3) -> void:
+	if s.crate.is_empty():
+		if is_instance_valid(s.fire):
+			s.fire.queue_free()
+		camps.erase(s) # emptied
+		return
+	var d := _dist(s.pos, at)
+	if d < spawn_radius and not is_instance_valid(s.fire):
+		var sack: Node3D = load("res://items/scenes/lootSack.tscn").instantiate()
+		var nothing: Dictionary[String, int] = {}
+		sack.get_node("interactableComponent/containerComponent").starting_items = nothing
+		sack.top_level = true
+		sack.position = s.pos
+		var sync: Node = load("res://world/props/campStoreSync.gd").new()
+		sync.record = s
+		sync.which = "crate"
+		sack.add_child(sync)
+		add_child(sack)
+		s.fire = sack
+	elif d > spawn_radius * 1.2 and is_instance_valid(s.fire):
+		s.fire.queue_free()
+
+## Someone died where nobody saw: their body is left lying where they fell, with what they carried, for anyone
+## to find (it's a place now, like remains; it's gone after body_decay).
+func leave_body(f: Folk) -> void:
+	if f.camp.kind in ["goblin", "orc"]:
+		return
+	var b := Camp.new()
+	b.wild = "starved_dead"
+	b.kind = f.camp.kind
+	b.pos = _ground(f.pos)
+	b.next_move = INF
+	b.job = {"loot": f.inv.duplicate(), "since": SimClock.now}
+	f.inv.clear()
+	camps.append(b)
+
+## Someone killed someone: what the dead are to the living. Monsters feed on whoever they kill; people who kill a
+## monster can cut blackflesh from it (eaten only when starving: camplife.gd); nobody eats their own kind.
+func _feed(killer: Folk, victim: Folk) -> void:
+	if not killer or not camplife:
+		return
+	var monster := func(f: Folk) -> bool: return f.camp.kind in ["goblin", "orc"]
+	if monster.call(killer) and not monster.call(victim):
+		for o: Folk in _alive(killer.camp.members):
+			if o.needs.has("food"):
+				o.needs.food = minf(100.0, o.needs.food + 40.0) # they feed where it fell
+	elif monster.call(victim) and not monster.call(killer):
+		camplife.add(killer.inv, "blackflesh", 2)
+
+func _tick_herd(h: Camp, at: Vector3, now: float) -> void:
+	var j := h.job
+	_herd_bodies_tick(h, at)
+	if j.count <= 0:
+		camps.erase(h)
+		_herd_n -= 1
+		_herd_bodies.erase(h)
+		return
+	var minutes: float = (now - j.t) / 60.0
+	j.t = now
+	j.acc += herd_growth * j.count * (1.0 - float(j.count) / herd_cap) * minutes
+	while j.acc >= 1.0:
+		j.acc -= 1.0
+		j.count += 1
+	if j.count >= herd_cap and _herd_n < herds_max:
+		var half: int = j.count / 2
+		j.count -= half
+		var a := _rng.randf() * TAU
+		var p := _ground(h.pos + Vector3(cos(a), 0, sin(a)) * 150.0)
+		if not is_nan(p.y) and p.y > SEA_LEVEL + 1.5 and p.y < MAX_HEIGHT:
+			_new_herd(p, half)
+		else:
+			j.count += half
+	if now > j.move and not _herd_bodies.has(h): # near you the bodies move it (see _herd_bodies_tick)
+		j.move = now + _rng.randf_range(45.0, 90.0)
+		var a := _rng.randf() * TAU
+		var p := _ground(h.pos + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(herd_drift.x, herd_drift.y))
+		if not is_nan(p.y) and p.y > SEA_LEVEL + 1.5 and p.y < MAX_HEIGHT:
+			h.pos = p
+
+## Sends a band back to its den. No den left (gone, wiped out, gone cold)? Monsters and bandits take the nearest
+## camp of their own kind, or make a new one where they stand; drifters go wandering to find a fire.
+func _go_home(b: Camp, now: float) -> void:
+	var alive := _alive(b.members)
+	var at: Vector3 = alive[0].pos if not alive.is_empty() else b.pos
+	var human: bool = not b.kind in ["goblin", "orc"]
+	# People only head for a home their light will get them to (monsters are of the dark and go anywhere).
+	var reach: float = b.job.get("fuel", 0.0) * walk_speed * 0.9 if human else fire_radius * 3.0
+	var home: Camp = b.den if b.den and b.den.wild == "" and not b.den.roaming and b.den.kind == b.kind and _dist(b.den.pos, at) < reach else null
+	if not home:
+		for c in camps:
+			if c.wild == "" and not c.roaming and c.kind == b.kind and _dist(c.pos, at) < minf(reach, fire_radius * 3.0) and (not home or _dist(c.pos, at) < _dist(home.pos, at)):
+				home = c
+	b.raid = null
+	if not home and human and b.job.get("fuel", 0.0) <= 0.0:
+		b.wild = "wanderer" # no light to make a fire with: they wander and look for one
+		b.roaming = true
+		return
+	if not home: # make a new den / fire right here
+		home = Camp.new()
+		home.kind = b.kind
+		home.bandit = b.bandit
+		home.pos = _ground(_alive(b.members)[0].pos)
+		home.next_move = now + _rng.randf_range(migrate_every.x, migrate_every.y)
+		camps.append(home)
+		if not alive.is_empty() and not b.kind in ["goblin", "orc"]:
+			note(alive[0], "made a new camp where they stood")
+	b.den = home
+	b.wild = "homeward"
+	b.roaming = true
+	b.pos = home.pos
+	for f: Folk in alive:
+		_send(f, home.pos)
+	if not alive.is_empty() and not b.kind in ["goblin", "orc"]:
+		note(alive[0], "headed home")
+
+func _tick_homeward(b: Camp, alive: Array, now: float) -> void:
+	var home := b.den
+	if not home or home.wild != "" or home.kind != b.kind:
+		_go_home(b, now) # home's gone in the meantime: find another
+		return
+	if not alive.any(func(f: Folk): return _dist(f.pos, home.pos) < 15.0):
+		if now - b.waypoint_since > waypoint_give_up:
+			b.waypoint_since = now
+			for f: Folk in alive:
+				_send(f, home.pos)
+		return
+	for f: Folk in alive:
+		f.camp = home
+		_send(f, home.pos)
+		if camplife: # what they brought goes into the stores (keeping one of each)
+			for id in f.inv.keys():
+				if id == "water_skin":
+					camplife.move(f.inv, home.barrel, id, f.inv[id] - 1)
+				elif camplife.nourish(id).x > 0.0:
+					camplife.move(f.inv, home.crate, id, f.inv[id] - (0 if home.kind in ["goblin", "orc"] else 1))
+	home.members.append_array(alive)
+	camps.erase(b)
+
+var _next_pull := 0.0
+
+## Lit fires and cairns pull a lost soul out of the dark now and then: the fuller the island, the rarer.
+## They come up out of the dark a way off (never near you), with nearly nothing, and walk toward the light.
+func _pull(at: Vector3, now: float) -> void:
+	var humans := 0
+	for f in folk:
+		if not f.dead and not f.camp.kind in ["goblin", "orc"]:
+			humans += 1
+	if humans >= souls_target or _rng.randf() > 1.0 - float(humans) / maxf(1.0, souls_target):
+		return
+	var bandit := _rng.randf() < pull_bandit_share
+	var lights: Array[Camp] = []
+	for pass_bandit in ([true, false] if bandit else [false]): # no bandit fire burning: a drifter fire pulls them instead
+		bandit = pass_bandit
+		for c in camps:
+			var lit: bool = c.wild == "" and not c.roaming and c.kind == ("bandit" if bandit else "drifter") and not _alive(c.members).is_empty()
+			if lit:
+				lights.append(c)
+		if not lights.is_empty():
+			break
+	if lights.is_empty(): # no fire anywhere: the cairns' lights pull instead
+		for c in camps:
+			if c.wild == "cairn":
+				lights.append(c)
+		bandit = false
+	if lights.is_empty():
+		return
+	var light: Camp = lights[_rng.randi() % lights.size()]
+	var p := Vector3(NAN, NAN, NAN)
+	for attempt in 6:
+		var a := _rng.randf() * TAU
+		p = _ground(light.pos + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(pull_distance.x, pull_distance.y))
+		if not is_nan(p.y) and p.y > SEA_LEVEL + 1.5 and p.y < MAX_HEIGHT and _dist(p, at) > despawn_radius:
+			break
+		p.y = NAN
+	if is_nan(p.y):
+		return
+	var f := Folk.new()
+	f.pos = p
+	f.packed = true # nothing but the clothes they stand in, and maybe a skin
+	if _rng.randf() < 0.5:
+		f.inv["water_skin"] = 1
+	folk.append(f)
+	var b := Camp.new()
+	b.kind = "bandit" if bandit else "drifter"
+	b.bandit = bandit
+	b.wild = "" if bandit else "wanderer"
+	b.roaming = true
+	b.job["settles"] = true
+	b.members.append(f)
+	f.camp = b
+	if minds:
+		minds.birth(f, true) # needs, nature and a name of their own
+		f.think_t = now + randf() * minds.think_every
+	if bandit: # a bandit fire takes them in: they walk to it and join
+		b.den = light
+		b.wild = "homeward"
+	b.pos = light.pos
+	b.heading = atan2(light.pos.z - p.z, light.pos.x - p.x)
+	b.waypoint_since = now
+	camps.append(b)
+	_send(f, light.pos)
+	note(f, "was pulled out of the dark toward a %s" % ("cairn's light" if light.wild == "cairn" else "fire"))
+
+## A group settles at `home`: if it's a cold fire, nobody's, they light it again and make it theirs.
+func _relight(home: Camp, lead: Folk) -> void:
+	if home.wild != "coldfire":
+		note(lead, "found a fire and settled there")
+		return
+	if is_instance_valid(home.fire):
+		home.fire.queue_free()
+	home.wild = ""
+	home.kind = lead.camp.kind # whoever lights it makes it theirs
+	home.bandit = home.kind == "bandit"
+	home.empty_since = 0.0
+	home.next_move = SimClock.now + randf_range(migrate_every.x, migrate_every.y)
+	note(lead, "relit a cold fire and settled there")
 
 func _next_waypoint(b: Camp, now: float) -> void:
 	var lead: Folk = _alive(b.members)[0]
@@ -755,16 +1460,13 @@ func _next_waypoint(b: Camp, now: float) -> void:
 	for f: Folk in _alive(b.members):
 		_send(f, p)
 
-## Nearest drifter camp to pos within r (not `skip`).
-func _camp_near(pos: Vector3, r: float, skip: Camp) -> Camp:
-	var n := ceili(r / cell_size)
-	var cell := Vector2i(floori(pos.x / cell_size), floori(pos.z / cell_size))
+## Nearest drifter camp to pos within r (not `skip`); with `cold` > 0, cold fires within that count too.
+func _camp_near(pos: Vector3, r: float, skip: Camp, cold := 0.0, kind := "drifter") -> Camp:
 	var best: Camp = null
-	for z in range(-n, n + 1):
-		for x in range(-n, n + 1):
-			var c: Camp = _by_cell.get(cell + Vector2i(x, z))
-			if c and c != skip and c.kind == "drifter" and c.wild == "" and _dist(c.pos, pos) < r and (not best or _dist(c.pos, pos) < _dist(best.pos, pos)):
-				best = c
+	for c: Camp in camps: # all of them: cold fires from encounters aren't in the cell grid
+		var ok := c != skip and not c.roaming and ((c.kind == kind and c.wild == "" and _dist(c.pos, pos) < r) or (c.wild == "coldfire" and _dist(c.pos, pos) < cold))
+		if ok and (not best or _dist(c.pos, pos) < _dist(best.pos, pos)):
+			best = c
 	return best
 
 func _tick_raid(c: Camp, now: float) -> void:
@@ -781,19 +1483,36 @@ func _tick_raid(c: Camp, now: float) -> void:
 		if c.roaming:
 			c.from = c.raid # a war band moves on rather than hitting the same camp again
 		c.raid = null
+		c.job.erase("fight") # a toll-taker's fight is over: back to asking
+		if c.roaming and c.den and c.wild == "":
+			_go_home(c, now) # a war band takes what it got back to its fire
 		return
 	if not raiders.any(func(f: Folk): return defenders.any(func(d: Folk): return _dist(f.pos, d.pos) < raid_arrive)):
 		for f: Folk in raiders: # still on the way: keep heading for them (they may be walking)
 			_send(f, defenders[0].pos)
 		return
-	if not (raiders + defenders).any(func(f: Folk): return f.node):
-		# Off-screen: someone falls now and then; bandits are the better fighters.
-		if _rng.randf() < raid_kill_chance:
-			var victim: Folk = (defenders if _rng.randf() < bandit_win_chance else raiders).pick_random()
-			victim.dead = true
-			if minds:
-				minds.on_death(victim, false)
-		return
+	# The same rules near you or not: someone falls now and then; bandits are the better fighters. Near you the
+	# bodies act the fight out (their swings at each other do no harm) and the one the sim kills drops.
+	if _rng.randf() < raid_kill_chance:
+		var won := _rng.randf() < bandit_win_chance
+		var victim: Folk = (defenders if won else raiders).pick_random()
+		victim.dead = true
+		_feed((raiders if won else defenders).pick_random(), victim)
+		if won and camplife and c.raid.stocked: # the raiders carry off what they can: coin first, then food and water
+			var r: Folk = raiders.pick_random()
+			camplife.move(c.raid.crate, r.inv, "coin", c.raid.crate.get("coin", 0))
+			for k in 3:
+				var id: String = camplife._best(c.raid.crate, false)
+				if id != "":
+					camplife.move(c.raid.crate, r.inv, id, 1)
+			camplife.move(c.raid.barrel, r.inv, "water_skin", 2)
+		if is_instance_valid(victim.node) and victim.node.statComponent:
+			victim.node.statComponent.health.change_current(-100000)
+		else:
+			leave_body(victim)
+		victim.node = null
+		if minds:
+			minds.on_death(victim, false)
 	for f: Folk in raiders:
 		_set_foe(f, defenders)
 	for f: Folk in defenders:
@@ -837,9 +1556,12 @@ func bandit_camp_near(pos: Vector3, r: float) -> Camp:
 ## Nearest camp with people in it (not bandits, not `skip`) within r: a war band's next target.
 func _prey_near(pos: Vector3, r: float, skip: Camp) -> Camp:
 	var best: Camp = null
+	var best_score := -INF
 	for c in camps:
 		if c != skip and not c.bandit and not c.roaming and c.wild == "" and _dist(c.pos, pos) < r and not _alive(c.members).is_empty():
-			if not best or _dist(c.pos, pos) < _dist(best.pos, pos):
+			var score: float = c.crate.get("coin", 0) * 20.0 - _dist(c.pos, pos) # word of a rich camp gets about
+			if score > best_score:
+				best_score = score
 				best = c
 	return best
 

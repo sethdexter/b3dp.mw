@@ -122,9 +122,18 @@ func _job_talk(person: BaseCharacter, player: Node) -> String:
 			done = true
 	if not done:
 		return job_reminder
-	if inv:
-		inv.add_item(db.get_item_instance("coin"), job.pay)
+	var paid := 0
+	for stash in [folk.inv, folk.camp.crate]: # out of their pack, then their camp's crate
+		var n: int = mini(job.pay - paid, stash.get("coin", 0))
+		stash["coin"] = stash.get("coin", 0) - n
+		if stash["coin"] <= 0:
+			stash.erase("coin")
+		paid += n
+	if inv and paid > 0:
+		inv.add_item(db.get_item_instance("coin"), paid)
 	folk.job = {}
+	if paid < job.pay:
+		return "It's done. Here's %d coin. It's all we have." % paid
 	if camps.minds:
 		camps.minds.rep(folk.camp, camps.minds.rep_job)
 	return job_thanks % job.pay

@@ -6,8 +6,8 @@ extends StaticBody3D
 ## State (fuel, lights used) is kept on the Item, so it survives unequipping. The stack shares one Item:
 ## the state belongs to the torch in your hand, the rest of the stack are fresh spares.
 
-## Seconds a full torch lasts.
-@export var burn_time := 240.0
+## Seconds a full torch lasts. Everyone's torches burn this long (world/camplife.gd reads it for the island's people).
+@export var burn_time := 600.0
 ## The last part of its life it gutters: flame and light shrink toward nothing.
 @export_range(0.0, 1.0) var gutter_portion := 0.25
 ## Lightings per torch (the first light counts), then it's spent.

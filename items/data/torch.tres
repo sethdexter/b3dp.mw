@@ -18,4 +18,8 @@ value = 3
 heldPosition = Vector3(-0.3, 0.3, -0.3)
 heldRotation = Vector3(-15, 0, 0)
 heldScale = Vector3(0.4, 0.4, 0.4)
+salvage = Dictionary[String, int]({
+"ash_wood": 1,
+"cloth": 1
+})
 metadata/_custom_type_script = "uid://clc3ta7ivy4ye"

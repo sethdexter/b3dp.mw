@@ -117,6 +117,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_drop_selected(event.shift_pressed)
 		get_viewport().set_input_as_handled()
 		return
+	if event is InputEventKey and event.pressed and not event.is_echo() and event.keycode == KEY_X and (focus_side == Side.PLAYER or container == null):
+		var it := player_view.get_selected_item() # X: break it down into what it's made of (items/tools.gd)
+		if it:
+			Talker.notify(Tools.break_down(character.inventoryComponent, it, item_list))
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_DOWN:
@@ -178,10 +184,18 @@ func _pay_for(from: InventoryComponent, item: Item, amount: int) -> bool:
 		for key: Item in mine.inventory.keys():
 			if left > 0 and InventoryComponent.is_same_item(key, coin):
 				left -= mine.remove_item(key, left)
+		container.storage.add_item(coin, cost) # the coin goes into their stock (their camp's crate, or their pack)
 		Talker.notify("Bought %s for %d coin." % [item.Name, cost])
 		_trade_rep()
 	else: # selling
 		var pay := maxi(1, floori(item.value * container.buy_ratio)) * amount
+		if container.storage.count_item(coin) < pay:
+			Talker.notify("They haven't the coin for that (%d)." % pay)
+			return false
+		var owed := pay # paid out of their own coin
+		for key: Item in container.storage.inventory.keys():
+			if owed > 0 and InventoryComponent.is_same_item(key, coin):
+				owed -= container.storage.remove_item(key, owed)
 		mine.add_item(coin, pay)
 		Talker.notify("Sold %s for %d coin." % [item.Name, pay])
 		_trade_rep()
@@ -233,6 +247,16 @@ func _drop_selected(whole_stack: bool) -> void:
 	if removed <= 0:
 		return
 
+	var camps = get_tree().get_first_node_in_group("camps")
+	var db = get_node("/root/item_list")
+	var id := ""
+	for key in db.item_list:
+		if db.item_list[key].resource_path == item.get_template().resource_path:
+			id = key
+	if camps and camps.has_method("drop_sack") and id != "":
+		# shortcut: dropped this way an item forgets its own wear / fuel; fine until worn things matter on the ground
+		camps.drop_sack(character.global_position - character.global_basis.z * 1.2, {id: removed}) # left in the world: anyone can find it
+		return
 	var dropped := dropped_item_scene.instantiate()
 	get_tree().current_scene.add_child(dropped)
 	var cam := get_viewport().get_camera_3d()

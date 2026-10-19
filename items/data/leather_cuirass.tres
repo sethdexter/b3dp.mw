@@ -15,3 +15,8 @@ itemDesription = "Stiff hide stitched over a padded jerkin."
 value = 25
 armorRating = 3
 armorSkill = "light_armor"
+salvage = Dictionary[String, int]({
+"hide": 2,
+"sinew": 1
+})
+salvage_tool = "knife"

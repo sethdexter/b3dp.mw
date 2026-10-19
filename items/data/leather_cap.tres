@@ -15,3 +15,8 @@ itemDesription = "Boiled leather, cracked at the brim."
 value = 10
 armorRating = 1
 armorSkill = "light_armor"
+salvage = Dictionary[String, int]({
+"hide": 1,
+"sinew": 1
+})
+salvage_tool = "knife"

@@ -28,9 +28,9 @@ extends Node
 @export_range(0.0, 5.0, 0.05, "suffix:/s") var health_drain := 0.25
 ## Seconds in the dark before you're told about it (stepping just past a fire's edge says nothing).
 @export_range(0.0, 60.0, 0.5, "suffix:s") var warn_after := 5.0
-@export var enter_dark_line := "The dark closes around you."
+@export var enter_dark_line := "Tenebrae. The dark closes around you."
 @export var dread_line := "Something in the dark is wearing you down."
-@export var enter_light_line := "Light. You breathe again."
+@export var enter_light_line := "Lux. You breathe again."
 
 ## True once you've been out of the light for warn_after seconds (read by monsters).
 var in_dark := false
@@ -60,6 +60,7 @@ func _process(delta: float) -> void:
 			in_dark = false
 			dark_time = 0.0
 	if not out_of_light:
+		_rest(delta)
 		return
 	var before := dark_time
 	dark_time += delta
@@ -77,6 +78,27 @@ func _process(delta: float) -> void:
 				var points := int(_drain_acc)
 				_drain_acc -= points
 				stats.health.change_current(-points)
+
+var _heal_acc := 0.0
+
+## By a fire you heal slowly, as everyone does (Minds > rest_heal: health per minute out of 100).
+func _rest(delta: float) -> void:
+	var stats := character.statComponent
+	var camps = get_tree().get_first_node_in_group("camps")
+	var minds = camps.get_node_or_null("minds") if camps else null
+	if not stats or not stats.health or not minds or not _at_fire():
+		return
+	_heal_acc += minds.rest_heal / 100.0 * stats.health.get_max_value() / 60.0 * delta
+	if _heal_acc >= 1.0:
+		var points := int(_heal_acc)
+		_heal_acc -= points
+		stats.health.change_current(points)
+
+func _at_fire() -> bool:
+	for fire: Node3D in get_tree().get_nodes_in_group("campfire"):
+		if fire.global_position.distance_to(character.global_position) < fire_light_radius:
+			return true
+	return false
 
 func _lit() -> bool:
 	var at := character.global_position

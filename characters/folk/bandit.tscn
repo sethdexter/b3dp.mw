@@ -61,7 +61,8 @@ loot = Dictionary[String, int]({
 "leather_cap": 1,
 "dried_meat": 1,
 "ash_wine": 1,
-"coin": 20
+"coin": 20,
+"scrap_metal": 1
 })
 
 [node name="mobAI" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]

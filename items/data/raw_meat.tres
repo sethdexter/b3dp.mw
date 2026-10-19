@@ -11,11 +11,11 @@ water = -5.0
 
 [resource]
 script = ExtResource("1_item")
-Name = "Raw Meat"
+Name = "Greyhorn Meat"
 id = "0035"
 weight = 1
 maxStackCount = 10
 isConsumable = true
-itemDesription = "Stringy, grey, still warm. Better not to think about what it came from."
+itemDesription = "Stringy, grey, still warm. Greyhorn: the one thing in the dark that is good to eat."
 value = 2
 effects = Array[ExtResource("2_effect")]([SubResource("Effect_nourish")])

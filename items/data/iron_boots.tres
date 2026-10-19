@@ -18,3 +18,6 @@ armorSkill = "heavy_armor"
 attributeModifiers = Dictionary[String, int]({
 "vigor": -1
 })
+salvage = Dictionary[String, int]({
+"scrap_metal": 2
+})

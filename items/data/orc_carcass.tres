@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 1
+Name = "Orc Carcass"
+id = "0071"
+weight = 10
+maxStackCount = 1
+isPickupable = true
+itemDesription = "An orc's body, all of it. You'll need a knife and a strong stomach."
+isUnique = true
+salvage = Dictionary[String, int]({"bone": 4, "sinew": 2, "hide": 2, "blackflesh": 4})
+salvage_tool = "knife"

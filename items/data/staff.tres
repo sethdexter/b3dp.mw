@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 2
+Name = "Walking Staff"
+id = "0076"
+weight = 2
+maxStackCount = 1
+isPickupable = true
+itemDesription = "A length of ash wood worn smooth by somebody's hand. Good for the road; broken down, it's firewood."
+isUnique = true
+salvage = Dictionary[String, int]({"ash_wood": 2})

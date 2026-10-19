@@ -34,6 +34,8 @@ var _body: StaticBody3D
 var _root_body: StaticBody3D
 var _collider_center := Vector3.INF
 var _player: Node3D
+## Branches left on trees you've worked (Vector2i of the trunk's spot -> count), see world/props/treeHarvest.gd.
+var harvested := {}
 
 func _ready() -> void:
 	_build()
@@ -125,7 +127,8 @@ func _process(_delta: float) -> void:
 		return
 	_collider_center = at
 	if not _body:
-		_body = StaticBody3D.new()
+		_body = load("res://world/props/treeHarvest.gd").new() # E on a trunk: break off ash wood
+		_body.trees = self
 		_body.add_to_group("navmesh") # mobs path around trunks near the player
 		_body.top_level = true # colliders are placed in world space
 		add_child(_body)

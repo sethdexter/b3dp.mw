@@ -35,6 +35,15 @@ class_name Item
 ## Attribute bonuses while equipped, e.g. { "strength": 2, "vigor": -1 }
 @export var attributeModifiers: Dictionary[String, int] = {}
 
+@export_group("Crafting")
+## The kind of tool this counts as for gathering and crafting ("knife", "axe"...); "" = not a tool.
+@export var tool := ""
+## Uses before it breaks (0 = never wears out). Uses left are kept per item (see items/tools.gd).
+@export var durability := 0
+## What it breaks down into (X in your pack): item id -> count, and the tool kind that needs ("" = bare hands).
+@export var salvage: Dictionary[String, int] = {}
+@export var salvage_tool := ""
+
 @export_group("Consumable")
 ## What drinking/eating it does (needs isConsumable). Same effect resources spells use, e.g. RestoreEffect.
 @export var effects: Array[SpellEffect] = []
@@ -78,6 +87,18 @@ func get_attribute_modifiers() -> Dictionary[String, int]:
 
 func get_armor_skill() -> String:
 	return get_template().armorSkill
+
+func get_tool() -> String:
+	return get_template().tool
+
+func get_durability() -> int:
+	return get_template().durability
+
+func get_salvage() -> Dictionary[String, int]:
+	return get_template().salvage
+
+func get_salvage_tool() -> String:
+	return get_template().salvage_tool
 
 ## Consumable effects (from the original .tres).
 func get_effects() -> Array[SpellEffect]:

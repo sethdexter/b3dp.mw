@@ -18,8 +18,8 @@
 [ext_resource type="Script" uid="uid://b2jj6yvlyk65p" path="res://components/headBobComponent.gd" id="70_headbob"]
 [ext_resource type="Script" uid="uid://b6lh6rpwkevbm" path="res://components/meleeSwing.gd" id="80_swing"]
 [ext_resource type="Resource" uid="uid://bodek4g5ywk66" path="res://items/data/black_iron_sword.tres" id="82_sword"]
-[ext_resource type="Script" path="res://components/needsComponent.gd" id="90_needs"]
-[ext_resource type="Script" path="res://components/darknessComponent.gd" id="91_dark"]
+[ext_resource type="Script" uid="uid://5dcecca6wkwp" path="res://components/needsComponent.gd" id="90_needs"]
+[ext_resource type="Script" uid="uid://bljeu3kc2ur7j" path="res://components/darknessComponent.gd" id="91_dark"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_lodx8"]
 height = 3.26727
@@ -66,10 +66,10 @@ inventoryComponent = NodePath("inventory")
 equipmentComponent = NodePath("equipment")
 controllerComponent = NodePath("controller")
 starting_items = Dictionary[String, int]({
-"torch": 1,
 "bread": 2,
-"water_skin": 2,
-"coin": 25
+"coin": 25,
+"torch": 1,
+"water_skin": 2
 })
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=739416636]
@@ -123,10 +123,10 @@ currentCharacter = NodePath("..")
 script = ExtResource("3_mbq3d")
 currentCharacter = NodePath("..")
 
-[node name="needs" type="Node" parent="."]
+[node name="needs" type="Node" parent="." unique_id=1218298970]
 script = ExtResource("90_needs")
 
-[node name="darkness" type="Node" parent="."]
+[node name="darkness" type="Node" parent="." unique_id=318759340]
 script = ExtResource("91_dark")
 
 [node name="skills" type="Node" parent="." unique_id=1897398979 node_paths=PackedStringArray("currentCharacter")]
@@ -170,7 +170,7 @@ swings = Dictionary[String, Resource]({
 chain_window = 0.25
 preview_item = ExtResource("82_sword")
 preview_swing = "sword_left"
-preview_timeline = 0.2949954456479774
+preview_timeline = 1.2528811123147034
 preview_play = true
 show_preview = true
 

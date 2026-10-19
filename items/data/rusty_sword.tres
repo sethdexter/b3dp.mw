@@ -23,4 +23,9 @@ value = 12
 heldScene = ExtResource("9_held")
 heldRotation = Vector3(-110, 0, 0)
 heldScale = Vector3(0.3, 0.3, 0.3)
+tool = "knife"
+durability = 60
+salvage = Dictionary[String, int]({
+"scrap_metal": 2
+})
 metadata/_custom_type_script = "uid://bylv06u854khh"

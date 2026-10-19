@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 3
+Name = "Greyhorn Carcass"
+id = "0075"
+weight = 6
+maxStackCount = 1
+isPickupable = true
+itemDesription = "A greyhorn, still warm. With a knife there's good meat in it, and hide, sinew and bone."
+isUnique = true
+salvage = Dictionary[String, int]({"raw_meat": 3, "hide": 1, "sinew": 1, "bone": 2})
+salvage_tool = "knife"

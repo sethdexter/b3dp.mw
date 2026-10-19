@@ -16,6 +16,8 @@ extends Node
 @export var wobble_degrees: float = 12.0
 ## Items dropped on death when respawns is off (item_list id -> amount).
 @export var loot: Dictionary[String, int] = {}
+## Drop exactly `loot` (what they were really carrying) instead of rolling 0..amount of each.
+@export var exact_loot := false
 
 @onready var _collision: CollisionShape3D = character.get_node_or_null("CollisionShape3D") if character else null
 @onready var _ai: MobAIComponent = _find_ai()
@@ -94,10 +96,14 @@ func _on_depleted() -> void:
 func _drop_loot() -> void:
 	var rolled: Dictionary[String, int] = {}
 	for id in loot:
-		var amount := randi_range(0, loot[id])
+		var amount: int = loot[id] if exact_loot else randi_range(0, loot[id])
 		if amount > 0:
 			rolled[id] = amount
 	if rolled.is_empty():
+		return
+	var camps = get_tree().get_first_node_in_group("camps")
+	if camps and camps.has_method("drop_sack"): # a real place in the world: anyone can find it
+		camps.drop_sack(character.global_position, rolled)
 		return
 	var sack: Node3D = load("res://items/scenes/lootSack.tscn").instantiate()
 	sack.get_node("interactableComponent/containerComponent").starting_items = rolled

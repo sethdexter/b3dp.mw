@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="Item" format=3 uid="uid://dw7h488q2nai2"]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+[ext_resource type="Script" uid="uid://cf5heqq7asu4y" path="res://spells/effects/spellEffect.gd" id="2_effect"]
+[ext_resource type="Script" uid="uid://c5u7njgmnggr4" path="res://spells/effects/nourishEffect.gd" id="3_nourish"]
+[ext_resource type="Script" uid="uid://dd3b0j61ybo27" path="res://spells/effects/damageEffect.gd" id="4_damage"]
+
+[sub_resource type="Resource" id="Effect_nourish"]
+script = ExtResource("3_nourish")
+food = 25.0
+water = -10.0
+
+[sub_resource type="Resource" id="Effect_rot"]
+script = ExtResource("4_damage")
+element = "poison"
+
+[resource]
+script = ExtResource("1_item")
+Name = "Blackflesh"
+id = "0074"
+weight = 1
+maxStackCount = 10
+isConsumable = true
+itemDesription = "Goblin or orc, cut from the bone. It fills the belly and sours the blood. Only the starving eat it, and they are never quite the same."
+value = 0
+effects = Array[ExtResource("2_effect")]([SubResource("Effect_nourish"), SubResource("Effect_rot")])

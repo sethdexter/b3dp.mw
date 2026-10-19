@@ -51,6 +51,15 @@ func _ready() -> void:
 		character = get_parent() as BaseCharacter
 	hunger = hunger_start
 	thirst = thirst_start
+	_same_rates.call_deferred() # once the island's sim is up
+
+## You get hungry and thirsty as fast as everyone else on the island (Minds > Needs drain).
+func _same_rates() -> void:
+	var camps = get_tree().get_first_node_in_group("camps")
+	var minds = camps.get_node_or_null("minds") if camps else null
+	if minds:
+		hunger_minutes = 100.0 / maxf(0.01, minds.food_drain)
+		thirst_minutes = 100.0 / maxf(0.01, minds.water_drain)
 
 func eat(amount: float) -> void:
 	hunger = clampf(hunger + amount, 0.0, 100.0)

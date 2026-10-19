@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 25
+Name = "Hatchet"
+id = "0073"
+weight = 2
+maxStackCount = 1
+isPickupable = true
+itemDesription = "A scrap-metal head lashed to an ash-wood haft. Loud, quick, and it bites."
+isUnique = true
+tool = "axe"
+durability = 40
+salvage = Dictionary[String, int]({"scrap_metal": 1, "ash_wood": 1})

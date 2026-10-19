@@ -16,10 +16,26 @@ var bread: Item = preload("res://items/data/bread.tres")
 var coin: Item = preload("res://items/data/coin.tres")
 var ash_cap: Item = preload("res://items/data/ash_cap.tres")
 var raw_meat: Item = preload("res://items/data/raw_meat.tres")
+var ash_wood: Item = preload("res://items/data/ash_wood.tres")
+var bone: Item = preload("res://items/data/bone.tres")
+var sinew: Item = preload("res://items/data/sinew.tres")
+var hide: Item = preload("res://items/data/hide.tres")
+var resin: Item = preload("res://items/data/resin.tres")
+var scrap_metal: Item = preload("res://items/data/scrap_metal.tres")
+var cloth: Item = preload("res://items/data/cloth.tres")
+var salt: Item = preload("res://items/data/salt.tres")
+var spores: Item = preload("res://items/data/spores.tres")
+var goblin_carcass: Item = preload("res://items/data/goblin_carcass.tres")
+var orc_carcass: Item = preload("res://items/data/orc_carcass.tres")
+var bone_knife: Item = preload("res://items/data/bone_knife.tres")
+var hatchet: Item = preload("res://items/data/hatchet.tres")
 var sunken_key: Item = preload("res://items/data/sunken_key.tres")
 var dried_meat: Item = preload("res://items/data/dried_meat.tres")
 var water_skin: Item = preload("res://items/data/water_skin.tres")
 var ash_wine: Item = preload("res://items/data/ash_wine.tres")
+var blackflesh: Item = preload("res://items/data/blackflesh.tres")
+var greyhorn_carcass: Item = preload("res://items/data/greyhorn_carcass.tres")
+var staff: Item = preload("res://items/data/staff.tres")
 
 
 # --- Optional dictionary for lookup by ID ---
@@ -38,10 +54,26 @@ var item_list: Dictionary[String, Item] = {
 	"coin": coin,
 	"ash_cap": ash_cap,
 	"raw_meat": raw_meat,
+	"ash_wood": ash_wood,
+	"bone": bone,
+	"sinew": sinew,
+	"hide": hide,
+	"resin": resin,
+	"scrap_metal": scrap_metal,
+	"cloth": cloth,
+	"salt": salt,
+	"spores": spores,
+	"goblin_carcass": goblin_carcass,
+	"orc_carcass": orc_carcass,
+	"bone_knife": bone_knife,
+	"hatchet": hatchet,
 	"sunken_key": sunken_key,
 	"dried_meat": dried_meat,
 	"water_skin": water_skin,
 	"ash_wine": ash_wine,
+	"blackflesh": blackflesh,
+	"greyhorn_carcass": greyhorn_carcass,
+	"staff": staff,
 }
 
 func _init():

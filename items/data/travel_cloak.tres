@@ -16,3 +16,7 @@ value = 15
 attributeModifiers = Dictionary[String, int]({
 "vigor": 1
 })
+salvage = Dictionary[String, int]({
+"cloth": 3
+})
+salvage_tool = "knife"

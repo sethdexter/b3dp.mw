@@ -25,6 +25,10 @@ const LEANERS := [
 	["blackswordLATER", Basis(Vector3(0.528547, 0.00128198, -0.848904), Vector3(-0.747938, 0.473702, -0.464969), Vector3(0.401531, 0.880685, 0.251333)), Vector3(-1.19966, -0.285473, -0.758733)],
 ]
 
+## What each small model is, as an item (world/camps.gd makes them real pickups out of the camp's stores).
+const ITEMS := {"bottle": "ash_wine", "bottle03": "health_potion", "coinbag2": "coin", "coins": "coin",
+	"irondagger": "bone_knife", "staff": "staff", "staff02": "staff", "blackswordLATER": "black_iron_sword"}
+
 ## Defaults for the knobs; the Camps node passes its Clutter sliders in `opt` (any missing key uses these).
 const DEFAULTS := {
 	"barrel_chance": 0.7, # table is a barrel (else a crate)
@@ -32,7 +36,12 @@ const DEFAULTS := {
 	"crates_max": 2, "stack_chance": 0.45, # crates beside it / chance each gets one on top
 	"leaners_max": 2, # staffs / sword leaned on things
 	"floor_max": 3, # odds and ends on the ground
+	"have": [], # item ids the place really has: only those get set out (empty = anything, e.g. the editor)
 }
+
+## Whether a small model's item is one the place has (always true when nothing's given).
+static func _has(o: Dictionary, model: String) -> bool:
+	return o.have.is_empty() or ITEMS.get(model, "") in o.have
 
 static func build(rng: RandomNumberGenerator, opt: Dictionary = {}) -> Node3D:
 	var o := DEFAULTS.merged(opt, true)
@@ -41,15 +50,16 @@ static func build(rng: RandomNumberGenerator, opt: Dictionary = {}) -> Node3D:
 	var anchor := _model(root, "barrel" if rng.randf() < o.barrel_chance else "crate", Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3.UP * FLOOR))
 	hosts.append(anchor)
 	# The table top: a few things, each in its own slice of the top so they don't overlap.
-	var picks := _shuffled(range(ON_TOP.size()), rng)
+	var picks := _shuffled(range(ON_TOP.size()), rng).filter(func(i): return _has(o, ON_TOP[i][0]))
 	var a0 := rng.randf() * TAU
-	var n := mini(rng.randi_range(o.top_min, maxi(o.top_min, o.top_max)), ON_TOP.size())
+	var n := mini(rng.randi_range(o.top_min, maxi(o.top_min, o.top_max)), picks.size())
 	for k in n:
 		var it: Array = ON_TOP[picks[k]]
 		var a := a0 + TAU * k / n
 		var at: Vector3 = Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.15, 0.45) + Vector3.UP * (FLOOR * 2.0 + it[2])
 		var node := _model(root, "goldcoin" if it[0] == "coins" else it[0], Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * it[1], at))
 		node.set_meta("on", anchor)
+		node.set_meta("item", ITEMS[it[0]])
 		if it[0] == "coins":
 			for p: Vector3 in PILE.slice(0, rng.randi_range(2, PILE.size())):
 				_model(node, "goldcoin", Transform3D(Basis(Vector3.UP, rng.randf() * TAU), p))
@@ -72,7 +82,7 @@ static func build(rng: RandomNumberGenerator, opt: Dictionary = {}) -> Node3D:
 	# Leaners: each takes the start scene's pose against a random host, turned to a random side of it. A pose
 	# that would pass through any barrel, crate or other leaner is re-rolled; after 12 misses that one is left out.
 	var placed: Array = [] # [model, transform] of leaners so far
-	var leaners := _shuffled(LEANERS, rng)
+	var leaners := _shuffled(LEANERS, rng).filter(func(it): return _has(o, it[0]))
 	for k in mini(rng.randi_range(0, o.leaners_max), leaners.size()):
 		var it: Array = leaners[k]
 		for attempt in 12:
@@ -82,12 +92,15 @@ static func build(rng: RandomNumberGenerator, opt: Dictionary = {}) -> Node3D:
 			var turn := Basis(Vector3.UP, rng.randf() * TAU)
 			var x := Transform3D(turn * it[1], Vector3(host.position.x, 0.0, host.position.z) + turn * it[2] + Vector3.UP * FLOOR)
 			if _clear(it[0], x, hosts, placed):
-				_model(root, it[0], x).set_meta("on", host)
+				var leaner := _model(root, it[0], x)
+				leaner.set_meta("on", host)
+				leaner.set_meta("item", ITEMS[it[0]])
 				placed.append([it[0], x])
 				break
 	# Odds and ends dropped on the floor around the barrels and crates (same poses as on the table, at ground level).
-	for k in rng.randi_range(0, o.floor_max):
-		var it: Array = ON_TOP[rng.randi() % ON_TOP.size()]
+	var floor_kinds := ON_TOP.filter(func(it): return _has(o, it[0]))
+	for k in rng.randi_range(0, o.floor_max) if not floor_kinds.is_empty() else 0:
+		var it: Array = floor_kinds[rng.randi() % floor_kinds.size()]
 		var model: String = "goldcoin" if it[0] == "coins" else it[0]
 		for attempt in 8:
 			var host: Node3D = hosts[rng.randi() % hosts.size()]
@@ -99,6 +112,7 @@ static func build(rng: RandomNumberGenerator, opt: Dictionary = {}) -> Node3D:
 			if _clear(model, x, hosts, placed):
 				var node := _model(root, model, x)
 				node.set_meta("on", host)
+				node.set_meta("item", ITEMS[it[0]])
 				placed.append([model, x])
 				if it[0] == "coins":
 					for p: Vector3 in PILE.slice(0, rng.randi_range(1, 3)):

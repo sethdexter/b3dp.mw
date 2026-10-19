@@ -62,7 +62,7 @@ corpse_time = 15.0
 loot = Dictionary[String, int]({
 "black_iron_sword": 1,
 "stamina_potion": 2,
-"raw_meat": 3
+"orc_carcass": 1
 })
 wobble_degrees = 3.0
 

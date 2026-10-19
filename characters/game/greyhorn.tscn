@@ -1,0 +1,67 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://cr0tpb1a25h1f" path="res://characters/basecharacter.gd" id="1_base"]
+[ext_resource type="Script" uid="uid://b4diwhly0gvuu" path="res://components/attributesComponent.gd" id="2_attr"]
+[ext_resource type="Script" uid="uid://dr4bb83mx07yt" path="res://components/statsComponent.gd" id="3_stats"]
+[ext_resource type="Script" uid="uid://c36jd280fd07y" path="res://components/combatComponent.gd" id="4_combat"]
+[ext_resource type="Script" uid="uid://dxauf66r51dkp" path="res://characters/trainingDummy.gd" id="5_dummy"]
+[ext_resource type="Script" uid="uid://ne6op0noypt7" path="res://components/mobAIComponent.gd" id="6_ai"]
+[ext_resource type="Script" path="res://characters/game/greyhornFigure.gd" id="7_fig"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+radius = 0.5
+height = 2.0
+
+[node name="greyhorn" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent")]
+script = ExtResource("1_base")
+Name = "Greyhorn"
+attributeComponent = NodePath("attributes")
+statComponent = NodePath("stats")
+combatComponent = NodePath("combat")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="visual" type="Node3D" parent="."]
+
+[node name="figure" type="Node3D" parent="visual"]
+script = ExtResource("7_fig")
+
+[node name="attributes" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("2_attr")
+currentCharacter = NodePath("..")
+base_strength = 3
+base_vigor = 5
+base_agility = 12
+
+[node name="stats" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("3_stats")
+currentCharacter = NodePath("..")
+
+[node name="combat" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+script = ExtResource("4_combat")
+currentCharacter = NodePath("..")
+
+[node name="dummy" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+script = ExtResource("5_dummy")
+character = NodePath("..")
+visual = NodePath("../visual")
+respawns = false
+corpse_time = 12.0
+exact_loot = true
+wobble_degrees = 6.0
+loot = Dictionary[String, int]({
+"greyhorn_carcass": 1
+})
+
+[node name="mobAI" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+script = ExtResource("6_ai")
+character = NodePath("..")
+visual = NodePath("../visual")
+aggressive = false
+aggro_on_hit = false
+wander_radius = 10.0
+wander_speed = 1.3
+idle_time_min = 2.0
+idle_time_max = 6.0

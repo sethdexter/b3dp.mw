@@ -2,7 +2,7 @@ extends Node
 ## The bleak encounters, kept out of camps.gd. The Camps node owns this (child "encounters"), rolls the
 ## encounters onto its grid and hands each tick / spawn / talk to the functions here. All the knobs are below.
 ##
-##   hanged     a body hanging from a gibbet, its pack at its feet. Empty the pack and something follows you.
+##   hanged     a body hanging from a gibbet, its pack at its feet. Empty the pack and, now and then, something follows.
 ##   coldfire   a dead camp: cold fire, bodies around it. Bring a lit torch to relight it: it becomes a camp
 ##              (drifters can settle it) and your respawn point.
 ##   mourner    kneels at a grave, won't speak. Leave food: a rumour. Hurt them: your torches burn faster for a while.
@@ -14,9 +14,13 @@ extends Node
 ## Plus the ash storm: every so often the ash thickens and darkens, torches burn faster and goblins hunt you.
 
 @export_group("Hanged")
+## Empty the hanged one's pack and goblins come after you: this many, from the nearest goblins within hunt_range.
 @export var stalkers := Vector2i(2, 3)
-## How long the followers track you before they lose interest and just roam.
-@export_range(10.0, 600.0, 5.0, "suffix:s") var stalk_time := 120.0
+## Chance that emptying the pack brings them at all (you or anyone).
+@export_range(0.0, 1.0, 0.01) var hanged_hunt_chance := 0.15
+@export_range(100.0, 5000.0, 50.0, "suffix:m") var hunt_range := 1200.0
+## How long hunters track you before they lose interest and go back to their den.
+@export_range(10.0, 3600.0, 5.0, "suffix:s") var stalk_time := 600.0
 @export var watched_line := "You feel watched."
 
 @export_group("Cold fire")
@@ -31,9 +35,10 @@ extends Node
 @export var curse_line := "A curse settles on you. Your flames gutter."
 
 @export_group("Pilgrims")
-@export var pilgrim_count := Vector2i(4, 6)
 ## Fraction of normal walking speed: they shuffle.
 @export_range(0.1, 1.0, 0.05) var pilgrim_pace := 0.5
+## Pilgrims this close to the bell have arrived: they ring it and go looking for a fire to settle at.
+@export_range(5.0, 200.0, 5.0, "suffix:m") var pilgrim_arrive := 30.0
 @export var pilgrims_turn_line := "They all turn to look at you."
 
 @export_group("False light")
@@ -47,7 +52,6 @@ extends Node
 
 @export_group("Toll")
 @export_range(0, 200) var toll_cost := 20
-@export var toll_friends := Vector2i(2, 3)
 @export var toll_demand := "%d coin, and you walk on."
 @export var toll_paid := "Go on, then. Quickly."
 @export var toll_refused := "Then you don't walk on."
@@ -86,7 +90,7 @@ var _sun: DirectionalLight3D
 var _base_sun := 0.0
 var _ash: GPUParticles3D
 
-const SPOTS := ["hanged", "coldfire", "falselight", "bell", "starved_dead", "spring", "fungus"]
+const SPOTS := ["hanged", "coldfire", "falselight", "bell", "starved_dead", "spring", "fungus", "salt"]
 
 func _ready() -> void:
 	camps = get_parent()
@@ -94,16 +98,25 @@ func _ready() -> void:
 
 # --- generation ------------------------------------------------------------
 
-## People in an encounter: [camp kind, how many, roams?]
-func people_for(wild: String, rng: RandomNumberGenerator) -> Array:
-	match wild:
-		"mourner", "starved":
-			return ["drifter", 1, false]
-		"pilgrims":
-			return ["drifter", rng.randi_range(pilgrim_count.x, maxi(pilgrim_count.x, pilgrim_count.y)), true]
-		"toll":
-			return ["bandit", 1 + rng.randi_range(toll_friends.x, maxi(toll_friends.x, toll_friends.y)), false]
-	return ["drifter", 0, false]
+@export_group("Salt")
+## Salt-crusted rocks along the shore (the only place to get salt, for curing hides).
+@export_range(0, 200) var salt_spots := 30
+
+## Salt crusts go right at the waterline, all round the island.
+func make_salt(rng: RandomNumberGenerator) -> void:
+	var made := 0
+	for attempt in 3000:
+		if made >= salt_spots:
+			return
+		var p: Vector3 = camps._ground(Vector3(rng.randf_range(-5000, 5000), 0, rng.randf_range(-5000, 5000)))
+		if is_nan(p.y) or p.y < camps.SEA_LEVEL + 0.2 or p.y > camps.SEA_LEVEL + 2.0:
+			continue
+		var c = camps.new_camp()
+		c.pos = p
+		c.wild = "salt"
+		c.next_move = INF
+		camps.camps.append(c)
+		made += 1
 
 ## Bell shrines go in the low wet ground just above the sea (the marsh).
 func make_bells(rng: RandomNumberGenerator) -> void:
@@ -136,6 +149,14 @@ func tick_spot(c, at: Vector3, now: float) -> void:
 		_build(c)
 	elif d > reach * 1.2 and is_instance_valid(c.fire):
 		c.fire.queue_free()
+	if c.wild == "falselight" and (camps._alive(c.members).is_empty() or now > c.job.get("until", INF)):
+		if is_instance_valid(c.fire): # nothing came (or the holder's dead): the light goes out
+			c.fire.queue_free()
+		if camps._alive(c.members).is_empty():
+			camps.camps.erase(c)
+		else:
+			camps._go_home(c, now)
+		return
 	if not is_instance_valid(c.fire):
 		return
 	match c.wild:
@@ -148,15 +169,10 @@ func tick_spot(c, at: Vector3, now: float) -> void:
 				_relight(c)
 		"falselight":
 			if d < trap_distance:
-				c.fire.queue_free()
-				c.wild = "falselight_sprung"
-				c.kind = "orc"
-				var f = camps.new_folk()
-				f.camp = c
+				spring_light(c, now, null)
+				var f = camps._alive(c.members)[0]
 				f.pos = c.pos
 				f.home = c.pos
-				c.members.append(f)
-				camps.folk.append(f)
 				camps._spawn(f)
 				var ai: MobAIComponent = camps._ai(f)
 				if ai:
@@ -179,23 +195,6 @@ func tick_people(c, at: Vector3, now: float) -> void:
 				Talker.notify("%s:\n\"%s\"" % [toll.name, toll_demand % toll_cost])
 			elif not c.job.is_empty() and not c.job.has("fight") and (d < toll_too_close or now - c.job.warned > 25.0):
 				_toll_fight(c, toll.name)
-		"starved":
-			var s = c.members[0] if c.members.size() > 0 else null
-			if s and not s.dead and not s.job.has("fed"):
-				if now > s.job.get("die_at", INF): # collapsed and nobody came
-					s.dead = true
-					c.wild = "starved_dead"
-					c.members.clear()
-					if is_instance_valid(s.node) and s.node.statComponent:
-						s.node.statComponent.health.change_current(-100000) # dies where it lies (record is already dead, so nobody's blamed)
-					s.node = null
-					return
-				if camps._dist(s.pos, at) < 15.0:
-					s.job["seen"] = true
-				elif s.job.has("seen") and camps._dist(s.pos, at) > camps.despawn_radius:
-					s.dead = true # you walked on
-					c.wild = "starved_dead"
-					c.members.clear()
 
 ## Band steering for roaming encounters. Returns true if it handled the band.
 func steer_band(b, now: float) -> bool:
@@ -203,16 +202,8 @@ func steer_band(b, now: float) -> bool:
 	if b.wild == "stalker":
 		var p: Node3D = camps._player
 		if now > b.raid_since + stalk_time or not is_instance_valid(p):
-			b.wild = "leaving" # lost interest: wanders off and is gone once out of sight
-			return false
-		if b.wild == "leaving":
-			var alive: Array = camps._alive(b.members)
-			if alive.all(func(f): return not is_instance_valid(f.node)):
-				for f in alive:
-					f.dead = true
-				camps.camps.erase(b)
-				return true
-			return false
+			camps._go_home(b, now) # lost interest: back to the den
+			return true
 		if now - b.waypoint_since > 3.0: # keep homing in on you
 			b.waypoint_since = now
 			b.pos = p.global_position
@@ -221,6 +212,12 @@ func steer_band(b, now: float) -> bool:
 		return true
 	if b.wild == "pilgrims":
 		var bell = _nearest_bell(lead.pos)
+		if bell and camps._dist(lead.pos, bell.pos) < pilgrim_arrive: # the bell is rung: the walk is over
+			for f in camps._alive(b.members):
+				f.needs.faith = 100.0
+			b.wild = "wanderer" # now they look for a fire to live at
+			camps.note(lead, "reached the bell and rang it. Now to find a fire")
+			return false
 		if bell and camps._dist(lead.pos, b.pos) < camps.waypoint_reached:
 			var dir: Vector3 = (bell.pos - lead.pos)
 			b.heading = atan2(dir.z, dir.x) # straight for the bell, step by step
@@ -281,7 +278,10 @@ func talk(role: String, person: BaseCharacter, player: Node) -> String:
 				if f:
 					f.job["fed"] = true
 					_fed(f)
-				player.inventoryComponent.add_item(camps.get_node("/root/item_list").get_item_instance("coin"), starved_reward)
+				var give: int = mini(starved_reward, f.inv.get("coin", 0) if f else 0) # all they have, up to the reward
+				if give > 0:
+					camps.camplife.add(f.inv, "coin", -give)
+					player.inventoryComponent.add_item(camps.get_node("/root/item_list").get_item_instance("coin"), give)
 				return starved_thanks
 			return starved_beg
 		"pilgrim":
@@ -299,6 +299,8 @@ func talk(role: String, person: BaseCharacter, player: Node) -> String:
 				return toll_paid
 			if c and _pay(player, toll_cost):
 				c.looted = true # paid up
+				if f:
+					camps.camplife.add(f.inv, "coin", toll_cost) # into the toll-taker's pack
 				return toll_paid
 			if c:
 				_toll_fight(c, person.Name)
@@ -346,36 +348,57 @@ func _hunt(now: float) -> void:
 	var p: Node3D = camps._player
 	if not is_instance_valid(p):
 		return
-	var b = _new_band("stalker", "goblin", p.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 90.0,
-		randi_range(storm_hunters.x, maxi(storm_hunters.x, storm_hunters.y)))
-	b.raid_since = now
+	_hunters(p.global_position, randi_range(storm_hunters.x, maxi(storm_hunters.x, storm_hunters.y)), now)
 
 # --- helpers ------------------------------------------------------------------
 
-func _new_band(wild: String, kind: String, at: Vector3, count: int):
+## A false light springs: the light goes out and the orc that held it hunts (you, or `prey`: a group that came to
+## it), then goes home. Same whoever walks into it.
+func spring_light(c, now: float, prey) -> void:
+	if is_instance_valid(c.fire):
+		c.fire.queue_free()
+	c.wild = "pack"
+	c.roaming = true
+	c.job["until"] = now + stalk_time
+	if prey:
+		c.raid = prey
+		c.raid_since = now
+		for f in camps._alive(c.members):
+			camps._send(f, prey.pos)
+
+## Up to `count` goblins from the nearest den or pack within hunt_range come after you (a den keeps one home).
+## Nobody near enough: nobody comes. Returns the hunting band, or null.
+func _hunters(at: Vector3, count: int, now: float):
+	var src = null
+	for c in camps.camps:
+		if c.kind == "goblin" and c.wild in ["", "pack"] and camps._alive(c.members).size() > (1 if c.wild == "" else 0) and camps._dist(c.pos, at) < hunt_range:
+			if src == null or camps._dist(c.pos, at) < camps._dist(src.pos, at):
+				src = c
+	if src == null:
+		return null
+	var alive: Array = camps._alive(src.members)
+	var who: Array = alive.slice(0, mini(count, alive.size() - (1 if src.wild == "" else 0)))
 	var b = camps.new_camp()
-	b.wild = wild
-	b.kind = kind
+	b.wild = "stalker"
+	b.kind = "goblin"
 	b.roaming = true
 	b.next_move = INF
-	b.pos = at
-	for i in count:
-		var f = camps.new_folk()
+	b.den = src if src.wild == "" else src.den
+	b.pos = who[0].pos
+	b.raid_since = now
+	for f in who:
+		src.members.erase(f)
 		f.camp = b
-		f.pos = at + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
-		f.home = f.pos
 		b.members.append(f)
-		camps.folk.append(f)
 	camps.camps.append(b)
 	return b
 
 func _stalk(c, at: Vector3, now: float) -> void:
-	var away: Vector3 = (at - c.pos).normalized()
-	var b = _new_band("stalker", "goblin", at + away * 60.0, randi_range(stalkers.x, maxi(stalkers.x, stalkers.y)))
-	b.raid_since = now
-	Talker.notify(watched_line)
+	if randf() < hanged_hunt_chance and _hunters(at, randi_range(stalkers.x, maxi(stalkers.x, stalkers.y)), now):
+		Talker.notify(watched_line)
 
 func _build(c) -> void:
+	var L: Dictionary = preload("res://world/camplife.gd").SOURCES # stock / regrow / per use, shared with the sim
 	var root: Node3D = c.fire
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(Vector2i(roundi(c.pos.x), roundi(c.pos.z)))
@@ -409,7 +432,10 @@ func _build(c) -> void:
 		"starved_dead":
 			var body := _figure(root, Vector3(0, 0.35, 0), Color(0.2, 0.18, 0.16))
 			body.rotation.x = PI * 0.5
-			if not c.looted:
+			if not c.looted and c.job.has("loot"):
+				if not c.job.loot.is_empty():
+					_sack(c, Vector3(1.2, 0, 0), rng, c.job.loot) # what they died carrying
+			elif not c.looted:
 				_sack(c, Vector3(1.2, 0, 0), rng)
 		"spring": # a black pool ringed with stones; drink, fill your skins
 			var pool := _box(root, Vector3(3.2, 0.05, 2.4), Vector3(0, 0.03, 0), Color(0.03, 0.05, 0.07))
@@ -417,7 +443,13 @@ func _build(c) -> void:
 			for i in 6:
 				var a := TAU * i / 6.0 + rng.randf_range(-0.3, 0.3)
 				_box(root, Vector3(0.5, rng.randf_range(0.2, 0.5), 0.4), Vector3(cos(a) * 1.9, 0.15, sin(a) * 1.5), Color(0.15, 0.15, 0.15)).rotation.y = a
-			_source(root, "Spring", Vector3(3.2, 0.6, 2.4), {"drink": 45.0, "fill": 2, "stock": 6, "regrow": 90.0})
+			_source(root, "Spring", Vector3(3.2, 0.6, 2.4), {"drink": 45.0, "fill": L.spring[2], "stock": L.spring[0], "regrow": L.spring[1]})
+		"salt": # pale crusted rocks at the waterline
+			for i in rng.randi_range(4, 7):
+				var a := rng.randf() * TAU
+				_box(root, Vector3(rng.randf_range(0.6, 1.4), rng.randf_range(0.3, 0.8), rng.randf_range(0.6, 1.2)),
+					Vector3(cos(a), 0.2, sin(a)) * rng.randf_range(0.5, 2.0), Color(0.78, 0.76, 0.72)).rotation.y = rng.randf() * TAU
+			_source(root, "Salt crust", Vector3(4.0, 0.8, 4.0), {"drink": 0.0, "fill": 0, "item": "salt", "item_count": L.salt[2], "stock": L.salt[0], "regrow": L.salt[1]})
 		"fungus": # pale ash caps growing in a ring
 			for i in rng.randi_range(6, 10):
 				var a := rng.randf() * TAU
@@ -425,7 +457,7 @@ func _build(c) -> void:
 				var h := rng.randf_range(0.15, 0.45)
 				_box(root, Vector3(0.06, h, 0.06), Vector3(cos(a) * r, h * 0.5, sin(a) * r), Color(0.6, 0.58, 0.52))
 				_box(root, Vector3(0.3, 0.08, 0.3), Vector3(cos(a) * r, h, sin(a) * r), Color(0.75, 0.72, 0.66))
-			_source(root, "Ash fungus", Vector3(3.4, 0.5, 3.4), {"drink": 0.0, "fill": 0, "item": "ash_cap", "item_count": 2, "stock": 3, "regrow": 300.0})
+			_source(root, "Ash fungus", Vector3(3.4, 0.5, 3.4), {"drink": 0.0, "fill": 0, "item": "ash_cap", "item_count": L.fungus[2], "stock": L.fungus[0], "regrow": L.fungus[1], "extra_item": "spores", "extra_chance": 0.3})
 		"bell":
 			for i in 7: # a ring of standing stones
 				var a := TAU * i / 7.0
@@ -491,21 +523,23 @@ func _sack(c, at: Vector3, rng: RandomNumberGenerator, loot: Dictionary = {}) ->
 		for k in rng.randi_range(camps.remains_items.x, maxi(camps.remains_items.x, camps.remains_items.y)):
 			var id: String = camps.remains_loot[rng.randi() % camps.remains_loot.size()]
 			loot[id] = loot.get(id, 0) + (rng.randi_range(camps.remains_coins.x, camps.remains_coins.y) if id == "coin" else 1)
-	var typed: Dictionary[String, int] = {}
-	for k in loot:
-		typed[k] = loot[k]
+	if not c.stocked: # what's in it is the place's own store from now on: take from it and it stays taken
+		c.stocked = true
+		for k in loot:
+			c.crate[k] = c.crate.get(k, 0) + loot[k]
 	var sack: Node3D = load("res://items/scenes/lootSack.tscn").instantiate()
-	sack.get_node("interactableComponent/containerComponent").starting_items = typed
+	var nothing: Dictionary[String, int] = {}
+	sack.get_node("interactableComponent/containerComponent").starting_items = nothing
 	sack.position = at
 	sack.name = "sack"
+	var sync: Node = load("res://world/props/campStoreSync.gd").new()
+	sync.record = c
+	sync.which = "crate"
+	sack.add_child(sync)
 	c.fire.add_child(sack)
 
 func _sack_empty(c) -> bool:
-	var sack := c.fire.get_node_or_null("sack") as Node
-	if not sack:
-		return true
-	var inv = sack.find_child("inventoryComponent", true, false)
-	return inv != null and inv.inventory.is_empty()
+	return c.stocked and c.crate.is_empty()
 
 func _grave(c, person: Node3D) -> void:
 	if is_instance_valid(c.fire):

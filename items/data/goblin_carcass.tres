@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 1
+Name = "Goblin Carcass"
+id = "0070"
+weight = 5
+maxStackCount = 1
+isPickupable = true
+itemDesription = "What's left of a goblin. Heavy. With a knife there's bone, sinew and hide in it, and blackflesh that only the starving eat."
+isUnique = true
+salvage = Dictionary[String, int]({"bone": 2, "sinew": 1, "hide": 1, "blackflesh": 2})
+salvage_tool = "knife"

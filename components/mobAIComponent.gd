@@ -299,8 +299,9 @@ func _attack(player: BaseCharacter) -> void:
 	if not is_attacking:
 		return # cancelled (knocked down)
 
-	# Only lands if still standing and the player is still in reach.
-	if not character.is_dead and is_instance_valid(player) and not player.is_dead \
+	# Only lands if still standing and the player is still in reach. Swings at other characters are for show:
+	# who wins a fight between characters is settled by the sim (world/camps.gd), loaded or not.
+	if player.is_in_group("player") and not character.is_dead and is_instance_valid(player) and not player.is_dead \
 			and character.global_position.distance_to(player.global_position) <= attack_range + 0.3 \
 			and player.combatComponent and player.statComponent:
 		print("%s strikes %s!" % [character.Name, player.Name])
