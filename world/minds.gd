@@ -2,13 +2,12 @@ extends Node
 ## What the people of the island want, and what they do about it. The Camps node owns this (child "minds", made at runtime) and calls think() on each person's record now and then, near you or not.
 ## Every person has:
 ##   needs:  0-100, 100 = satisfied: food, water, light, safety, coin, belonging, faith. They drain over time and are topped up by where they are (a fire gives light and belonging, a camp shares food...) traits  0-1, rolled once: greed, courage, piety, cruelty, despair
-## memories  a few things that happened to them: lost_kin (where), fed_by_player, player_killed_kin
-## and picks an action by need x trait (the most urgent wins). Some actions change their state (what the world sees them as):
-##   beg        starving and timid                -> leaves camp, slumps somewhere: a Starved encounter
-##   extort     broke and greedy (bandit, or cruel) -> sets up a Toll on the road
-##   mourn      lost kin, pious                   -> kneels where it happened: a Mourner
-##   pilgrimage faith gone, pious                 -> walks to the bell, joining any Pilgrims nearby
-##   wander     no fire / no company left         -> a lone Wanderer looking for a camp (settles at one)
+## memories  a few things that happened to them: lost_kin (where), fed_by_player, player_killed_kin and picks an action by need x trait (the most urgent wins). Some actions change their state (what the world sees them as):
+## beg        starving and timid                -> leaves camp, slumps somewhere: a Starved encounter
+## extort     broke and greedy (bandit, or cruel) -> sets up a Toll on the road
+## mourn      lost kin, pious -> kneels where it happened: a Mourner
+## pilgrimage faith gone, pious -> walks to the bell, joining any Pilgrims nearby
+## wander     no fire / no company left -> a lone Wanderer looking for a camp (settles at one)
 ##   turn       a starving, cruel drifter turns bandit (alone in the dark: an Ambush)
 ##   reform     a fed, gentle bandit becomes a drifter wanderer
 ##   hunt       someone whose kin you killed, with cruelty and courage, comes after you with others like them

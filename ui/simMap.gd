@@ -265,6 +265,8 @@ func _doing(f) -> String:
 ## far from you to have a body (capsules), and camps, fires, springs, fungus, cairns, remains, bells... (posts).
 const AROUND := 300.0 # metres
 const HERD := Color(0.65, 0.45, 0.25)
+## How long the red pulse lasts when something goes into the island log (real seconds).
+const PULSE_SECONDS := 2.5
 var _around: Array[Node3D] = []
 var _around_t := 0.0
 
@@ -460,6 +462,16 @@ func _draw() -> void:
 			camps.camps.filter(func(c): return not c.roaming and c.wild == "").size(), alive_folk,
 			camps.camps.filter(func(c): return c.roaming).size(), camps.camps.filter(func(c): return c.raid != null).size()],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+	# Something just went into the island log: a red pulse where it happened.
+	var now_ms := Time.get_ticks_msec()
+	var pulsing := false
+	for e in camps.world_log:
+		var age: float = (now_ms - e.get("ms", -100000)) / (PULSE_SECONDS * 1000.0)
+		if age >= 0.0 and age < 1.0 and e.has("pos"):
+			pulsing = true
+			draw_arc(to_map.call(e.pos), lerpf(2.0, 16.0, age), 0, TAU, 16, Color(1, 0.1, 0.05, 1.0 - age), 2.0)
+	if pulsing and Engine.get_process_frames() % 2 == 0:
+		queue_redraw.call_deferred() # smooth while a pulse is going (otherwise the usual ~10 a second)
 	_draw_key(Vector2(rect.end.x + 12, rect.position.y + 10))
 	var meet = camps.get_node_or_null("meetings")
 	var life = camps.get_node_or_null("camplife")
@@ -504,7 +516,7 @@ func _draw_key(at: Vector2) -> void:
 		["arrow_line", Color(1.0, 0.55, 0.1), "Leaving for another camp"], ["square", Color(0.7, 0.7, 0.7), "Remains (hollow: looted)"],
 		["x", Color(0.7, 0.7, 0.7), "Hanged / a body"], ["tiny", Color.WHITE, "Cairn torch (or is it?)"],
 		["dot", Color(0.4, 0.7, 1.0), "Bell shrine"], ["tiny", Color(0.2, 0.9, 0.9), "Spring (water)"],
-		["tiny", Color(0.55, 0.75, 0.35), "Ash fungus (food)"], ["small", Color(0.95, 0.92, 0.85), "Salt crust"], ["tiny", HERD, "Game herd (size = head)"], ["arrow", Color.WHITE, "You"],
+		["tiny", Color(0.55, 0.75, 0.35), "Ash fungus (food)"], ["small", Color(0.95, 0.92, 0.85), "Salt crust"], ["tiny", HERD, "Game herd (size = head)"], ["ring", Color(1, 0.1, 0.05), "Just happened (log)"], ["arrow", Color.WHITE, "You"],
 	]
 	draw_rect(Rect2(at - Vector2(6, 6), Vector2(200, rows.size() * 18 + 8)), Color(0, 0, 0, 0.55))
 	for i in rows.size():

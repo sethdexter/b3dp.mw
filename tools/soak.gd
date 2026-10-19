@@ -2,6 +2,7 @@ extends SceneTree
 ## Soak test: fast-forwards the island with you far away and prints the state every 20 sim minutes. Run headless:
 ##   godot --headless --path . -s res://tools/soak.gd
 func _initialize():
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://island.save")) # always a fresh island
 	var lvl = load("res://levels/test_level.tscn").instantiate()
 	root.add_child(lvl); current_scene = lvl
 	for i in 30: await process_frame

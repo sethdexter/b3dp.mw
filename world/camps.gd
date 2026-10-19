@@ -280,6 +280,7 @@ var _rng := RandomNumberGenerator.new()
 var enc: Node # world/encounters.gd (runtime only)
 var minds: Node # world/minds.gd (runtime only)
 var camplife: Node # world/camplife.gd (runtime only)
+var save: Node # world/saveGame.gd (runtime only)
 ## Everything noted on anyone lately, newest last: [{t, who, text}] (the watch camera's world log).
 var world_log := []
 const PERSON_LOG := 12
@@ -293,7 +294,7 @@ func note(f, text: String, worldwide := true) -> void:
 		f.history.pop_front()
 	if not worldwide:
 		return
-	world_log.append({"t": e.t, "who": f.name if f.name != "" else "someone", "text": text})
+	world_log.append({"t": e.t, "who": f.name if f.name != "" else "someone", "text": text, "pos": f.pos, "ms": Time.get_ticks_msec()})
 	if world_log.size() > WORLD_LOG:
 		world_log.pop_front()
 
@@ -327,11 +328,15 @@ func _ready() -> void:
 	meetings.name = "meetings"
 	add_child(meetings)
 	_generate()
-	var names := RandomNumberGenerator.new()
-	names.seed = 4242
-	for f in folk: # every person gets a name of their own up front (monsters stay "Goblin" / "Orc")
-		if not f.camp.kind in ["goblin", "orc"]:
-			f.name = minds._unique_name(names, f.camp.kind == "bandit")
+	save = load("res://world/saveGame.gd").new() # F5 save, F9 load, Shift+F9 a fresh island; autosaves and saves on quit
+	save.name = "save"
+	add_child(save)
+	if not save.load_world(): # a saved island replaces the fresh one
+		var names := RandomNumberGenerator.new()
+		names.seed = 4242
+		for f in folk: # every person gets a name of their own up front (monsters stay "Goblin" / "Orc")
+			if not f.camp.kind in ["goblin", "orc"]:
+				f.name = minds._unique_name(names, f.camp.kind == "bandit")
 	print("Camps: %d camps, %d people (%d ms)" % [camps.size(), folk.size(), Time.get_ticks_msec() - t])
 	var layer := CanvasLayer.new() # overhead debug map of the whole simulation (press M)
 	var map: Control = preload("res://ui/simMap.gd").new()
