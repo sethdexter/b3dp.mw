@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 1
+Name = "Tinder"
+id = "0077"
+weight = 1
+maxStackCount = 20
+isPickupable = true
+itemDesription = "Dry bark scraps and dead moss. Catches a spark, if it's dry."

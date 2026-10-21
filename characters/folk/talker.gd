@@ -91,7 +91,13 @@ func _job_talk(person: BaseCharacter, player: Node) -> String:
 	var camps = get_tree().get_first_node_in_group("camps")
 	if folk == null or camps == null:
 		return ""
-	var job: Dictionary = folk.job
+	if folk.job.has("type"): # an older save kept the favour loose in job: gather it up
+		folk.job["favour"] = {}
+		for k in ["type", "camp", "item", "count", "pay"]:
+			if folk.job.has(k):
+				folk.job.favour[k] = folk.job[k]
+				folk.job.erase(k)
+	var job: Dictionary = folk.job.get("favour", {}) # (folk.job also holds the sim's own state: the favour is one key)
 	var db = get_node("/root/item_list")
 	if job.is_empty():
 		if folk.asked:
@@ -101,17 +107,17 @@ func _job_talk(person: BaseCharacter, player: Node) -> String:
 			return ""
 		var target = camps.bandit_camp_near(person.global_position, bounty_range)
 		if target and randf() < bounty_chance:
-			folk.job = {"type": "bounty", "camp": target, "pay": bounty_pay}
+			folk.job["favour"] = {"type": "bounty", "camp": target, "pay": bounty_pay}
 			return bounty_offer % [_compass(target.pos - person.global_position), bounty_pay]
 		var id: String = fetch_items[randi() % fetch_items.size()]
 		var item: Item = db.get_item_instance(id)
 		var n := randi_range(fetch_min, maxi(fetch_min, fetch_max))
-		folk.job = {"type": "fetch", "item": id, "count": n, "pay": n * fetch_pay_each}
+		folk.job["favour"] = {"type": "fetch", "item": id, "count": n, "pay": n * fetch_pay_each}
 		return fetch_offer % [n, item.Name, n * fetch_pay_each]
 	var inv: InventoryComponent = player.inventoryComponent
 	var done := false
 	if job.type == "bounty":
-		done = job.camp.members.all(func(f): return f.dead)
+		done = job.camp == null or job.camp.members.all(func(f): return f.dead) # (a camp gone since: it's done)
 	elif inv:
 		var want: Item = db.get_item_instance(job.item)
 		if inv.count_item(want) >= job.count:
@@ -131,7 +137,7 @@ func _job_talk(person: BaseCharacter, player: Node) -> String:
 		paid += n
 	if inv and paid > 0:
 		inv.add_item(db.get_item_instance("coin"), paid)
-	folk.job = {}
+	folk.job.erase("favour")
 	if paid < job.pay:
 		return "It's done. Here's %d coin. It's all we have." % paid
 	if camps.minds:

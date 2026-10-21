@@ -7,7 +7,7 @@ extends Node
 ## extort     broke and greedy (bandit, or cruel) -> sets up a Toll on the road
 ## mourn      lost kin, pious -> kneels where it happened: a Mourner
 ## pilgrimage faith gone, pious -> walks to the bell, joining any Pilgrims nearby
-## wander     no fire / no company left -> a lone Wanderer looking for a camp (settles at one)
+##   wander     no fire / no company left -> a lone Wanderer looking for a camp (settles at one)
 ##   turn       a starving, cruel drifter turns bandit (alone in the dark: an Ambush)
 ##   reform     a fed, gentle bandit becomes a drifter wanderer
 ##   hunt       someone whose kin you killed, with cruelty and courage, comes after you with others like them
@@ -15,7 +15,10 @@ extends Node
 ##              passing drifter, they get back up; otherwise hunger, thirst and the dark take their health
 ##   (everyone has health: the dark and starving wear it down at the same rates as yours; rest by a fire heals)
 ## Camps remember you too (rep): feeding, jobs and trade raise it; killing their people drops it, and a camp
-## that hates you attacks on sight. A drifter camp whose people are all gone goes cold (a Cold Fire).
+## that hates you attacks on sight; be seen stealing from them (stolen()) and you're a cinder-thief to them.
+## A drifter camp whose people are all gone goes cold (a Cold Fire).
+##   crowded    more people than the fire keeps -> one leaves to find another fire
+##   cinder-thief  greedy and broke -> steals the camp's wood and runs (the firekeeper may catch them)
 
 @export_group("Needs drain (per minute)")
 @export_range(0.0, 20.0, 0.1) var food_drain := 2.0
@@ -62,6 +65,38 @@ extends Node
 @export_range(0.0, 100.0, 1.0) var road_give_up := 50.0
 ## Chance each think that a person acts on a decision (keeps the island from changing all at once).
 @export_range(0.0, 1.0, 0.05) var act_chance := 0.35
+## When a camp has more people than its fire keeps, chance (per think) one of them leaves to find another fire.
+@export_range(0.0, 1.0, 0.05) var crowded_leave := 0.2
+@export_group("The mind")
+## Shaken: how long it lasts (s). Hopeful: minutes round a told-to fire before it comes, how long it lasts, despair
+## eased per minute. Broken: the despair it takes, and the chance per minute they walk off into the dark.
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var shaken_time := 1800.0
+@export_range(1.0, 600.0, 1.0) var hope_after := 60.0
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var hope_time := 3600.0
+@export_range(0.0, 0.05, 0.0005) var hope_ease := 0.003
+@export_range(0.5, 1.0, 0.01) var broken_at := 0.95
+@export_range(0.0, 0.1, 0.001) var broken_walk := 0.005
+@export var state_lines := {
+	"shaken": ["I can't go out there again. Not yet.", "Don't ask me to carry the light tonight."],
+	"hardened": ["I've buried enough. I don't flinch any more.", "The dark took mine. It won't take me."],
+	"hopeful": ["The old stories... maybe there was a time the dark lost.", "Sit. The fire's good tonight."],
+	"broken": ["...", "It doesn't matter. None of it."]}
+@export_group("")
+@export_group("Knowing the island")
+## How far they see places around them (metres), how often they look, how far off a place can be remembered, how
+## many places one person keeps in mind, and how far round their camp its people know from the start.
+@export_range(5.0, 200.0, 5.0, "suffix:m") var sight_range := 40.0
+@export_range(2.0, 120.0, 1.0, "suffix:s") var look_every := 15.0
+@export_range(0.0, 200.0, 5.0, "suffix:m") var misremember := 25.0
+@export_range(1, 50) var memory_size := 8 # places of each kind
+@export_range(0.0, 3000.0, 50.0, "suffix:m") var known_start := 1000.0 # (at least camplife spring_range, or camps never learn their own springs)
+@export_group("")
+## A greedy, broke camp member steals the camp's wood and runs (cinder-thief) at this chance per think;
+## the firekeeper catches them at cinder_caught.
+@export_range(0.0, 1.0, 0.01) var cinder_chance := 0.05
+@export_range(0.0, 1.0, 0.05) var cinder_caught := 0.5
+## How close one of a camp's people has to be to see you steal from it.
+@export_range(1.0, 100.0, 1.0, "suffix:m") var theft_sight := 25.0
 
 
 @export_group("Monsters")
@@ -98,7 +133,7 @@ extends Node
 var camps: Node
 
 const NEEDS := ["food", "water", "light", "safety", "coin", "belonging", "faith"]
-const TRAITS := ["greed", "courage", "piety", "cruelty", "despair"]
+const TRAITS := ["greed", "courage", "piety", "cruelty", "despair", "kindness", "curiosity"]
 ## Names are built from these parts, and no two people on the island share one (see _unique_name).
 const FIRST := ["Ulvo", "Mott", "Aldric", "Pell", "Wick", "Hask", "Ember", "Ysolt", "Morrow", "Cinder", "Tobin", "Rook",
 	"Fen", "Orrin", "Wenna", "Hester", "Calloway", "Brannoc", "Edda", "Silt", "Garrow", "Isel", "Jory", "Kestrel", "Lisbet",
@@ -153,6 +188,7 @@ func birth(f, lost := false) -> void:
 	for n in NEEDS:
 		f.needs[n] = rng.randf_range(start_needs.x, start_needs.y)
 	if lost:
+		f.job["looked"] = true # out of the dark knowing nothing of the island
 		f.needs.belonging = rng.randf_range(lost_needs.x * 0.5, lost_needs.y * 0.5)
 		for n in ["food", "water", "light"]:
 			f.needs[n] = rng.randf_range(lost_needs.x, lost_needs.y)
@@ -168,7 +204,116 @@ func _now() -> float:
 	return SimClock.now
 
 ## Called for every living person record as the Camps sweep reaches them.
+# --- what they know of the island ----------------------------------------------------
+## Nobody knows the whole island. Everyone remembers the places they've seen (springs, fungus, copses, sap, herds,
+## cold fires, cairns), a little off (misremember), and only so many (memory_size). Camps send for what their people
+## remember; with nothing remembered, someone goes exploring. Seeing a place puts it right; finding it gone, or not
+## where they thought, they forget it. Monsters and bandits too.
+var _smoulders := []
+
+const KNOWABLE := ["spring", "fungus", "salt", "copse", "sap", "herd", "coldfire", "cairn"]
+
+func look(f) -> void:
+	var r: float = sight_range * (0.75 + 0.5 * _t(f, "curiosity")) # the curious notice more
+	if not f.job.get("looked", false):
+		f.job["looked"] = true
+		r = known_start # their home ground: a camp's people know what's round it (the newly pulled know nothing)
+	var seen: Array = _places_near(f.pos, r)
+	if r > sight_range:
+		seen.sort_custom(func(a, b): return camps._dist(a.pos, f.pos) > camps._dist(b.pos, f.pos)) # nearest last: those are kept
+	for c in seen:
+		learn(f, c, r <= sight_range)
+
+## Places worth knowing within r of p, from a coarse grid (rebuilt now and then: cold fires come and go); herds move,
+## so they're checked one by one.
+func _places_near(p: Vector3, r: float) -> Array:
+	if _grid.is_empty() or SimClock.now - _grid_at > 60.0:
+		_grid_at = SimClock.now
+		_grid.clear()
+		_herds.clear()
+		for c in camps.camps:
+			if c.wild == "herd":
+				_herds.append(c)
+			elif c.wild in KNOWABLE:
+				var k := Vector2i(floori(c.pos.x / GRID), floori(c.pos.z / GRID))
+				if not _grid.has(k):
+					_grid[k] = []
+				_grid[k].append(c)
+	var out := []
+	for cz in range(floori((p.z - r) / GRID), floori((p.z + r) / GRID) + 1):
+		for cx in range(floori((p.x - r) / GRID), floori((p.x + r) / GRID) + 1):
+			for c in _grid.get(Vector2i(cx, cz), []):
+				if camps._dist(c.pos, p) < r:
+					out.append(c)
+	for h in _herds:
+		if camps._dist(h.pos, p) < r:
+			out.append(h)
+	return out
+
+const GRID := 200.0
+var _grid := {} # Vector2i -> places
+var _herds := []
+var _grid_at := -INF
+
+## Remembers a place (seen = right where it is; else roughly).
+func learn(f, place, seen := false) -> void:
+	for k in f.known:
+		if k[0] == place:
+			if seen:
+				k[1] = place.pos
+			return
+	var a := randf() * TAU
+	f.known.append([place, place.pos if seen else place.pos + Vector3(cos(a), 0, sin(a)) * randf() * misremember])
+	_trim(f, place.wild)
+
+## Only so many of each kind of place in mind: the oldest of that kind goes.
+func _trim(f, wild: String) -> void:
+	var same: Array = f.known.filter(func(k): return k[0] != null and k[0].wild == wild)
+	if same.size() > memory_size:
+		f.known.erase(same[0])
+
+## People together tell each other what they've seen: each learns the places the others know (a little off,
+## being told rather than seen).
+func share(people: Array) -> void:
+	if people.size() < 2:
+		return
+	var all := {}
+	for f in people:
+		f.known = f.known.filter(func(k): return k[0] != null) # places gone since a save (not saved: nothing to point at)
+		for k in f.known:
+			all[k[0]] = k[1]
+	for f in people:
+		var have := {}
+		for k in f.known:
+			have[k[0]] = true
+		for place in all:
+			if not have.has(place):
+				var a := randf() * TAU
+				f.known.append([place, all[place] + Vector3(cos(a), 0, sin(a)) * randf() * misremember * 0.5])
+				_trim(f, place.wild)
+
+func forget(people: Array, place) -> void:
+	for f in people:
+		f.known = f.known.filter(func(k): return k[0] != place)
+
+## The nearest place of this kind any of them remember within r of pos (and that `ok` accepts):
+## [place, where they think it is], or [].
+func recall(people: Array, wild: String, pos: Vector3, r: float, ok: Callable = Callable()) -> Array:
+	var best := []
+	for f in people:
+		for k in f.known:
+			if k[0] != null and k[0].wild == wild and camps._dist(k[1], pos) < r and (best.is_empty() or camps._dist(k[1], pos) < camps._dist(best[1], pos)):
+				if not ok.is_valid() or ok.call(k[0]): # shortcut: they know whether it has stock; upgrade if it matters
+					best = k
+	if not best.is_empty() and not best[0] in camps.camps: # gone (a herd hunted out): forget it, try the next
+		forget(people, best[0])
+		return recall(people, wild, pos, r, ok)
+	return best
+
 func think(f, now: float) -> void:
+	if now > f.job.get("look_at", 0.0):
+		f.job["look_at"] = now + look_every
+		look(f)
 	if f.camp.kind == "goblin" or f.camp.kind == "orc":
 		_monster_think(f, now) # monsters only hunger
 		return
@@ -180,6 +325,10 @@ func think(f, now: float) -> void:
 	var minutes: float = (now - f.think_t + think_every) / 60.0
 	f.think_t = now + think_every
 	_drain_and_refill(f, minutes)
+	if f.job.has("sick_until") and camps.fate:
+		camps.fate.cough(f, minutes) # the grey cough (world/fate.gd)
+	if _psyche(f, minutes, now):
+		return # broken: walked off into the dark
 	if _dark_wears(f, minutes) or _starve_wears(f, minutes):
 		return # the dark, or hunger and thirst, took them
 	if camps.camplife:
@@ -231,15 +380,15 @@ func _monster_think(f, now: float) -> void:
 			f.node.statComponent.health.change_current(-100000) # the record is already dead, so nobody's blamed
 		f.node = null
 
-## The dark wears everyone down the same way: out of the light (no fire close, no torch or brand burning) for
+## The dark wears everyone down the same way: out of the light (no fire close, no torch burning) for
 ## longer than your DarknessComponent's dread_time, health drains at its rate (as a share of your health, so a
 ## character goes as fast as you would). Resting by a fire heals slowly. True = it killed them.
 func _dark_wears(f, minutes: float) -> bool:
 	var c = f.camp
 	var dk: Node = camps._player.get_node_or_null("darkness") if is_instance_valid(camps._player) else null
-	var fire_r: float = dk.fire_light_radius if dk else 14.0
+	var fire_r: float = (dk.fire_light_radius if dk else 14.0) * (camps.camplife.fire_scale(c) if camps.camplife else 1.0)
 	var at_fire: bool = c.wild == "" and not c.roaming and c.kind in ["drifter", "bandit"] and camps._dist(f.pos, c.pos) < fire_r
-	var torch: bool = (c.roaming and c.job.get("fuel", 0.0) > 0.0) or f.task.get("brand", 0.0) > SimClock.now or c.job.get("lit_until", 0.0) > SimClock.now or c.raid != null # raiders carry brands from their fire
+	var torch: bool = (c.roaming and c.job.get("fuel", 0.0) > 0.0) or f.task.get("lit_until", 0.0) > SimClock.now or c.job.get("lit_until", 0.0) > SimClock.now or c.raid != null # shortcut: raiders' torches aren't counted out of their stock yet
 	if not at_fire and not torch and f.dark_s > 0.0: # a cairn's torch lights them as it would you
 		var tr: float = dk.torch_light_radius if dk else 8.0
 		for o in camps.camps:
@@ -249,11 +398,19 @@ func _dark_wears(f, minutes: float) -> bool:
 	if at_fire or torch:
 		f.dark_s = 0.0
 		if at_fire:
-			f.hp = minf(100.0, f.hp + rest_heal * minutes)
+			f.hp = minf(100.0, f.hp + rest_heal * minutes * (camps.camplife.ashwife_heal if camps.camplife and camps.camplife.has_role(f.camp, "ashwife") else 1.0))
 		return false
+	if f.dark_s > 0.0: # by a smoulder the dark holds off a while: it doesn't wear on them, but nothing's mended either
+		if _smoulders.is_empty():
+			_smoulders = camps.camps.filter(func(o): return o.wild == "smoulder") # they never move or go out
+		for o in _smoulders:
+			if camps._dist(o.pos, f.pos) < camps.smoulder_radius:
+				return false
 	var before: float = f.dark_s
 	f.dark_s += minutes * 60.0
 	var dread: float = dk.dread_time if dk else 60.0
+	if before < dread and f.dark_s >= dread and randf() > _t(f, "courage"):
+		shake(f, "the dread in the dark got into them") # the brave shrug it off
 	var over: float = maxf(0.0, f.dark_s - maxf(before, dread))
 	var hp_max: float = float(camps._player.statComponent.health.get_max_value()) if dk and camps._player.statComponent else 100.0
 	f.hp -= over * (dk.health_drain if dk else 0.25) / hp_max * 100.0
@@ -322,8 +479,12 @@ func _drain_and_refill(f, minutes: float) -> void:
 	if at_fire:
 		f.needs.light = minf(100.0, f.needs.light + camp_light * minutes)
 		f.needs.belonging = minf(100.0, f.needs.belonging + (camp_belonging if company > 0 else alone_belonging) * minutes)
+		var life = camps.camplife
+		if life and life.has_role(c, "storyteller") and life.fire_tier(c) != "bonfire": # the old stories, told round a big fire
+			f.needs.belonging = minf(100.0, f.needs.belonging + life.story_belonging * minutes)
+			f.traits.despair = maxf(0.0, f.traits.despair - life.story_ease * minutes)
 
-	if camps.camplife and ((c.roaming and c.job.get("fuel", 0.0) > 0.0) or f.task.get("brand", 0.0) > SimClock.now): # a lit torch / brand
+	if camps.camplife and ((c.roaming and c.job.get("fuel", 0.0) > 0.0) or f.task.get("lit_until", 0.0) > SimClock.now): # a lit torch
 		f.needs.light = minf(100.0, f.needs.light + camps.camplife.torch_light * minutes)
 	if c.raid == null:
 		f.needs.safety = minf(100.0, f.needs.safety + safety_recover * minutes)
@@ -336,6 +497,9 @@ func _drain_and_refill(f, minutes: float) -> void:
 func _decide_in_camp(f, now: float) -> void:
 	var n: Dictionary = f.needs
 	var t: Dictionary = f.traits
+	if camps.camplife and camps.camplife.headcount(f.camp) > camps.camplife.capacity(f.camp) and randf() < crowded_leave:
+		_become(f, "wanderer", f.camp.kind, true, now) # more of them than the fire keeps: someone goes looking for another
+		return
 	var grief = _memory(f, "lost_kin")
 	var hate = _memory(f, "player_killed_kin")
 	if hate and t.cruelty > 0.5 and t.courage > 0.5:
@@ -352,6 +516,26 @@ func _decide_in_camp(f, now: float) -> void:
 		_pilgrimage(f, now)
 	elif n.belonging < desperate or n.light < desperate:
 		_become(f, "wanderer", f.camp.kind, true, now)
+	elif camps.camplife and t.greed > trait_bar and n.coin < desperate * 2.0 and f.camp.crate.get("ash_wood", 0) > 0 and randf() < cinder_chance:
+		_cinder_thief(f, now)
+
+## The worst crime there is: they take the camp's wood (its fire's life) and slip away. If the firekeeper catches
+## them they're cast out with nothing, or killed if the firekeeper is cruel.
+func _cinder_thief(f, now: float) -> void:
+	var c = f.camp
+	var life = camps.camplife
+	var keeper = c.job.get("roles", {}).get("firekeeper")
+	if life.has_role(c, "firekeeper") and keeper != f and randf() < cinder_caught:
+		if not keeper is String and keeper.traits.cruelty > trait_bar:
+			camps.note(f, "was caught stealing the fire's wood, and killed for it")
+			_die(f)
+		else:
+			camps.note(f, "was caught stealing the fire's wood, and cast out")
+			_become(f, "wanderer", c.kind, true, now)
+		return
+	life.move(c.crate, f.inv, "ash_wood", life.wood_carry)
+	camps.note(f, "stole the fire's wood and slipped away into the dark")
+	_become(f, "wanderer", c.kind, true, now)
 
 # --- turning someone into an encounter ------------------------------------------
 
@@ -378,7 +562,7 @@ func _become(f, wild: String, kind: String, roams: bool, now: float, at = null) 
 		var n: int = f.inv.get("torch", 0)
 		if n > 0:
 			camps.camplife.add(f.inv, "torch", -n)
-			c.job["lit_until"] = now + n * camps.camplife.npc_torch_time * camps.camplife.torch_lights
+			c.job["lit_until"] = now + n * camps.camplife.torch_time(c) * camps.camplife.torch_lights
 	if wild == "wanderer":
 		c.job["settles"] = true # unlike the island's born wanderers, these are looking for a new fire
 	c.members.append(f)
@@ -469,6 +653,8 @@ func on_death(f, by_player: bool) -> void:
 		if o == f:
 			continue
 		remember(o, "lost_kin", f.pos)
+		if o.needs.has("safety"):
+			_harden(o)
 		if not o.camp.kind in ["goblin", "orc"]:
 			camps.note(o, "lost %s" % (f.name if f.name != "" else "one of their own"))
 		if o.needs.has("safety"): # monsters only have hunger
@@ -482,13 +668,33 @@ func rep(c, amount: int) -> void:
 	if c:
 		c.rep = clampi(c.rep + amount, -100, 100)
 
+## You took from a camp's stores (crate, barrel, a display, someone's pack). Anyone of theirs who sees it knows
+## you for a cinder-thief: the camp hates you and they come for you. Unseen, nobody knows.
+func stolen(c, at: Vector3) -> void:
+	if c == null or c.job.get("player", false) or c.job.get("player_member", false):
+		return # your own camp's stores are yours too
+	var seen := false
+	for f in camps._alive(c.members):
+		if is_instance_valid(f.node) and f.node.global_position.distance_to(at) < theft_sight:
+			seen = true
+			remember(f, "cinder_thief", at)
+			var ai: MobAIComponent = f.node.get_node_or_null("mobAI")
+			if ai:
+				ai.aggressive = true
+				ai._enter(MobAIComponent.State.CHASE)
+	if seen:
+		c.rep = -100
+		c.job["cinder_thief"] = SimClock.now # when (they forgive it in time: camplife forgive_after)
+		camps.camplife._log("A %s caught you stealing: cinder-thief" % camps.camplife.fire_name(c))
+		Talker.notify("\"Cinder-thief!\"")
+
 func hates(c) -> bool:
 	return c != null and c.rep <= hate_at
 
 ## Cold fires: a drifter camp with nobody left for a while goes out.
 func check_cold(c, now: float) -> void:
-	if c.wild != "" or c.roaming or c.kind != "drifter":
-		return
+	if c.wild != "" or c.roaming or c.kind != "drifter" or c.job.get("player", false):
+		return # (your own fire goes out only when its wood runs out)
 	if camps._alive(c.members).is_empty():
 		if c.empty_since <= 0.0:
 			c.empty_since = now
@@ -500,6 +706,66 @@ func check_cold(c, now: float) -> void:
 		c.empty_since = 0.0
 
 ## A line about how they're doing, or "" to let the talker use its usual lines.
+# --- the mind under the needs ------------------------------------------------------------------
+## Traits are rolled once (kindness and curiosity came later: old records roll them when first asked). States come
+## from what happens to them and pass in time (Folk.job "<state>_until"):
+##   shaken    the dread in the dark, a raid, the Lightless: won't go out on chores till it passes; safety comes back slowly
+##   hardened  lost kin in a fight and kept their nerve: braver for good
+##   hopeful   a long while at a hearth or pyre with stories: despair eases faster
+##   broken    despair near total: some walk off into the dark without a torch, and don't come back
+## Kindness: who shares food with the starving, and who carries food to a hungry camp. Curiosity: who goes exploring,
+## and how far they notice things.
+func _t(f, trait_name: String) -> float:
+	if not f.traits.has(trait_name):
+		f.traits[trait_name] = randf()
+	return f.traits[trait_name]
+
+func state(f, s: String) -> bool:
+	return f.job.get(s + "_until", 0.0) > SimClock.now
+
+func shake(f, why: String) -> void:
+	if state(f, "hardened") and randf() < 0.5:
+		return
+	f.job["shaken_until"] = SimClock.now + shaken_time
+	camps.note(f, why, false)
+
+## True = it ended them here (walked off into the dark).
+func _psyche(f, minutes: float, now: float) -> bool:
+	var c = f.camp
+	if state(f, "shaken"):
+		f.needs.safety = maxf(0.0, f.needs.safety - safety_recover * 0.5 * minutes) # it comes back slowly
+	var told: bool = c.wild == "" and not c.roaming and camps.camplife and camps.camplife.has_role(c, "storyteller") and camps.camplife.fire_tier(c) != "bonfire"
+	if told and camps._dist(f.pos, c.pos) < 30.0:
+		f.job["told_min"] = f.job.get("told_min", 0.0) + minutes
+		if f.job.told_min > hope_after and not state(f, "hopeful"):
+			f.job["hopeful_until"] = now + hope_time
+			f.job.told_min = 0.0
+			camps.note(f, "found some hope in the old stories", false)
+	if state(f, "hopeful"):
+		f.traits.despair = maxf(0.0, f.traits.despair - hope_ease * minutes)
+	if f.traits.despair >= broken_at and not state(f, "broken"):
+		f.job["broken_until"] = now + 3600.0
+		camps.note(f, "stopped speaking. Something in them has gone out")
+	if state(f, "broken") and c.wild != "wanderer" and randf() < broken_walk * minutes:
+		if camps.camplife: # they leave their light behind
+			camps.camplife.add(f.inv, "torch", -f.inv.get("torch", 0))
+		camps.note(f, "walked out into the dark without a light")
+		_become(f, "wanderer", c.kind, true, now)
+		f.camp.job.erase("settles") # not looking for a fire
+		f.camp.job["fuel"] = 0.0 # no light, and none taken for the road
+		f.camp.job["burnt_at"] = now
+		return true
+	return false
+
+## On a death in their group: the ones with nerve harden.
+func _harden(o) -> void:
+	if _t(o, "courage") > 0.5 and not state(o, "hardened"):
+		o.job["hardened_until"] = SimClock.now + 1.0e9 # for good
+		o.traits.courage = minf(1.0, o.traits.courage + 0.1)
+		camps.note(o, "buried their grief and hardened", false)
+	else:
+		shake(o, "can't stop shaking since the killing")
+
 func mood_line(f) -> String:
 	if f == null or f.needs.is_empty():
 		return ""
@@ -507,6 +773,9 @@ func mood_line(f) -> String:
 		return hated_line
 	if _memory(f, "fed_by_player") and randf() < 0.3:
 		return grateful_line
+	for s in ["broken", "shaken", "hardened", "hopeful"]:
+		if state(f, s) and randf() < 0.5:
+			return state_lines[s].pick_random()
 	if randf() > need_talk_chance:
 		return ""
 	var worst := ""

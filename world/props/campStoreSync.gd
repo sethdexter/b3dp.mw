@@ -70,13 +70,21 @@ func _write_back() -> void:
 		var id := _id_of(it)
 		if id != "":
 			now[id] = now.get(id, 0) + _container.storage.inventory[it]
+	var lost := 0
 	for id in now.keys() + _shown.keys():
 		var change: int = now.get(id, 0) - _shown.get(id, 0)
+		lost -= change * (1 if id == "coin" else _price(id)) # paid for (coin in) isn't theft
+		if change > 0 and which != "pack" and record.job.get("player_member", false):
+			var camps = get_tree().get_first_node_in_group("camps")
+			if camps and camps.camplife:
+				camps.camplife.credit(record, id) # your role's work, brought in
 		if change != 0:
 			d[id] = maxi(0, d.get(id, 0) + change)
 			if d[id] == 0:
 				d.erase(id)
 	_shown = now
+	if lost > 0 and _minds():
+		_minds().stolen(record.camp if which == "pack" else record, _where())
 
 ## The record -> container contents (only if they differ, so nothing flickers).
 func _refresh() -> void:
@@ -96,6 +104,21 @@ func _refresh() -> void:
 		if it:
 			_container.storage.add_item(it, want[id])
 	_shown = want
+
+## Where the container is in the world (the component itself is a plain Node: its nearest 3D ancestor).
+func _where() -> Vector3:
+	var n: Node = _container
+	while n and not n is Node3D:
+		n = n.get_parent()
+	return (n as Node3D).global_position if n else Vector3.ZERO
+
+func _price(id: String) -> int:
+	var camps = get_tree().get_first_node_in_group("camps")
+	return camps.camplife.price(id) if camps and camps.camplife else 1
+
+func _minds():
+	var camps = get_tree().get_first_node_in_group("camps")
+	return camps.minds if camps and record and not (which == "pack" and record.dead) else null
 
 func _id_of(it: Item) -> String:
 	if _ids.is_empty():

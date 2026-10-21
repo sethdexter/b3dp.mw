@@ -53,6 +53,7 @@ func _process(delta: float) -> void:
 	if _check <= 0.0:
 		_check = check_every
 		var dark := not _lit()
+		_reprieve = dark and _in_reprieve()
 		if dark != out_of_light:
 			out_of_light = dark
 			if not dark and in_dark:
@@ -62,6 +63,8 @@ func _process(delta: float) -> void:
 	if not out_of_light:
 		_rest(delta)
 		return
+	if _reprieve:
+		return # by a smoulder: the dark holds off, but you don't heal and it picks up where it left off
 	var before := dark_time
 	dark_time += delta
 	if before < warn_after and dark_time >= warn_after:
@@ -96,14 +99,24 @@ func _rest(delta: float) -> void:
 
 func _at_fire() -> bool:
 	for fire: Node3D in get_tree().get_nodes_in_group("campfire"):
-		if fire.global_position.distance_to(character.global_position) < fire_light_radius:
+		if fire.global_position.distance_to(character.global_position) < fire.get_meta("light_radius", fire_light_radius):
+			return true
+	return false
+
+var _reprieve := false
+
+## Near a "reprieve" light (a smoulder): its meta light_radius.
+func _in_reprieve() -> bool:
+	var at := character.global_position
+	for n: Node3D in get_tree().get_nodes_in_group("reprieve"):
+		if n.global_position.distance_to(at) < n.get_meta("light_radius", 5.0):
 			return true
 	return false
 
 func _lit() -> bool:
 	var at := character.global_position
 	for fire: Node3D in get_tree().get_nodes_in_group("campfire"):
-		if fire.global_position.distance_to(at) < fire_light_radius:
+		if fire.global_position.distance_to(at) < fire.get_meta("light_radius", fire_light_radius): # bigger fires reach further
 			return true
 	for torch: Node3D in get_tree().get_nodes_in_group("light_source"):
 		var flame := torch.get_node_or_null("fire_effect") as Node3D

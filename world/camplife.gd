@@ -5,7 +5,7 @@ extends Node
 ##   - every person carries a pack (Folk.inv: item id -> count) of the same items you use: water skins, bread,
 ##     ash caps, raw meat, torches, coin
 ##   - every drifter / bandit camp has a water barrel (Camp.barrel) and a supply crate (Camp.crate). Near you
-##     they're real containers you can open (world/props/campStore.gd keeps them in sync with the records)
+##     they're real containers you can open (world/props/campStoreSync.gd keeps them in sync with the records)
 ##   - eating and drinking means taking an item (from your pack, else your camp's crate / barrel) and using it:
 ##     its NourishEffect (food / water) is what it does for them, the same as for you
 ## Chores (camp people, when the barrel / crate run low)
@@ -15,6 +15,15 @@ extends Node
 ##     bring it back to the crate. Springs and fungus run dry and come back slowly (Sources); herds breed (camps.gd)
 ##   - supply: a camp with plenty sends someone to carry food to a hungry drifter camp nearby
 ##   - evacuate: a camp with nothing left packs up what it has and walks to a better camp, joining it
+##   - wood: cut small trees at a copse (logs, kindling, tinder); sap: cut resin from a sap node on a giant tree
+##   - trade: take the camp's coin to a neighbouring camp with surplus and buy what's short
+## Each chore takes torches for the trip from the crate (no torch, no chore); the fittest goes, or whoever holds
+## the role for it (drawer: wood and sap, waterbearer: water).
+## Fire: the camp's fire burns its fuel (Camp.job.fire_fuel, one log = wood_burn); its people feed it from the
+## crate. Logs on it = its size: light reach, how many it keeps (capacity), and its tier (bonfire / hearth / pyre,
+## which also needs people in the roles: firekeeper, drawer, waterbearer, wickbearer, storyteller, ashwife).
+## Torches are made from logs and resin. Lighting a fire takes a spark, tinder, kindling and logs, and can fail.
+## Out of wood = the fire goes out, and the camp leaves as a band.
 ## Travellers (wanderers, pilgrims, anyone on the road) carry their own skins, food and torches: one torch burns
 ## at a time; low on torches they head for a fire (their own kind's camp or a cairn) to relight and to ask for
 ## what the camp can spare; thirsty they make for a spring and fill up; hungry, for fungus.
@@ -34,13 +43,13 @@ extends Node
 ## Nothing extra from nowhere: anyone setting out takes what they can from their camp (tend_torch).
 @export var traveller_extra := {}
 ## Setting out from a camp, each takes this much from its stores if it's there (and the group a torch or two).
-@export var road_share := {"water_skin": 1, "bread": 1}
+@export var road_share := {"water_skin": 1, "bread": 1, "tinder": 1, "kindling": 1}
 @export_range(0, 5) var road_torches := 1
-@export_range(0, 20) var barrel_per_person := 4
-@export var crate_per_person := {"bread": 2, "dried_meat": 1, "ash_cap": 1, "torch": 1}
+@export_range(0, 20) var barrel_per_person := 2
+@export var crate_per_person := {"bread": 1, "ash_cap": 1, "torch": 2, "ash_wood": 1, "tinder": 1, "kindling": 1}
 ## And the goods a camp starts with, whatever its size (random in each range): what you see set out on its
 ## barrels and crates is what's here.
-@export var goods_start := {"coin": Vector2i(2, 14), "ash_wine": Vector2i(0, 2), "health_potion": Vector2i(0, 1),
+@export var goods_start := {"coin": Vector2i(2, 14), "ash_wine": Vector2i(0, 2), "health_potion": Vector2i(0, 1), "flint": Vector2i(0, 1),
 	"bone_knife": Vector2i(0, 1), "staff": Vector2i(0, 2), "black_iron_sword": Vector2i(0, 0)}
 @export_group("Chores")
 ## A camp fetches water when its barrel has fewer than this many skins per person, and forages below this
@@ -61,6 +70,8 @@ extends Node
 @export_group("Travellers")
 ## While their torch is lit, travellers' light need refills this fast (per minute), like being at a fire.
 @export_range(0.0, 50.0, 0.5) var torch_light := 15.0
+## Travellers who come to a fire (or a cairn's light) sit and rest this long (seconds, random in range) before going on.
+@export var rest_time := Vector2(180, 420)
 @export_range(50.0, 3000.0, 10.0, "suffix:m") var seek_range := 900.0
 ## A camp of their own kind gives a traveller up to this many items of food / water, if it has more than
 ## floor per person.
@@ -70,6 +81,81 @@ extends Node
 ## dark sits heavier on them, safety too at half) and this much despair, for good.
 @export_range(0.0, 100.0, 1.0) var blackflesh_dark := 25.0
 @export_range(0.0, 1.0, 0.01) var blackflesh_despair := 0.1
+@export_group("Wood and fire")
+## A camp's fire burns its wood: one log keeps it going this long, and its people put another on once it's down to
+## fire_feed_below (from their crate). Out of wood, it dies: a cold fire, and they go looking for another.
+@export_range(30.0, 3600.0, 10.0, "suffix:s") var wood_burn := 1200.0
+@export_range(0.0, 3600.0, 10.0, "suffix:s") var fire_feed_below := 300.0
+## The more wood on a fire, the bigger it burns (light reaches further) and the more people it keeps: each log's worth
+## on it keeps people_per_log, up to max_fire_logs on at once. Its people keep it as big as their numbers need.
+@export_range(1, 10) var people_per_log := 2
+@export_range(1, 20) var max_fire_logs := 9
+## A firekeeper keeps this many logs more on than the camp needs (room for newcomers: how a fire grows a tier).
+@export_range(0, 5) var keeper_spare := 1
+## Fire tiers by logs on it: a bonfire below hearth_logs, a hearth below pyre_logs, then a pyre.
+@export_range(1, 20) var hearth_logs := 4
+@export_range(1, 20) var pyre_logs := 7
+## An ash storm makes a fire burn this much faster at its height (a small push; raids only hurt a fire through what they take and who they kill).
+@export_range(1.0, 3.0, 0.05) var storm_fire_burn := 1.25
+## Lighting a fire takes a spark (a flame, or a flint and striker), tinder to catch it, kindling to feed it, then two
+## logs. It catches at light_chance (times storm_light at an ash storm's height); a failed go burns the tinder.
+@export_range(0.0, 1.0, 0.05) var light_chance := 0.8
+## Logs a fire takes to light (they're its first fuel).
+@export_range(1, 10) var light_logs := 3
+@export_range(0.0, 1.0, 0.05) var storm_light := 0.4
+## A fire that burned at least ember_burn before it went out leaves embers for ember_time: kindling and logs on them
+## and it takes, no tinder or spark needed, every time.
+@export_range(0.0, 7200.0, 60.0, "suffix:s") var ember_burn := 1800.0
+@export_range(0.0, 3600.0, 30.0, "suffix:s") var ember_time := 600.0
+## Each small tree cut also gives this much kindling and tinder (twigs, bark and moss).
+@export_range(0, 10) var kindling_per_tree := 2
+@export_range(0, 10) var tinder_per_tree := 1
+## How long a camp's fire has to run on when the island starts (random in range).
+@export var fire_start := Vector2(900, 1800)
+## A camp sends someone for wood when its crate holds fewer logs than this per person, to the nearest copse in range.
+@export_range(0, 20) var wood_low := 2
+@export_range(50.0, 3000.0, 10.0, "suffix:m") var copse_range := 700.0
+## Nobody remembers where to find something the camp needs: someone walks out up to this far to look.
+## Something not where they remembered: they cast about search_radius around, up to search_tries times.
+@export_range(50.0, 3000.0, 10.0, "suffix:m") var explore_range := 500.0
+@export_range(5.0, 200.0, 5.0, "suffix:m") var search_radius := 30.0
+@export_range(0, 10) var search_tries := 3
+## Cutting a small tree: seconds by hand / with a hatchet (you), wood it gives (+ more with a hatchet), and how far
+## the noise carries (hostiles come).
+@export_range(0.5, 60.0, 0.5, "suffix:s") var chop_hand_time := 8.0
+@export_range(0.5, 60.0, 0.5, "suffix:s") var chop_axe_time := 3.0
+@export_range(1, 10) var wood_per_tree := 2
+## Logs one person carries back from a wood trip (they cut trees until they have this many, or the copse is bare).
+@export_range(1, 40) var wood_carry := 8
+## A camp makes a torch out of a log at its fire when it has fewer than this many per person (keeping the last
+## logs for the fire). shortcut: one log makes a torch until crafting gives torches a real recipe.
+@export_range(0, 10) var torches_low := 2
+## Torches split from one log.
+@export_range(1, 10) var torches_per_log := 3
+## Making torches takes sap (resin): a log's worth of torches takes this much. Sap also renews a spent torch
+## (one resin instead of a burnt stub). It only comes from sap nodes on the giant trees: a drawer goes to cut it
+## (sap_per_trip at most) when the crate has fewer than sap_low.
+@export_range(0, 10) var sap_per_log := 1
+@export_range(0, 10) var sap_per_trip := 2
+@export_range(0, 20) var sap_low := 2
+@export_range(0, 10) var axe_bonus := 1
+@export_range(0.0, 200.0, 1.0, "suffix:m") var chop_noise := 35.0
+@export_group("Roles")
+## Who a camp's people are to it, given out in this order as it has people for them (the best suited first). A fire
+## is a hearth only with a firekeeper and a storyteller, and a pyre only with every role filled (and the wood for it).
+const ROLES := ["firekeeper", "drawer", "waterbearer", "wickbearer", "storyteller", "ashwife"]
+## Healing at the fire is this many times faster with an ashwife (or ashman) tending the hurt.
+@export_range(1.0, 5.0, 0.1) var ashwife_heal := 2.0
+## At a hearth or a pyre a storyteller gives this much belonging per minute, and wears despair down by story_ease a minute.
+@export_range(0.0, 20.0, 0.5) var story_belonging := 4.0
+@export_range(0.0, 0.05, 0.0005) var story_ease := 0.002
+## When a lost soul is pulled to a fire with a storyteller, chance another follows them in (bigger fires pull more too).
+@export_range(0.0, 1.0, 0.01) var story_extra := 0.1
+## A role you hold: do its work at least this often (sim seconds) or lose it.
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var duty_time := 1800.0
+## A camp's bad feeling about you heals by 1 every rep_heal_every; a cinder-thief is forgiven after forgive_after.
+@export_range(10.0, 3600.0, 10.0, "suffix:s") var rep_heal_every := 120.0
+@export_range(60.0, 72000.0, 60.0, "suffix:s") var forgive_after := 10800.0
 @export_group("Trade")
 ## Characters buy from each other at the prices you pay a trader: an item's value x this (same as the shops'
 ## sell_markup), the coin going into the seller's stores. A camp only sells what it has beyond this much per person.
@@ -91,7 +177,7 @@ extends Node
 @export_group("")
 
 ## Places that run out: [most uses, seconds for one use to come back when nearly full, what one use gives].
-const SOURCES := {"spring": [6, 90.0, 2], "fungus": [3, 300.0, 2], "salt": [3, 900.0, 1]}
+const SOURCES := {"spring": [6, 90.0, 2], "fungus": [3, 300.0, 2], "salt": [3, 900.0, 1], "sap": [3, 1800.0, 1]}
 
 ## Grows a place's stock back: one use at a time, each slower the emptier it is. s = {stock, at}.
 static func regrow(s: Dictionary, most: int, every: float, slow: float, now: float) -> void:
@@ -111,7 +197,7 @@ static func regrow(s: Dictionary, most: int, every: float, slow: float, now: flo
 func has_stock(spot) -> bool:
 	var cfg = SOURCES.get(spot.wild)
 	if cfg == null:
-		return spot.wild != "herd" or spot.job.get("count", 0) > 0
+		return not spot.wild in ["herd", "copse"] or spot.job.get("count", 0) > 0
 	regrow(spot.job, cfg[0], cfg[1], bare_slow, SimClock.now)
 	return spot.job.stock > 0
 
@@ -141,6 +227,12 @@ func pick_caps(f, patch, uses := 2) -> int:
 var camps: Node
 var _t := 0.0
 var npc_torch_time := 600.0 # one torch's burn: read off the torch scene in _ready, the same as yours
+## Bandits burn pitch-soaked brands: their torches last this many times as long.
+@export_range(1.0, 3.0, 0.05) var bandit_torch := 1.3
+
+## How long one of this group's torches burns.
+func torch_time(c) -> float:
+	return npc_torch_time * (bandit_torch if c.kind == "bandit" else 1.0)
 var torch_lights := 4 # and how many times one torch can be lit
 var log_lines: Array[String] = [] # shown with the meetings log on the M map
 var _nourish := {} # item id -> Vector2(food, water) from its NourishEffect
@@ -288,7 +380,150 @@ func _process(delta: float) -> void:
 	var now: float = SimClock.now
 	for c in camps.camps:
 		if c.wild == "" and not c.roaming and c.kind in ["drifter", "bandit"]:
-			_plan(c, now)
+			_tend_fire(c, now)
+			if c.wild == "": # (its fire may just have died)
+				_plan(c, now)
+				_duties(c, now)
+				if camps.minds:
+					camps.minds.share(camps._alive(c.members)) # what they've seen, told round the fire
+		if c.rep < 0 and now > c.job.get("rep_heal_at", 0.0): # bad blood fades, slowly
+			c.job["rep_heal_at"] = now + rep_heal_every
+			c.rep += 1
+		if c.job.has("cinder_thief") and c.job.cinder_thief is float and now - c.job.cinder_thief > forgive_after:
+			c.job.erase("cinder_thief") # long enough, and they let it go
+
+## Logs' worth of wood on a camp's fire right now (its size).
+func fire_logs(c) -> float:
+	return clampf(c.job.get("fire_fuel", 0.0) / wood_burn, 0.0, log_cap(c))
+
+## The most logs' worth a fire can be, by who keeps it: the wood alone doesn't make a hearth or a pyre.
+func log_cap(c) -> int:
+	if ROLES.all(func(r): return has_role(c, r)):
+		return max_fire_logs
+	return pyre_logs - 1 if has_role(c, "firekeeper") and has_role(c, "storyteller") else hearth_logs - 1
+
+func has_role(c, role: String) -> bool:
+	var f = c.job.get("roles", {}).get(role)
+	if f is String: # "player": you hold it while you're one of them
+		return c.job.get("player_member", false)
+	return f != null and not f.dead and f.camp == c
+
+## How many a camp has, you included if you've joined it.
+func headcount(c) -> int:
+	return camps._alive(c.members).size() + (1 if c.job.get("player_member", false) else 0)
+
+## Fills the camp's roles from its people (keeps who already has one while they're alive and here).
+func roles(c) -> Dictionary:
+	var r: Dictionary = c.job.get("roles", {})
+	for k in r.keys():
+		if not has_role(c, k):
+			r.erase(k)
+	var free: Array = camps._alive(c.members).filter(func(f): return not r.values().has(f))
+	for role in ROLES:
+		if r.has(role) or free.is_empty():
+			continue
+		free.sort_custom(func(a, b): return _suits(a, role) < _suits(b, role))
+		r[role] = free.pop_back()
+		camps.note(r[role], "became the camp's " + role, false)
+	c.job["roles"] = r
+	return r
+
+func _suits(f, role: String) -> float:
+	match role:
+		"firekeeper": return f.traits.courage
+		"storyteller": return f.traits.piety
+		"ashwife": return 1.0 - f.traits.cruelty
+	return _fit(f)
+
+## Your role at the camp you've joined, or "".
+func player_role(c) -> String:
+	for r in c.job.get("roles", {}):
+		if c.job.roles[r] is String and c.job.get("player_member", false):
+			return r
+	return ""
+
+## A role you hold is work you owe: the firekeeper and storyteller have to be at the fire, the others bring in what
+## their role is for (credit()). Let it go long enough and they give the role to someone who'll do it.
+func _duties(c, now: float) -> void:
+	var r := player_role(c)
+	if r == "":
+		return
+	var p: Node3D = camps._player
+	if r in ["firekeeper", "storyteller"] and p and camps._dist(p.global_position, c.pos) < 30.0:
+		c.job["duty_at"] = now
+	if now - c.job.get("duty_at", now) > duty_time:
+		c.job.roles.erase(r)
+		c.job.erase("duty_at")
+		if camps.minds:
+			camps.minds.rep(c, -5)
+		Talker.notify("The %s gave your place as %s to someone who'd do it." % [fire_name(c).to_lower(), r])
+
+## You put something in your camp's stores: if it's what your role is for, that's your work done.
+func credit(c, id: String) -> void:
+	var r := player_role(c)
+	var ok: bool = {"drawer": id in ["ash_wood", "resin", "kindling", "tinder"], "waterbearer": id == "water_skin",
+		"wickbearer": id == "torch", "ashwife": nourish(id).x > 0.0 or id == "health_potion"}.get(r, false)
+	if ok:
+		c.job["duty_at"] = SimClock.now
+
+## The idle one holding this role if there is one, else the fittest idle.
+func _pick(idle: Array, c, role: String):
+	var f = c.job.get("roles", {}).get(role)
+	if f != null and idle.has(f):
+		idle.erase(f)
+		return f
+	return idle.pop_back()
+
+## How many people the fire keeps (light and warmth for).
+func capacity(c) -> int:
+	return people_per_log * maxi(1, ceili(fire_logs(c)))
+
+## How big it burns against a one-log fire: its light reaches this many times as far.
+## A cold fire still has embers in it (see ember_burn).
+func embers(c) -> bool:
+	var out: float = c.job.get("out_at", -INF)
+	return SimClock.now - out < ember_time and out - c.job.get("lit_at", -INF) >= ember_burn
+
+## Whether a fire being lit catches this go.
+func catches(c) -> bool:
+	return embers(c) or randf() < light_chance * (lerpf(1.0, storm_light, camps.enc._storm) if camps.enc else 1.0)
+
+func fire_tier(c) -> String:
+	var l: float = fire_logs(c)
+	return "pyre" if l >= pyre_logs else "hearth" if l >= hearth_logs else "bonfire"
+
+## A camp's fire by name: its people's kind and its tier ("Drifter hearth").
+func fire_name(c) -> String:
+	return "%s %s" % [c.kind.capitalize(), fire_tier(c)]
+
+func fire_scale(c) -> float:
+	return 0.7 + 0.15 * maxf(1.0, fire_logs(c))
+
+## A camp's fire burns down; whoever's at the fire puts a log on from the crate when it's low. No wood left, it
+## dies (Camps.fire_out: a cold fire, and its people set out to find another).
+func _tend_fire(c, now: float) -> void:
+	var j: Dictionary = c.job
+	if not j.has("fire_fuel"):
+		stock(c)
+		j["fire_fuel"] = maxf(randf_range(fire_start.x, fire_start.y), wood_burn * ceili(float(camps._alive(c.members).size()) / people_per_log)) # big enough for who's there
+		j["fire_at"] = now
+	j.fire_fuel -= (now - j.get("fire_at", now)) * (lerpf(1.0, storm_fire_burn, camps.enc._storm) if camps.enc else 1.0)
+	j.fire_at = now
+	var tending: bool = camps._alive(c.members).any(func(f): return camps._dist(f.pos, c.pos) < 30.0)
+	var n: int = maxi(1, camps._alive(c.members).size())
+	var want: float = fire_feed_below # nobody keeping it: it's fed when it's low, no more
+	if has_role(c, "firekeeper"):
+		want = maxf(want, wood_burn * clampi(ceili(float(n) / people_per_log) + keeper_spare, 1, log_cap(c))) # big enough for all of them, and room to grow
+	while tending and j.fire_fuel < want and c.crate.get("ash_wood", 0) > 0:
+		add(c.crate, "ash_wood", -1)
+		j.fire_fuel += wood_burn
+	var owned: int = c.crate.get("torch", 0) + camps._alive(c.members).reduce(func(t, f): return t + f.inv.get("torch", 0), 0)
+	if tending and owned < torches_low * n and c.crate.get("ash_wood", 0) > 0 and c.crate.get("resin", 0) >= sap_per_log: # torches from a log and sap, for the road
+		add(c.crate, "ash_wood", -1)
+		add(c.crate, "resin", -sap_per_log)
+		add(c.crate, "torch", torches_per_log if has_role(c, "wickbearer") else 1) # a wickbearer gets the most out of a log
+	if j.fire_fuel <= 0.0:
+		camps.fire_out(c, now)
 
 func _plan(c, now: float) -> void:
 	var people: Array = camps._alive(c.members)
@@ -296,7 +531,8 @@ func _plan(c, now: float) -> void:
 		return
 	stock(c)
 	var n := people.size()
-	var idle := people.filter(func(f): return f.task.is_empty())
+	roles(c)
+	var idle := people.filter(func(f): return f.task.is_empty() and c.job.roles.get("firekeeper") != f and not (camps.minds and camps.minds.state(f, "shaken"))) # the firekeeper never leaves the fire; the shaken won't go out
 	idle.sort_custom(func(a, b): return _fit(a) < _fit(b)) # pop_back() sends the fittest out first
 	var water: int = c.barrel.get("water_skin", 0)
 	var food: int = count_food(c.crate)
@@ -308,20 +544,46 @@ func _plan(c, now: float) -> void:
 		if to:
 			for f in people:
 				_give(f, {"type": "evacuate", "dest": to, "to": to.pos, "phase": "out"})
-			_log("A %s camp gave up and left for another fire" % c.kind)
+			_log("A %s gave up and left for another fire" % fire_name(c))
 			return
 	if idle.is_empty():
 		return
+	var unknown := false # something's short and nobody remembers where to get it
 	if water < water_low * n and not people.any(func(p): return p.task.get("type", "") == "water"):
-		var spring = _nearest(c.pos, "spring", spring_range)
-		if spring:
-			_give(idle.pop_back(), {"type": "water", "to": spring.pos, "phase": "out", "spot": spring})
+		var k := _recall(c, "spring", spring_range)
+		if not k.is_empty():
+			_give(_pick(idle, c, "waterbearer"), {"type": "water", "to": camps._ground(k[1]), "phase": "out", "spot": k[0]})
+		else:
+			unknown = true
 	var out := people.filter(func(f): return f.task.get("type", "") == "forage").size()
 	if not idle.is_empty() and food < food_low * n and out < maxi(1, int(n * forager_share)):
-		var patch = _nearest(c.pos, "fungus", forage_range)
-		var herd = null if patch else _nearest(c.pos, "herd", hunt_range)
-		if patch or herd: # nothing to pick and no game near: nobody goes
-			_give(idle.pop_back(), {"type": "forage", "to": camps._ground(patch.pos if patch else herd.pos), "phase": "out", "spot": patch, "herd": herd})
+		var k := _recall(c, "fungus", forage_range)
+		if k.is_empty():
+			k = _recall(c, "herd", hunt_range)
+		if not k.is_empty(): # nothing they know to pick and no game they know of: nobody goes
+			var patch = k[0] if k[0].wild == "fungus" else null
+			_give(idle.pop_back(), {"type": "forage", "to": camps._ground(k[1]), "phase": "out", "spot": patch, "herd": null if patch else k[0]})
+		else:
+			unknown = true
+	var cutters: int = people.filter(func(p): return p.task.get("type", "") == "wood").size()
+	if not idle.is_empty() and c.crate.get("ash_wood", 0) < wood_low * n and cutters < (2 if c.crate.get("ash_wood", 0) < n else 1): # very low: two go
+		var k := _recall(c, "copse", copse_range)
+		if not k.is_empty():
+			_give(_pick(idle, c, "drawer"), {"type": "wood", "to": camps._ground(k[1]), "phase": "out", "spot": k[0]})
+		else:
+			unknown = true
+	if not idle.is_empty() and c.crate.get("resin", 0) < sap_low and not people.any(func(p): return p.task.get("type", "") == "sap"):
+		var k := _recall(c, "sap", copse_range)
+		if not k.is_empty():
+			_give(_pick(idle, c, "drawer"), {"type": "sap", "to": camps._ground(k[1]), "phase": "out", "spot": k[0]})
+		else:
+			unknown = true
+	if unknown and not idle.is_empty() and not people.any(func(p): return p.task.get("type", "") == "explore"):
+		var a := randf() * TAU # they need something nobody knows where to find: someone goes looking
+		var to: Vector3 = camps._ground(c.pos + Vector3(cos(a), 0, sin(a)) * randf_range(explore_range * 0.4, explore_range))
+		if not is_nan(to.y):
+			idle.sort_custom(func(x, y): return camps.minds._t(x, "curiosity") < camps.minds._t(y, "curiosity"))
+			_give(idle.pop_back(), {"type": "explore", "to": to, "phase": "out"}) # the most curious goes
 	var coin: int = c.crate.get("coin", 0)
 	if not idle.is_empty() and coin > 0 and not people.any(func(p): return p.task.get("type", "") == "trade"):
 		var want := "water" if water < water_low * n else ("food" if food < food_low * n else "")
@@ -333,7 +595,8 @@ func _plan(c, now: float) -> void:
 	if not idle.is_empty() and c.kind == "drifter" and food > surplus * n:
 		var hungry = _needy_camp(c)
 		if hungry:
-			var f = idle.pop_back()
+			idle.sort_custom(func(x, y): return camps.minds._t(x, "kindness") < camps.minds._t(y, "kindness"))
+			var f = idle.pop_back() # the kindest carries it
 			for id in c.crate.keys():
 				if count_food(f.inv) >= carry_food * 2:
 					break
@@ -342,16 +605,35 @@ func _plan(c, now: float) -> void:
 			_give(f, {"type": "supply", "dest": hungry, "to": hungry.pos, "phase": "out"})
 			_log("A drifter camp sent food to a hungry neighbour")
 
+## The nearest place of this kind the camp's people remember (with something in it): [place, where they think], or [].
+func _recall(c, wild: String, r: float) -> Array:
+	return camps.minds.recall(camps._alive(c.members), wild, c.pos, r, has_stock) if camps.minds else []
+
 ## How fit someone is to go out: their lowest of food and water.
 func _fit(f) -> float:
 	return minf(f.needs.get("food", 100.0), f.needs.get("water", 100.0))
 
 func _give(f, task: Dictionary) -> void:
 	task["since"] = SimClock.now
-	# They take burning brands from the fire, enough to see by there and back.
-	# shortcut: brands cost nothing; once crafting makes fuel a thing, they should burn the camp's wood
+	# They take torches for the trip there and back (their own, then the camp's), light the first at the fire and
+	# each next from the last as it gutters, as you would. Every lighting wears the torches down like yours: one is
+	# spent for every torch_lights lightings (the camp's wear count). No torches: they don't go.
 	var trip: float = camps._dist(f.pos, task.to) * 2.0 / camps.walk_speed + gather_time.y
-	task["brand"] = SimClock.now + maxf(npc_torch_time, trip * 1.2)
+	var c = f.camp
+	var need: int = ceili(trip * 1.2 / torch_time(c))
+	var carry: int = mini(need, 2) # two in hand is enough to keep lighting one from the other
+	move(c.crate, f.inv, "torch", maxi(0, carry - f.inv.get("torch", 0)))
+	var lights: int = need if f.inv.get("torch", 0) >= mini(need, 2) else f.inv.get("torch", 0)
+	if lights == 0 and task.type != "evacuate":
+		return
+	c.job["torch_wear"] = c.job.get("torch_wear", 0) + lights
+	while c.job.torch_wear >= torch_lights and f.inv.get("torch", 0) > 0:
+		c.job.torch_wear -= torch_lights
+		if c.crate.get("resin", 0) > 0:
+			add(c.crate, "resin", -1) # sap worked into the wick instead
+		else:
+			add(f.inv, "torch", -1) # burnt down to a stub
+	task["lit_until"] = SimClock.now + lights * torch_time(c)
 	f.task = task
 	camps._send(f, task.to)
 	var where := "%.0f m away" % camps._dist(f.pos, task.to)
@@ -359,7 +641,9 @@ func _give(f, task: Dictionary) -> void:
 		"forage": ("set off to pick ash fungus " if task.get("spot") else "set off to hunt in the dark ") + where,
 		"supply": "set off carrying food to a hungry camp " + where,
 		"evacuate": "packed up and left for another camp " + where,
-		"trade": "set off with the camp's coin to buy from a neighbouring camp " + where}.get(task.type, task.type))
+		"trade": "set off with the camp's coin to buy from a neighbouring camp " + where,
+		"wood": "set off to cut wood at a copse " + where, "sap": "set off to cut sap from a giant tree " + where,
+		"explore": "set off into the dark to look for what the camp needs " + where}.get(task.type, task.type))
 
 ## Moves a person's chore along. Called for every person on one as the Camps sweep reaches them (loaded or not).
 func step(f, now: float) -> void:
@@ -372,18 +656,43 @@ func step(f, now: float) -> void:
 		_home(f, c)
 		return
 	var herd = t.get("herd")
-	if t.phase in ["out", "work"] and herd and herd in camps.camps and camps._dist(t.to, herd.pos) > 20.0: # game moves: follow it
+	var sight: float = camps.minds.sight_range if camps.minds else 40.0
+	if t.phase in ["out", "work"] and herd and herd in camps.camps and camps._dist(f.pos, herd.pos) < sight * 2.0 and camps._dist(t.to, herd.pos) > 20.0: # game in sight moves: follow it
 		t.to = herd.pos
 		camps._send(f, herd.pos)
+	var spot = t.get("spot")
+	if t.phase == "out" and spot and camps._dist(f.pos, spot.pos) < sight and camps._dist(t.to, spot.pos) > 4.0: # there it is
+		if camps.minds:
+			camps.minds.learn(f, spot, true)
+		t.to = camps._ground(spot.pos)
+		camps._send(f, t.to)
 	var d: float = camps._dist(f.pos, t.to)
 	match t.phase:
 		"out":
 			if d < 8.0:
+				var aim = spot if spot else t.get("herd")
+				if t.type in ["forage", "water", "wood", "sap"] and aim and camps._dist(f.pos, aim.pos) > sight: # not where they remembered
+					t["searched"] = t.get("searched", 0) + 1
+					if t.searched > search_tries or not aim in camps.camps:
+						if camps.minds:
+							camps.minds.forget([f], aim)
+						camps.note(f, "couldn't find it where they remembered, and gave up")
+						_home(f, c)
+					else:
+						var a := randf() * TAU
+						t.to = camps._ground(t.to + Vector3(cos(a), 0, sin(a)) * search_radius)
+						camps._send(f, t.to)
+					return
 				match t.type:
-					"forage", "water":
+					"explore":
+						if camps.minds:
+							camps.minds.look(f)
+						camps.note(f, "looked around in the dark and turned for home")
+						_home(f, c)
+					"forage", "water", "wood", "sap":
 						t.phase = "work"
 						t["until"] = now + randf_range(gather_time.x, gather_time.y)
-						camps.note(f, "filling skins at the spring" if t.type == "water" else ("picking fungus" if t.get("spot") else "hunting"))
+						camps.note(f, {"water": "filling skins at the spring", "wood": "cutting a small tree", "sap": "cutting sap out of the bark"}.get(t.type, "picking fungus" if t.get("spot") else "hunting"))
 					"trade": # buy what their camp needs with the coin they brought; the coin stays with the seller
 						var dest = t.dest
 						var m: int = maxi(1, camps._alive(dest.members).size())
@@ -424,12 +733,17 @@ func step(f, now: float) -> void:
 				var got := 0
 				if t.type == "water":
 					got = fill_skins(f, t.spot)
+				elif t.type == "wood":
+					got = chop(f, t.spot)
+				elif t.type == "sap":
+					got = take(t.spot, sap_per_trip) # shortcut: an NPC needs no knife for it
+					add(f.inv, "resin", got)
 				elif t.get("spot"):
 					got = pick_caps(f, t.spot, randi_range(1, 2))
 				else:
 					got = hunt(f, t.get("herd"))
 				if got == 0:
-					camps.note(f, {"water": "found the spring dry", "forage": "found nothing to take"}.get(t.type, "came away with nothing"))
+					camps.note(f, {"water": "found the spring dry", "forage": "found nothing to take", "wood": "found the copse cut bare", "sap": "found the sap cut dry"}.get(t.type, "came away with nothing"))
 				camps.note(f, "heading home with %s" % (_pack_text(f.inv) if not f.inv.is_empty() else "nothing"))
 				_home(f, c)
 		"back":
@@ -440,10 +754,24 @@ func step(f, now: float) -> void:
 						move(f.inv, c.barrel, id, f.inv[id] - 1)
 					elif nourish(id).x > 0.0:
 						move(f.inv, c.crate, id, f.inv[id] - 1)
+					elif id in ["ash_wood", "torch", "tinder", "kindling", "resin"]:
+						move(f.inv, c.crate, id, f.inv[id]) # wood for the fire; torches back in the crate
 					elif id == "coin" and t.type == "trade":
 						move(f.inv, c.crate, id, f.inv[id]) # the change goes back in the crate
 				f.task = {}
 				camps._send(f, c.pos)
+
+## Cuts down one of a copse's small trees (if any are left standing): ash wood into f's pack, more with a
+## hatchet. Returns wood taken.
+func chop(f, copse) -> int:
+	var wood := 0
+	while copse and copse in camps.camps and copse.job.get("count", 0) > 0 and wood < wood_carry: # as many as they can carry home
+		copse.job.count -= 1
+		wood += wood_per_tree + (axe_bonus if f.inv.get("hatchet", 0) > 0 else 0) # shortcut: an NPC's hatchet doesn't wear yet
+	add(f.inv, "ash_wood", wood)
+	add(f.inv, "kindling", wood / wood_per_tree * kindling_per_tree)
+	add(f.inv, "tinder", wood / wood_per_tree * tinder_per_tree)
+	return wood
 
 ## Kills from a herd (if it's still about) into f's pack as raw meat. Returns meat taken.
 func hunt(f, herd) -> int:
@@ -471,7 +799,7 @@ func _nearest(pos: Vector3, wild: String, r: float):
 func _seller(c, want: String):
 	var best = null
 	for o in camps.camps:
-		if o == c or o.wild != "" or o.roaming or o.kind != c.kind or camps._dist(o.pos, c.pos) > aid_range: # a chore: they carry brands for the trip
+		if o == c or o.wild != "" or o.roaming or o.kind != c.kind or camps._dist(o.pos, c.pos) > aid_range: # a chore: they carry torches for the trip
 			continue
 		var m: int = maxi(1, camps._alive(o.members).size())
 		var has: int = o.barrel.get("water_skin", 0) if want == "water" else count_food(o.crate)
@@ -525,11 +853,30 @@ func steer(b, now: float) -> bool:
 	var alive: Array = camps._alive(b.members)
 	if alive.is_empty():
 		return false
-	tend_torch(b, alive, now)
 	var j: Dictionary = b.job
+	if now < j.get("rest_until", 0.0): # resting at a fire: they sit a while, torch snuffed, before going on
+		if not j.get("dark", false):
+			j.fuel = maxf(j.fuel, torch_time(b))
+		return true
+	tend_torch(b, alive, now)
+	if camps.minds and now > j.get("told_at", 0.0):
+		j["told_at"] = now + 30.0
+		camps.minds.share(alive) # on the road they tell each other what they've seen
 	var lead = alive[0]
 	var goal = j.get("goal")
+	var sight: float = camps.minds.sight_range if camps.minds else 40.0
 	if goal:
+		if camps._dist(lead.pos, goal.pos) < sight and camps._dist(j.get("goal_at", goal.pos), goal.pos) > 5.0: # there it is
+			j["goal_at"] = goal.pos
+			b.pos = goal.pos
+			for f in alive:
+				camps._send(f, goal.pos)
+		elif camps._dist(lead.pos, j.get("goal_at", goal.pos)) < 8.0 and camps._dist(lead.pos, goal.pos) >= 10.0: # not where they remembered
+			if camps.minds:
+				camps.minds.forget(alive, goal)
+			camps.note(lead, "found nothing where they remembered it")
+			j.erase("goal")
+			return false
 		if camps._dist(lead.pos, goal.pos) < 10.0:
 			_arrive(b, alive, goal)
 			j.erase("goal")
@@ -546,15 +893,22 @@ func steer(b, now: float) -> bool:
 		food += count_food(f.inv)
 	var thirsty: float = _avg(alive, "water")
 	var target = null
+	var aim := {} # where they think it is
+	var known := func(wild: String, r: float):
+		var k: Array = camps.minds.recall(alive, wild, lead.pos, r, has_stock) if camps.minds else []
+		if k.is_empty():
+			return null
+		aim["at"] = k[1]
+		return k[0]
 	var lit_reach: float = j.fuel * camps.walk_speed * 0.45 # out there and back to a fire before the torch dies
 	if skins == 0 and thirsty < drink_below * 0.5:
-		target = _nearest(lead.pos, "spring", minf(seek_range * 1.5, lit_reach)) # dying of thirst beats everything
-	if target == null and j.fuel < npc_torch_time * 0.35: # light running low (or out): a fire to light it at
+		target = known.call("spring", minf(seek_range * 1.5, lit_reach)) # dying of thirst beats everything
+	if target == null and j.fuel < torch_time(b) * 0.35: # light running low (or out): a fire to light it at
 		target = _fire_for(b, lead.pos)
 	if target == null and skins < alive.size():
-		target = _nearest(lead.pos, "spring", minf(seek_range, lit_reach))
+		target = known.call("spring", minf(seek_range, lit_reach))
 	if target == null and food < alive.size():
-		target = _nearest(lead.pos, "fungus", minf(seek_range, lit_reach))
+		target = known.call("fungus", minf(seek_range, lit_reach))
 		if target == null:
 			target = _fire_for(b, lead.pos, true) # a camp might spare something (a cairn won't)
 	if target != null and target == j.get("last") and now - j.get("last_at", -INF) < 300.0:
@@ -563,10 +917,12 @@ func steer(b, now: float) -> bool:
 		return false
 	j["goal"] = target
 	j["goal_since"] = now
-	b.pos = target.pos
+	var to: Vector3 = aim.get("at", target.pos) if target.wild in ["spring", "fungus"] else target.pos # fires they see from afar
+	j["goal_at"] = to
+	b.pos = to
 	for f in alive:
-		camps._send(f, target.pos)
-	camps.note(lead, "heading for %s %.0f m away" % [{"spring": "a spring", "fungus": "ash fungus", "cairn": "a cairn's light"}.get(target.wild, "a %s fire" % target.kind), camps._dist(lead.pos, target.pos)])
+		camps._send(f, to)
+	camps.note(lead, "heading for %s %.0f m away" % [{"spring": "a spring", "fungus": "ash fungus", "cairn": "a cairn's light"}.get(target.wild, "a " + fire_name(target).to_lower()), camps._dist(lead.pos, target.pos)])
 	return true
 
 ## A group on the move burns its torch (one at a time, like yours: lit only at a fire, relit up to torch_lights
@@ -588,11 +944,15 @@ func tend_torch(b, alive: Array, now: float) -> void:
 			if not alive.any(func(f): return f.inv.get("torch", 0) > 0):
 				move(src.crate, alive[0].inv, "torch", road_torches)
 			if alive.any(func(f): return f.inv.get("torch", 0) > 0):
-				j.fuel = npc_torch_time # lit from the fire they're leaving
+				j.fuel = torch_time(b) # lit from the fire they're leaving
 				j["lights"] = 1
 	var burn: float = lerpf(1.0, camps.enc.storm_burn, camps.enc._storm) if camps.enc else 1.0 # an ash storm eats torches, theirs as well as yours
 	j.fuel = maxf(0.0, j.fuel - (now - j.burnt_at) * burn)
 	j.burnt_at = now
+	if j.fuel <= 0.0 and alive.reduce(func(a, f): return a + f.inv.get("torch", 0), 0) >= 2: # light the next from the last of the flame, as you do
+		j.fuel = torch_time(b)
+		j["lights"] = j.get("lights", 0) + 1 # one more lighting on their torches
+		j["dark"] = false
 	if j.fuel <= 0.0 and not j.get("dark", false): # the torch is out; like yours it only lights again at a fire
 		j["dark"] = true
 		if j.get("lights", 0) >= torch_lights: # burnt to a stub
@@ -645,7 +1005,9 @@ func _fire_for(b, pos: Vector3, camps_only := false):
 
 func _arrive(b, alive: Array, at) -> void:
 	var j: Dictionary = b.job
-	camps.note(alive[0], {"spring": "filled skins at the spring", "fungus": "picked ash caps", "cairn": "came to a cairn's light"}.get(at.wild, "rested at a %s fire" % at.kind))
+	if at.wild in ["", "cairn"]:
+		j["rest_until"] = SimClock.now + randf_range(rest_time.x, rest_time.y)
+	camps.note(alive[0], {"spring": "filled skins at the spring", "fungus": "picked ash caps", "cairn": "came to a cairn's light"}.get(at.wild, "rested at a " + fire_name(at).to_lower()))
 	match at.wild:
 		"spring":
 			for f in alive:
@@ -659,7 +1021,7 @@ func _arrive(b, alive: Array, at) -> void:
 			if at.wild == "" and not alive.any(func(f): return f.inv.get("torch", 0) > 0):
 				move(at.crate, alive[0].inv, "torch", 1) # a camp of their own kind spares a torch, if it has one
 			if alive.any(func(f): return f.inv.get("torch", 0) > 0): # lit at the fire, like yours (no torch, no light)
-				j.fuel = npc_torch_time
+				j.fuel = torch_time(b)
 				j["lights"] = j.get("lights", 0) + 1
 				j["dark"] = false
 			if at.wild == "": # a camp of their own kind spares what it can
@@ -673,7 +1035,7 @@ func _arrive(b, alive: Array, at) -> void:
 						if count_food(at.crate) > gift_floor * n:
 							var id := _best(at.crate, false)
 							move(at.crate, f.inv, id, 1)
-				_log("Travellers rested at a %s fire" % at.kind)
+				_log("Travellers rested at a " + fire_name(at).to_lower())
 				var bought := 0 # what they're still short of, they buy, as you would
 				for f in alive:
 					if f.inv.get("water_skin", 0) < 1:
@@ -689,7 +1051,7 @@ func _arrive(b, alive: Array, at) -> void:
 							break
 				if bought > 0:
 					camps.note(alive[0], "bought %d thing%s at the fire" % [bought, "" if bought == 1 else "s"])
-					_log("Travellers traded at a %s fire" % at.kind)
+					_log("Travellers traded at a " + fire_name(at).to_lower())
 
 ## The group's lead carries the torch when they're near you (lit or not, as the group's fuel says).
 func _show_torch(alive: Array, lit: bool) -> void:

@@ -2,7 +2,9 @@ extends SceneTree
 ## Soak test: fast-forwards the island with you far away and prints the state every 20 sim minutes. Run headless:
 ##   godot --headless --path . -s res://tools/soak.gd
 func _initialize():
-	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://island.save")) # always a fresh island
+	var save := ProjectSettings.globalize_path("user://island.save")
+	if FileAccess.file_exists(save): # always a fresh island; your own save is put back at the end
+		DirAccess.rename_absolute(save, save + ".soak_backup")
 	var lvl = load("res://levels/test_level.tscn").instantiate()
 	root.add_child(lvl); current_scene = lvl
 	for i in 30: await process_frame
@@ -63,6 +65,20 @@ func _initialize():
 		for c in camps.camps:
 			coin += c.crate.get("coin", 0)
 		print("  trades this window %d | coin in camp crates %d" % [trades, coin])
+		var lit_n := 0
+		var wood := 0
+		var trees := 0
+		var outs := 0
+		for c in camps.camps:
+			if c.wild == "" and not c.roaming and c.kind in ["drifter", "bandit"]:
+				lit_n += 1
+				wood += c.crate.get("ash_wood", 0)
+			if c.wild == "copse":
+				trees += c.job.get("count", 0)
+			if c.job.get("went_out", false):
+				outs += 1
+		print("  fires lit %d (wood in crates %d) | fires gone out %d | small trees standing %d" % [lit_n, wood, outs, trees])
+		print("  sap nodes %d | resin in crates %d | tiers %s" % [camps.camps.filter(func(c): return c.wild == "sap").size(), camps.camps.reduce(func(t, c): return t + c.crate.get("resin", 0), 0), str(camps.camps.filter(func(c): return c.wild == "" and not c.roaming and c.kind in ["drifter", "bandit"]).map(func(c): return camps.camplife.fire_tier(c)))])
 		var hs = camps.camps.filter(func(c): return c.wild == "herd")
 		var head := 0
 		for h in hs: head += h.job.count
@@ -91,4 +107,9 @@ func _initialize():
 	var t := Time.get_ticks_usec()
 	for i in 50: camps._process(0.016)
 	print("SWEEP %.2f ms/frame" % ((Time.get_ticks_usec() - t) / 50.0 / 1000.0))
+	lvl.queue_free() # the test island: don't let it autosave over yours
+	await process_frame
+	DirAccess.remove_absolute(save)
+	if FileAccess.file_exists(save + ".soak_backup"):
+		DirAccess.rename_absolute(save + ".soak_backup", save)
 	quit()

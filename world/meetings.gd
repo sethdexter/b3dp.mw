@@ -10,6 +10,7 @@ extends Node
 ##   pilgrims meet wanderer a pious wanderer joins the line
 ##   wanderer meets cold fire they relight it and settle: it becomes a drifter camp again
 ##   anyone meets remains    drifters and bandits loot the sack (food, coin): it's empty when you get there
+##   anyone meets a body / a dropped sack  they take what it holds
 ##   anyone meets a spring / ash fungus  they eat and drink there (see the Sources sliders on encounters)
 
 ## Seconds between checks (the whole island each time; cheap).
@@ -133,6 +134,16 @@ func _meet(c, o, now: float) -> void:
 				camps.camplife.move(o.crate, takers[k % takers.size()].inv, id, o.crate[id])
 				k += 1
 			_note(c, "picked up what someone left lying")
+		"starved_dead": # a body by the road: they go through what it carried
+			var from: Dictionary = o.crate if o.stocked else o.job.get("loot", {})
+			if not o.looted and not from.is_empty():
+				var takers: Array = _alive(c)
+				var k := 0
+				for id in from.keys():
+					camps.camplife.move(from, takers[k % takers.size()].inv, id, from[id])
+					k += 1
+				o.looted = true
+				_note(c, "went through a dead body's things")
 		"remains":
 			if not o.looted:
 				camps.remains_stock(o)
@@ -146,7 +157,9 @@ func _meet(c, o, now: float) -> void:
 				_log("%s picked over some remains" % _label(c))
 				_note(c, "picked over some remains")
 		"coldfire":
-			if c.wild == "wanderer" and c.roaming:
+			if c.wild == "wanderer" and c.roaming and camps.can_light(c):
+				if not camps._light(o, c, now):
+					return
 				if is_instance_valid(o.fire):
 					o.fire.queue_free()
 				o.wild = "" # lit again: a drifter camp
@@ -170,7 +183,7 @@ func _meet(c, o, now: float) -> void:
 		return
 	if o.wild == "starved" and c.wild != "starved":
 		for s in _alive(o):
-			var giver = _alive(c).filter(func(g): return camps.camplife and camps.camplife.count_food(g.inv) > 0)
+			var giver = _alive(c).filter(func(g): return camps.camplife and camps.camplife.count_food(g.inv) > 0 and randf() < camps.minds._t(g, "kindness")) # the kind share
 			if not s.job.has("fed") and not giver.is_empty(): # someone with food to spare hands it over
 				var life = camps.camplife
 				var id: String = life._best(giver[0].inv, false)
@@ -220,7 +233,7 @@ func _loot(f) -> void:
 
 func _label(c) -> String:
 	if c.wild == "":
-		return "%s camp" % c.kind
+		return camps.camplife.fire_name(c) if camps.camplife else "%s camp" % c.kind
 	return "%s %s" % [c.kind, c.wild] if c.wild in ["pack", "ambush", "toll", "stalker"] else c.wild
 
 ## Puts a line in the log of everyone in group c (for the watch camera).

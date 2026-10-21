@@ -73,4 +73,7 @@ func interact(player: Node) -> void:
 	if _stash()[id] <= 0:
 		_stash().erase(id)
 	Talker.notify("You take %s%s." % [it.Name.to_lower(), " x%d" % n if n > 1 else ""])
+	var camps = get_tree().get_first_node_in_group("camps")
+	if camps and camps.minds:
+		camps.minds.stolen(record, global_position)
 	_show()

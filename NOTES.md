@@ -32,7 +32,7 @@ Spells: a `Spell` = cost + one `SpellDelivery` (projectile/self/touch) + a list 
 
 ## Items
 `items/item.gd` (Item), `weaponItem.gd`, registry autoload `item_list` (`items/itemDB.gd`, keyed by id string). Item data in `items/data/`.
-Items: torch, swords, leather cap/cuirass (light), iron boots (heavy), travel cloak, health/magicka/stamina potions.
+Items: torch, swords, leather cap/cuirass, iron boots, travel cloak, potions; food (bread, dried meat, greyhorn meat, ash cap, blackflesh, ash wine, water skin); materials (ash wood, kindling, tinder, resin, bone, sinew, hide, cloth, scrap metal, salt, spores, carcasses); tools that wear (`tool` + `durability`, `items/tools.gd`: hatchet "axe", bone knife "knife", flint "spark"); coin; sunken key.
 World pickups: `InteractableComponent` (itemId, or a runtime `item`). Dropped items: `items/scenes/droppedItem.tscn`.
 
 ## Mobs
@@ -42,63 +42,76 @@ World pickups: `InteractableComponent` (itemId, or a runtime `item`). Dropped it
 - Mobs: `characters/mobs/goblin.tscn`, `orc.tscn`. Old dummies: `trainingDummy.tscn`, `bruteDummy.tscn`.
 - Art: `assets/models/characters/goblin|orc`. Clips go in `anims/` (Mixamo, In Place, FBX with skin). The orc is unrigged; its real colour texture is missing (using one extracted from ogre15).
 
-## Folk (drifters, bandits, camps)
-- `characters/folk/drifter.tscn` / `bandit.tscn`: BaseCharacter + mobAI (drifters `aggressive=false`, fight back when hit) + `talker.gd` (look + E: greeting then rumours, random name).
-- `folkFigure.gd`: placeholder hooded figure built from primitives. Swap for real models later (use MobModel like the goblin).
-- `world/camps.gd` (Camps node): every camp and person on the island is a plain record (`Camp`, `Folk` inner classes), generated at load (~90 ms, ~950 camps / ~2400 people, 1-4 per camp). A slice of records per frame (`records_per_frame`) walks far folk straight to their `home` and spawns/frees real nodes within 120 / past 200 m. Group AI lives on the records: shared aggro per camp, drifter bands migrating to another camp together, bandit bands raiding drifter camps (near the player: real fights via `mobAI.foe`; far: dice rolls kill records). Add new group behaviours in `_tick_camp`. Camps are kept clear of tree roots via `DeadTrees.tree_near()`.
-- mobAI holds still beyond 50 m of the player (no terrain/tree colliders out there) and drops onto the ground when it wakes.
+## Folk bodies
+- `characters/folk/drifter.tscn` / `bandit.tscn`: BaseCharacter + mobAI (drifters `aggressive=false`, fight back when hit) + `talker.gd` (look + E: greeting, rumours, jobs, trade wares). `folkFigure.gd` = placeholder hooded figure (swap for real models later).
+- Needs on the player: `components/needsComponent.gd` (hunger/thirst; rates shared with Minds). Darkness: `components/darknessComponent.gd` (light = a campfire's `light_radius` or a lit torch; dark drains stamina then health; you heal resting at a fire).
 
-## Needs (hunger, thirst)
-- `components/needsComponent.gd` (node `needs` on the player): 0-100 hunger/thirst, drain over `*_minutes`, faster sprinting; stage messages via `Talker.notify()`; weak = slower stamina regen; 0 = health loss. Sliders on the node.
-- Food/drink items use `spells/effects/nourishEffect.gd` (food / water amounts): bread, dried_meat, water_skin, ash_wine in `items/data/`. In bandit chests and drifter/bandit drops.
+## The island sim: architecture
+Everything is records; nodes are only the view. `world/camps.gd` (node "Camps") owns them and makes these runtime children:
 
-## Darkness, coins, trade, jobs
-- `components/darknessComponent.gd` (node `darkness` on the player): in light = near a `campfire` or a lit `light_source` torch. Dark: stamina then health drain; mobs aggro from `dark_aggro_multiplier` further.
-- Coins = item `coin`; every Item has `value`. A ContainerComponent with `shop = true` (drifters: `talker/wares`) charges value x `sell_markup` to take, pays value x `buy_ratio` to store (`PlayerInventoryUI._pay_for`).
-- Talker `gives_jobs`: fetch or bandit-bounty jobs, kept on the Camps `Folk` record (`job`, `asked`); `Camps.bandit_camp_near()`.
+| child | file | job |
+|---|---|---|
+| `minds` | `world/minds.gd` | each character's needs / traits / memories, `think()`, state changes (`_become`), dark + hunger wear, death, camp rep |
+| `camplife` | `world/camplife.gd` | real items: packs, barrels, crates, eating, chores, fires, roles, torches, lighting, trade, travellers (`steer`) |
+| `encounters` | `world/encounters.gd` | the bleak states and places (rules + visuals), ash storm, you making / relighting / joining fires |
+| `meetings` | `world/meetings.gd` | groups meeting on a coarse grid: raids, sharing, merging, looting, relighting |
+| `clock` | `world/simClock.gd` | sim time (`SimClock.now`), `[` `]` speed |
+| `fate` | `world/fate.gd` | rare events on any group: grey cough (sickness, spreads; ashwife cures faster), the Lightless (fire half snuffed), foul water, old-world cache, ill omen, scattered herd |
+| `save` | `world/saveGame.gd` | F5 save, F9 load, Shift+F9 fresh island, autosave; add new record fields to `save()` / `load_world()` |
 
-## Camp kinds, places, character states
-- Camp `kind`: drifter / bandit / goblin / orc. Bandits raid or send roaming war bands (`_send_band`, `_prey_near`).
-- Everyone is a character (a `Folk` record) and starts at a fire. No people are placed by the world: what a character is doing is the state of its group (`Camp.wild`: "" at a fire, wanderer, pilgrims, mourner, toll, ambush, starved, stalker, pack, lurer/falselight (orc), homeward). Every state has a way in and out (minds.gd, `_tick_band`, encounters.gd). `Camp.den` = the camp a band goes back to (`_go_home`, `_tick_homeward`; no den = nearest own kind, or a new camp where they stand).
-- Places (`_make_encounter`, own grid `encounter_cell`): remains, cairn, hanged, coldfire, spring, fungus (+ bells, salt). `_tick_spot`.
-- New characters: `_pull()` every `pull_every` s pulls a lost soul toward a lit fire / cairn (rarer as humans near `souls_target`). Monster dens regrow (`den_regrow`), send packs / false lights (`_den_acts`). Wanderers with a torch who find no fire make one (`_found_camp`, `found_after`, `fire_gap`); groups relight cold fires within `coldfire_spot`; a drifter camp leaves `keepers` behind when it moves.
+- **Records.** `Camp` = any group or place, keyed by `wild`: "" = a fire's camp; wanderer, pilgrims, mourner, toll, ambush, starved, stalker, pack, lurer/falselight, homeward; places: remains, cairn, hanged, coldfire, spring, fungus, salt, bell, herd, copse, sap, sack, starved_dead. `Camp.job` holds per-record state (fire_fuel, roles, stock, count/max, lit_until...). `Folk` = a character (needs, traits, memories, hp, inv, task).
+- **Sweep.** `records_per_frame` records per frame tick whether you're near or not (`_tick_camp`, `_tick_band`, `_tick_spot`, `minds.think`, `camplife.step`). Within `spawn_radius` (120 m) records get real nodes (freed past `despawn_radius`). Loaded = sim: bodies walk the record's path, share its health (`_hp_from_body` / `_hp_to_body`), carry its exact pack; fights near you are real, far ones are dice.
+- **Everyone is a character.** Nobody is placed: the world places camps (one per `cell_size` cell, `camp_chance`) and places (`encounter_cell` grid). New people are pulled out of the dark toward lit fires / cairns (`_pull`, `souls_target`; bigger fires pull more, a storyteller sometimes brings an extra). Monster dens regrow when their larder is fed. The dead stay dead and leave a body place (`leave_body`) or a sack.
+- **States, not roles.** What a character is doing is the state of its group (`Camp.wild`); every state has a way in and out (minds `_decide_in_camp`, `_become`, encounters, `_tick_band`). Bands carry torches and only go where their torch reaches (`_reach`).
+- **Knowing the island.** Nobody is omniscient: each Folk remembers places it has seen (`Folk.known` = [place, remembered pos], off by up to `misremember`, `memory_size` per kind of place; minds `look` every `look_every` within `sight_range`; a camp's people start knowing `known_start` round it, the pulled know nothing). Chores and travellers go where they remember (`minds.recall`); seeing it corrects it; not there = cast about (`search_radius`, `search_tries`) then forget. Nothing known = an explore chore (`explore_range`). Monster packs smell herds, else go to one they remember. Fires are seen from afar (no memory needed). Loaded bodies steer round tree trunks (`mobAI._round_trees`; the trees aren't in the navmesh).
+- **Nothing from nothing.** Every item is real and moves: packs (`Folk.inv`), camp `barrel` / `crate`, place stocks. Near you crates, barrels and displays are the same store (`world/props/campStoreSync.gd`, `campDisplay.gd`); traders sell their camp's crate. Coin, food and water move by trade, raids, theft and gifts.
 
-## Ecosystem (food chain)
-- Game: herds (`Camp.wild == "herd"`, `job.count`) breed logistically toward `herd_cap`, split when full (`herds_max`), drift; hunted out = gone (`_tick_herd`, `_new_herd`, Camps > Game).
-- Hunting: camplife forage goes to fungus with stock, else the nearest herd (`hunt_range`), follows it, kills `hunt_kills` x `meat_per_kill` raw meat (`hunt()`). No herd, no hunt.
-- Sources: springs / fungus / salt share one stock for player and NPCs (`camplife.SOURCES`, `regrow()`, `take()`, `fill_skins()`, `pick_caps()`, source.gd uses the same `regrow`); bare places regrow slower (`bare_slow`); bare ones aren't chosen (`has_stock`).
-- Greyhorns (`characters/game/greyhorn.tscn`, placeholder `greyhornFigure.gd`): near you a herd is real bodies (`_herd_bodies_tick`, `herd_show_max`), they bolt from you (`flee_range`); a body you kill drops a `greyhorn_carcass` and lowers the herd's count; sim hunting kills drop bodies with no loot (the hunter has the meat). `raw_meat` = Greyhorn Meat.
-- Blackflesh (`blackflesh.tres`, from goblin/orc carcasses and kills): people eat it only when starving (`camplife._best(starving)`), costing light/safety and despair for good (`blackflesh_dark`, `blackflesh_despair`); for you it hurts (DamageEffect). Nobody eats their own kind. `Camps._feed(killer, victim)` runs for dice kills and real fights near you.
-- Loaded = sim: asleep bodies (50 m+) walk the record's walk; awake ones off their sim target re-path and step past snags (`unstick_after`); dead characters drop exactly what they carried (`TrainingDummy.exact_loot`).
-- Same rules as you: every character has `Folk.hp` (0-100). Out of the light past your DarknessComponent `dread_time` it drains at your `health_drain` (as a share of your max health); food/water at 0 drain it at your NeedsComponent rates (`minds._dark_wears`, `_starve_wears`, `_die`); resting at a fire heals (`rest_heal`). Your hunger/thirst minutes come from Minds `food_drain`/`water_drain`. One torch: `TorchBurn.burn_time` (600 s) and `max_lights` are read by camplife (`npc_torch_time`, `torch_lights`); travellers light only at fires (`tend_torch`), chores carry brands for the trip (shortcut: free until crafting), stationary dark states burn their torches (`lit_until`) and go back when it's out.
-- The dead far from you leave a body place (`starved_dead`, `Camps.leave_body`) with what they carried; gone after `body_decay`.
-- Soak test: `tools/soak.gd` (headless; deletes the save first).
-- Save/load: `world/saveGame.gd` (Camps child "save"). F5 save, F9 load, Shift+F9 fresh island; autosave every `autosave_every` real s and on quit; loads on start if `user://island.save` exists. Saves every Camp/Folk record (references as indices), clock, world log, pull timer, cut trees, storm, and the player (position, stats, needs, respawn, pack with per-item wear/fuel/lights, worn items). Add new record fields to `save()` / `load_world()`.
-- Nothing from nothing: traders sell their camp's crate (or their pack on the road; `campStoreSync.whole`, `which = "pack"`) and your coin goes into it, selling is paid from it; job pay / starved thanks come out of their pack and crate, toll coin into the toll-taker's pack. Travellers take `road_share` and `road_torches` from their camp; a fire only lights a torch someone has (a camp of their kind spares one). Coin need = coins held (`minds.coin_worth`). Monster bodies drop their carcass + what they carried. Corpse loot and things you drop become `sack` places (`Camps.drop_sack`, `_tick_sack`) anyone can pick up. Record health (`Folk.hp`) and body health sync both ways (`_hp_from_body` / `_hp_to_body`). You heal at a fire (`DarknessComponent._rest`, Minds `rest_heal`). Shortcut left: chore brands are free until fires need fuel.
-- Characters trade (camplife Trade sliders): travellers buy what they lack at a camp of their kind (`buy`, `price` = value x `npc_markup`, above `sell_floor`); a camp short of water/food with coin sends a `trade` chore to the nearest same-kind camp with surplus within `aid_range` (`_seller`), coin into the seller's crate. Raiders who win carry off coin, food and water; war bands pick the richest camp in reach (`_prey_near`).
-- Water is the island's limit: a camp with no spring in reach and low water moves (`camplife._plan` evacuate); new fires are only made near a spring (`_room_for_fire`).
-- Camp props are real (`Camps._make_real`): every clutter barrel/crate is a container holding its share of `Camp.barrel` / `Camp.crate` (`campStoreSync.gd` splits a store across a camp's containers); bottles/coins/daggers/staffs/swords are `campDisplay.gd` pickups of the camp's crate items (one shown per one they have; `campClutter.ITEMS`, `have` filters what's set out). Camps start with `camplife.goods_start`. Remains hold `Camp.crate` too (`remains_stock`), and NPC looters take exactly that.
-- Monsters: hunger (`minds._monster_think`, `monster_food_drain`), eat raw meat from pack / den larder (`Camp.crate`), starve at 0. Hungry packs smell herds (`smell_range`) and bring the kill home (`_pack_hunts`); homeward bands unload into the den / camp stores. Dens grow only when the larder holds `breed_meat`. Off-screen raid kills feed monsters (and people butcher monsters).
+## Resources (food chain)
+- **Water:** springs (SOURCES stock, regrow; bare ones regrow slower). Camps without a spring in reach move (evacuate); new fires only near a spring (`_room_for_fire`). Water is the island's limit.
+- **Food:** ash fungus; greyhorn herds (breed toward `herd_cap`, split, drift, flee you; hunting gives meat; real bodies near you). Blackflesh (monster meat) only when starving, with costs. Monsters hunt herds and people and feed their den larder.
+- **Wood:** copses of small trees, the only wood that cuts (logs + kindling + tinder; they regrow). Giant trees are iron-hard.
+- **Resin (sap):** only from sap nodes on giant trees (`wild "sap"`; a knife for you, the sap chore for drawers). Makes torches, renews spent ones.
+- **Salt, coin, goods:** salt crusts; coin and goods start in camp crates (`goods_start`) and only move after that.
 
-## Bleak encounters + ash storm
-- `world/encounters.gd` (runtime child `encounters` of Camps; sliders on that node): rules for the bleak states and places: hanged, coldfire, mourner, pilgrims (end at the bell), falselight (a real orc), starved, toll, bell (synth bell sound, Sunken Key), ash storm (fog/sun/ash, `TorchBurn.burn_rate`; hunters are real goblins from the nearest den, `_hunters`). Weights per place in Camps > Places. Talkers get `role` for special lines.
+## Fire (the heart of it)
+- A camp fire burns `job.fire_fuel` (one log = `wood_burn`); its people feed it from the crate (`camplife._tend_fire`). No wood = `Camps.fire_out`: cold fire, the camp leaves as a band. Storms burn it a bit faster (`storm_fire_burn`). Raids hurt it only through stolen stores and dead keepers.
+- **Size:** logs on it (`fire_logs`) = flame/light scale (`fireFeed.gd` sets `light_radius`), `capacity` (`people_per_log` each) and tier: **bonfire** below `hearth_logs`, **hearth** below `pyre_logs`, then **pyre**. A hearth also needs a firekeeper + storyteller, a pyre every role (`log_cap`). Firekeepers keep `keeper_spare` logs extra so fires can grow. Names everywhere: `fire_name()` = "Drifter hearth".
+- **Crowding:** more people than capacity = someone leaves (`crowded_leave`); full fires take no settlers.
+- **Lighting:** spark (lit torch or flint) + tinder + kindling + `light_logs` logs; catches at `light_chance` (worse in storms); failure burns the tinder. Embers after a long burn relight with kindling + logs. Same for NPCs (`can_light` / `_light`) and you.
+- **Torches:** one burns `TorchBurn.burn_time`, chain-lit from the next; made from logs + resin (`sap_per_log`; a wickbearer gets `torches_per_log`, else 1); resin renews a spent one. Bandit torches last `bandit_torch` x. Chores take torches for the trip (no torch, no chore).
 
-## Minds (needs, traits, memories, rep)
-- `world/minds.gd` (runtime child `minds` of Camps): per-Folk `needs`/`traits`/`memories`, `think()` from the Camps sweep picks beg/extort/mourn/pilgrimage/wander/turn/reform/hunt, which `_become()` a one-person encounter. `Camp.rep` from feeding/jobs/trade/kills; `hates()` makes camps attack. Empty drifter camps go `coldfire`. Talkers use `mood_line()`.
+## Camps and roles
+- **Chores** (`camplife._plan`, every `plan_every` s): water, forage/hunt, wood, sap, trade, supply (drifters help hungry camps), evacuate. The fittest goes, or the role holder. Camps start lean (`barrel_per_person`, `crate_per_person`) so they go out early.
+- **Roles** (`ROLES`, `Camp.job.roles`): firekeeper (never leaves; grows the fire), drawer (wood, sap), waterbearer (water), wickbearer (torches), storyteller (hearth+: belonging up, despair down, pulls souls), ashwife (heals faster).
+- **Crime:** cinder-thief NPCs steal the wood and run (`cinder_chance` / `cinder_caught`). You stealing in sight (`theft_sight`) = cinder-thief: rep -100, they attack.
+- **Travellers:** bands seek springs / fungus / fires by need, rest at fires for `rest_time`, take `road_share` from their camp, buy what they lack.
+- **Start camp:** the start scene's campfire is a real drifter camp (`start_camp`, `start_people`).
 
-## Meetings + food/water sources
-- `world/meetings.gd` (runtime child `meetings`): grid of all groups every `meet_every` s; hostile groups raid neighbours, drifters share food / merge / join pilgrims / relight cold fires / loot remains. `log_lines` shown on the M map.
-- `world/props/source.gd`: E to drink / fill water skins / take items, stock regrows (state on the Camp record `job`). Springs + ash fungus are encounter kinds; `waterBarrel.tscn` at every drifter camp. Goblins/orcs drop `raw_meat`; fungus gives `ash_cap`.
+## You in the sim
+- Same rules as everyone: your hunger / thirst / dark rates are theirs; you heal at fires; torches burn the same.
+- **E** on a fire: feed a log (raises rep). **G**: make your own fire. Relight cold fires (walk up with the makings). **J** at a drifter fire: join (needs `join_rep` and room); J again: take the next role (its effect is yours; the holder steps aside). Members share the stores.
+- Trade with any talker (their camp's crate, or their pack on the road); steal and you may be seen. Jobs from talkers; rep per camp (`hates` = attack).
+- Chop small trees (E, hatchet faster, loud), cut sap (knife), drink / fill at springs, pick fungus, hunt greyhorns.
 
-## Camp life (chores)
-- `world/camplife.gd` (runtime child `camplife`): camps keep `supplies` (food) + `water` stores; every `plan_every` s idle members get chores in `Folk.task`: forage (fungus or hunt nearby), water (spring), supply (carry food to a needy drifter camp), evacuate (move camp). `step()` is called from the Camps sweep for loaded and unloaded folk; movement via `_send` so nodes walk it for real. Map draws chore arrows; raid lines are arrows.
+- **The mind** (minds "The mind" sliders): traits greed, courage, piety, cruelty, despair, kindness (who shares / carries food), curiosity (who explores, how far they notice). States in `Folk.job.<state>_until`: shaken (dread, raids, the Lightless, a killing: no chores, safety slow), hardened (kept their nerve after losing kin: braver for good), hopeful (long at a told-to hearth/pyre: despair eases), broken (despair >= `broken_at`: may walk into the dark without a light). Talkers say state lines (`state_lines`).
+- **Duties:** a role you hold is work you owe (camplife `_duties`, `credit`): firekeeper/storyteller be at the fire, drawer bring wood/resin/kindling/tinder, waterbearer water skins, wickbearer torches, ashwife food/potions, into your camp's stores at least every `duty_time`, or they give it to someone else (rep -5).
+- **Joining bandits:** J works at bandit fires too; your camp's people never attack you. Bad blood fades (+1 rep per `rep_heal_every`); a cinder-thief is forgiven after `forgive_after`.
+- **Shared knowledge:** people at a fire (every plan) and on the road tell each other what they've seen (`minds.share`).
+- **Poses:** loaded bodies chop/cut/pick while working a chore, sit by their fire when idle there, and show their role in their name (`Camps._pose`, look only).
 
-## Travellers
-- camplife.gd `steer()` (from Camps `_tick_band`): roaming human bands carry torches (`job.fuel`/`spares`), seek springs / fire (own-kind camp or cairn) / fungus by need, rest and take from camp stores, lead holds a `road_torch` when loaded; lit torch refills light (minds).
 
-## Real items (mind redesign stage A+B)
-- No abstract stores: `Folk.inv`, `Camp.barrel` / `Camp.crate` (item id -> count). camplife.gd: `self_care()` eats/drinks items (NourishEffect values), chores move items (spring -> water_skin -> barrel, fungus/hunt -> crate), travellers carry skins/food/torches. Camp barrel + crate are chest containers synced by `world/props/campStoreSync.gd` (bandit chest = their crate).
+## Look
+- Ground fog: cheap height fog laid at your feet (encounters `ground_fog_height` / `ground_fog_density`), hollows fill with it; no volumetrics.
+- Dead brush: `deadTrees.gd` scatters `brush_count` squat dead shrubs (chunked MultiMesh, no colliders, no shadows, drawn to `brush_view`).
+- Smoulders (camps `smoulders`, `smoulder_radius`): charred stumps with a low unshadowed glow. Near one the dark holds off (DarknessComponent group "reprieve"; minds skips dark wear) but nothing heals: a reprieve only.
+
+## Debug map (M)
+- `ui/simMap.gd`: island, places (redrawn every 2 s), fires (dot size = tier, gold ring = pyre, white = yours), people, chores, raids, log pulses. N / Shift+N watch the next character; mouse wheel (map open) picks the category (All / Camps / Wanderers / Bandits / Monsters); B back to you. While the map or watch is up you can't die.
+- `tools/soak.gd`: headless fast-forward report (fires, tiers, sap, deaths). Deletes the save first.
 
 ## Open / next
-- Rig + animate goblin/orc (Mixamo) — art task, owned by the user.
-- Navmesh pathfinding, more mob types. Loot: maybe drop chances later.
+- Small magics (Kindle, Mend, Dew, Ward, Sense): every spell costs reagents.
+- Crafting (recipes drafted: torch, kindling, flint, bone knife, hatchet, staff, dried meat, water skin, cloak, leather, salve).
+- Roles you hold carry no duties yet; bandit camps can't be joined; tinder doesn't get damp; NPC sap needs no knife.
+- Loaded visuals: no chop animation, no sitting, roles invisible. Rig + animate goblin/orc (art, the user's).
+- Navmesh pathfinding, more mob types.

@@ -20,7 +20,9 @@ extends Node3D
 ## which also runs the ash storm and the bleak states' rules).
 ## What people want and do (needs, traits, memories, reputation) is world/minds.gd (child "minds"); groups
 ## meeting each other (fights, sharing, merging, looting...) is world/meetings.gd (child "meetings").
-## Food and water: springs and ash fungus on the encounter grid, a water barrel at every drifter camp.
+## Food, water, wood: springs and ash fungus on the encounter grid, herds of greyhorns (game), copses of small trees
+## (the only wood that cuts) and sap nodes on the giant trees (the only resin) are records too, with stocks that
+## regrow; near you they're real things. Fires burn real wood and grow by tiers (camplife.gd).
 ## Real items: packs, camp barrels and crates, eating, drinking and chores are world/camplife.gd (child "camplife").
 ## Camp spots are fixed per cell of the map (same every run), in clearings away from tree roots.
 
@@ -46,6 +48,10 @@ extends Node3D
 @export_range(0.0, 1.0, 0.01) var goblin_chance := 0.15
 @export_range(0.0, 1.0, 0.01) var orc_chance := 0.08
 ## People per camp when the island is made (rolled per camp), by kind.
+## Testing: the start scene's campfire becomes a drifter camp with start_people around it.
+@export var start_camp := true
+@export_range(0, 12) var start_people := 6
+var _start_pos := Vector3(NAN, NAN, NAN)
 @export_range(1, 8) var people_min := 1
 @export_range(1, 8) var people_max := 4
 @export_range(1, 12) var bandits_min := 3
@@ -81,7 +87,7 @@ extends Node3D
 @export_range(0.2, 5.0, 0.1, "suffix:m/s") var walk_speed := 1.1
 ## A character near you snagged on something this long (making no headway toward where the sim sends them)
 ## steps past it, so loaded and unloaded people end up in the same places.
-@export_range(1.0, 120.0, 1.0, "suffix:s") var unstick_after := 12.0
+@export_range(1.0, 120.0, 1.0, "suffix:s") var unstick_after := 6.0
 ## Seconds between a camp thinking about moving on (drifters) or raiding (bandits): random in (min, max).
 @export var migrate_every := Vector2(90, 300)
 ## When a drifter camp moves on, this many stay behind to keep the fire alive (0 = everyone leaves, the fire dies).
@@ -138,6 +144,23 @@ extends Node3D
 @export_range(0, 20) var den_start_meat := 3
 ## A hungry pack smells game this far off and goes for it; with a kill it heads home to the den.
 @export_range(50.0, 3000.0, 10.0, "suffix:m") var smell_range := 800.0
+
+@export_group("Copses", "")
+## Clumps of small dead trees: the only wood that cuts. This many on the island, of this many trees each; a felled
+## tree grows back after copse_regrow (one at a time).
+@export_range(0, 2000) var copses := 260
+@export var copse_trees := Vector2i(3, 7)
+## Sap nodes: where sap bleeds out of a giant tree's bark (the only place resin comes from; cut it with a knife).
+## Up to this many, one per giant tree (giants = at least sap_giant times the base tree size). Stock: camplife SOURCES.
+@export_range(0, 2000) var sap_nodes := 400
+## Smoulders: old stumps still burning deep inside, a faint glow in the dark. Standing in it the dark holds off
+## (your dread and theirs stops growing) but nothing is mended: no rest, no healing. A reprieve, that's all.
+@export_range(0, 2000) var smoulders := 150
+@export_range(1.0, 30.0, 0.5, "suffix:m") var smoulder_radius := 6.0
+@export var sap_giant := 1.4
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var copse_regrow := 1800.0
+## Small trees are this size against the big ones' base size (random in range).
+@export var sapling_scale := Vector2(0.9, 1.5)
 
 @export_group("Game", "")
 ## Herds of game roam the dark: the meat everyone hunts. This many at the start, of this many head each.
@@ -269,6 +292,7 @@ class Folk:
 	var packed := false
 	var hp := 100.0 # health, 0-100 (near you their body's health tracks it too)
 	var dark_s := 0.0 # seconds out of the light this time
+	var known := [] # minds.gd: places they remember, [place, where they think it is] (a little off, sometimes)
 
 var camps: Array[Camp] = []
 var _by_cell := {} # Vector2i -> Camp, for finding camps near a spot
@@ -327,6 +351,15 @@ func _ready() -> void:
 	var meetings: Node = load("res://world/meetings.gd").new()
 	meetings.name = "meetings"
 	add_child(meetings)
+	fate = load("res://world/fate.gd").new() # rare things that befall any group
+	fate.name = "fate"
+	fate.camps = self
+	add_child(fate)
+	if start_camp: # the start scene's own campfire (nearest the middle) gives way to a real drifter camp there
+		for n: Node3D in get_tree().get_nodes_in_group("campfire"):
+			if n.owner and (is_nan(_start_pos.x) or n.global_position.length() < _start_pos.length()):
+				_start_pos = n.global_position
+				n.queue_free()
 	_generate()
 	save = load("res://world/saveGame.gd").new() # F5 save, F9 load, Shift+F9 a fresh island; autosaves and saves on quit
 	save.name = "save"
@@ -352,6 +385,21 @@ func _generate() -> void:
 	for z in n:
 		for x in n:
 			_make_camp(Vector2i(x - n / 2, z - n / 2))
+	if not is_nan(_start_pos.x):
+		var s := Camp.new()
+		s.pos = _ground(_start_pos)
+		s.kind = "drifter"
+		s.next_move = INF # it stays put
+		camps.append(s)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 77
+		for i in start_people:
+			var f := Folk.new()
+			f.camp = s
+			f.home = _around(s.pos, rng)
+			f.pos = f.home
+			s.members.append(f)
+			folk.append(f)
 	var m := int(HALF_MAP * 2.0 / encounter_cell)
 	for z in m:
 		for x in m:
@@ -361,6 +409,42 @@ func _generate() -> void:
 		rng.seed = 991
 		enc.make_bells(rng)
 		enc.make_salt(rng)
+	var wood := RandomNumberGenerator.new()
+	wood.seed = 2718
+	var placed := 0
+	for attempt in copses * 20:
+		if placed >= copses:
+			break
+		var p := _ground(Vector3(wood.randf_range(-HALF_MAP, HALF_MAP), 0, wood.randf_range(-HALF_MAP, HALF_MAP)))
+		if is_nan(p.y) or p.y < SEA_LEVEL + 1.5 or p.y > MAX_HEIGHT:
+			continue
+		var k := Camp.new()
+		k.wild = "copse"
+		k.pos = p
+		k.next_move = INF
+		var trees_n := wood.randi_range(copse_trees.x, maxi(copse_trees.x, copse_trees.y))
+		k.job = {"count": trees_n, "max": trees_n}
+		camps.append(k)
+		placed += 1
+	var ember := RandomNumberGenerator.new()
+	ember.seed = 5150
+	var lit := 0
+	for attempt in smoulders * 20:
+		if lit >= smoulders:
+			break
+		var sp := _ground(Vector3(ember.randf_range(-HALF_MAP, HALF_MAP), 0, ember.randf_range(-HALF_MAP, HALF_MAP)))
+		if is_nan(sp.y) or sp.y < SEA_LEVEL + 1.5 or sp.y > MAX_HEIGHT:
+			continue
+		var sm := Camp.new()
+		sm.wild = "smoulder"
+		sm.pos = sp
+		sm.next_move = INF
+		camps.append(sm)
+		lit += 1
+	if trees and trees.is_node_ready():
+		_make_sap()
+	elif trees:
+		trees.ready.connect(_make_sap, CONNECT_ONE_SHOT)
 	var game := RandomNumberGenerator.new()
 	game.seed = 4711
 	var made := 0
@@ -751,9 +835,10 @@ func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 				minds.on_death(f, by_player)
 			return
 		_hp_from_body(f) # hurt near you stays hurt
+		_pose(f)
 		var held := _ai(f)
 		if held and held._asleep: # loaded but too far to move itself: it walks the sim's walk, so it never stalls
-			var step := Vector3(f.home.x - f.pos.x, 0, f.home.z - f.pos.z).limit_length(walk_speed * dt)
+			var step := _walk(f.pos, f.home, dt)
 			if step.length() > 0.01:
 				f.node.global_position = _ground(f.pos + step) + Vector3.UP * 0.1
 		elif held and held.state != MobAIComponent.State.CHASE and _dist(f.pos, f.home) > held.wander_radius * 2.0:
@@ -789,8 +874,7 @@ func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 			return
 	if camplife and not f.task.is_empty():
 		camplife.step(f, now)
-	var to := Vector3(f.home.x - f.pos.x, 0, f.home.z - f.pos.z) # off-screen: just walk straight home
-	f.pos += to.limit_length(walk_speed * dt)
+	f.pos += _walk(f.pos, f.home, dt) # off-screen: walk home the same way a body would (round the trees)
 	if _dist(f.pos, at) < spawn_radius and f.camp.wild != "falselight": # the false light's holder is unseen until it springs
 		_spawn(f)
 
@@ -830,6 +914,9 @@ func _spawn(f: Folk) -> void:
 	f.node = person
 	if enc and f.camp.wild != "":
 		enc.on_spawn(f, person)
+	person.get_node("mobAI").sim_speed = walk_speed # walks at the record's pace
+	if f.camp.job.get("player_member", false):
+		person.get_node("mobAI").aggressive = false # you're one of them
 	if minds and minds.hates(f.camp):
 		person.get_node("mobAI").aggressive = true # they remember what you did
 
@@ -839,6 +926,15 @@ func _ai(f: Folk) -> MobAIComponent:
 func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 	if c.wild == "herd":
 		_tick_herd(c, at, now)
+		return
+	if c.wild == "copse":
+		_tick_copse(c, at, now)
+		return
+	if c.wild == "sap":
+		_tick_sap(c, at)
+		return
+	if c.wild == "smoulder":
+		_tick_smoulder(c, at)
 		return
 	if minds:
 		minds.check_cold(c, now)
@@ -869,6 +965,9 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 		c.fire = fire_scene.instantiate()
 		c.fire.top_level = true
 		c.fire.position = c.pos
+		if c.kind == "drifter" or c.kind == "bandit": # their fire burns their wood, and you can feed it
+			c.fire.set_script(FIRE_FEED)
+			c.fire.record = c
 		add_child(c.fire)
 		if c.kind == "drifter" or c.kind == "bandit":
 			_dress(c, c.fire) # goblins and orcs don't keep barrels
@@ -975,7 +1074,7 @@ func _tick_band(b: Camp, now: float) -> void:
 		return
 	# A drifter band on the move, or a wanderer, settles at the first fire it finds (and can leave again: minds.gd).
 	if (b.kind == "drifter" and b.wild in ["", "wanderer"] or b.kind == "bandit" and b.wild == "wanderer") and b.raid == null:
-		var home: Camp = b.job.get("settle_at") if b.job.get("settle_at") in camps else _camp_near(lead.pos, minf(fire_radius, _reach()), b.from, minf(coldfire_spot, _reach()), b.kind)
+		var home: Camp = b.job.get("settle_at") if b.job.get("settle_at") in camps else _camp_near(lead.pos, minf(fire_radius, _reach()), b.from, minf(coldfire_spot, _reach()) if can_light(b) else 0.0, b.kind)
 		if home and _dist(lead.pos, home.pos) > 15.0: # seen it: walk there together (with their torch) before joining
 			if b.job.get("settle_at") != home or now - b.waypoint_since > waypoint_give_up:
 				b.job["settle_at"] = home
@@ -987,7 +1086,8 @@ func _tick_band(b: Camp, now: float) -> void:
 				pass # parched on the way: water or food first
 			return
 		if home:
-			_relight(home, lead)
+			if not _relight(home, lead):
+				return
 			for f: Folk in alive:
 				f.camp = home
 				_send(f, home.pos)
@@ -996,7 +1096,7 @@ func _tick_band(b: Camp, now: float) -> void:
 			return
 		if not b.job.has("wander_since"):
 			b.job["wander_since"] = now
-		elif now - b.job.wander_since > found_after and b.job.get("fuel", 0.0) > 0.0 and _room_for_fire(lead.pos):
+		elif now - b.job.wander_since > found_after and can_light(b) and _room_for_fire(lead.pos):
 			_found_camp(b, alive, now) # no fire anywhere near: they make one with the torch they carry
 			return
 	if camplife and b.raid == null and camplife.steer(b, now):
@@ -1030,6 +1130,8 @@ func _found_camp(b: Camp, alive: Array, now: float) -> void:
 	c.kind = b.kind
 	c.bandit = b.bandit
 	c.pos = _ground(alive[0].pos)
+	if not _light(c, b, now):
+		return
 	c.next_move = now + _rng.randf_range(migrate_every.x, migrate_every.y)
 	c.stocked = true
 	camps.append(c)
@@ -1059,6 +1161,209 @@ func _room_for_fire(p: Vector3) -> bool:
 			if c.wild == "spring" and _dist(c.pos, p) < camplife.spring_range:
 				return true
 		return false
+	return true
+
+const FIRE_FEED := preload("res://world/props/fireFeed.gd")
+const SMALL_TREE := preload("res://world/props/smallTree.gd")
+const SAP_NODE := preload("res://world/props/sapNode.gd")
+var fate: Node # world/fate.gd
+var _sapling_meshes: Array[Mesh] = []
+
+## One sap node on each giant tree (up to sap_nodes), on the trunk's south face.
+func _make_sap() -> void:
+	if camps.any(func(c): return c.wild == "sap"):
+		return # a loaded island has its own
+	var made := 0
+	for cell in trees._trunks:
+		for t: Vector4 in trees._trunks[cell]:
+			if made >= sap_nodes:
+				return
+			if t.w >= sap_giant * trees.tree_scale:
+				var k := Camp.new()
+				k.wild = "sap"
+				k.pos = Vector3(t.x, t.y, t.z)
+				k.next_move = INF
+				k.job = {"r": t.w}
+				camps.append(k)
+				made += 1
+
+## Near you a sap node is a real thing on the bark (world/props/sapNode.gd).
+func _tick_sap(c: Camp, at: Vector3) -> void:
+	if _dist(c.pos, at) > spawn_radius:
+		if is_instance_valid(c.fire):
+			c.fire.queue_free()
+		return
+	if is_instance_valid(c.fire):
+		return
+	var body: StaticBody3D = SAP_NODE.new()
+	body.record = c
+	body.top_level = true
+	body.position = c.pos + Vector3(0, 1.5, c.job.get("r", 1.0) * 0.55) # on the bark, chest high
+	var mesh := MeshInstance3D.new()
+	var ball := SphereMesh.new()
+	ball.radius = 0.18
+	ball.height = 0.3
+	mesh.mesh = ball
+	body.add_child(mesh)
+	var shape := CollisionShape3D.new()
+	var s := SphereShape3D.new()
+	s.radius = 0.3
+	shape.shape = s
+	body.add_child(shape)
+	add_child(body)
+	c.fire = body
+
+## Near you a smoulder is a charred stump with a low glow: an unshadowed light (cheap), and the "reprieve" group
+## (DarknessComponent: its light_radius holds the dark off).
+func _tick_smoulder(c: Camp, at: Vector3) -> void:
+	if _dist(c.pos, at) > spawn_radius:
+		if is_instance_valid(c.fire):
+			c.fire.queue_free()
+		return
+	if is_instance_valid(c.fire):
+		return
+	var n := Node3D.new()
+	n.top_level = true
+	n.position = c.pos
+	n.add_to_group("reprieve")
+	n.set_meta("light_radius", smoulder_radius)
+	var stump := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.35
+	cyl.bottom_radius = 0.55
+	cyl.height = 0.7
+	cyl.radial_segments = 6
+	stump.mesh = cyl
+	stump.position.y = 0.3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.06, 0.04, 0.03)
+	mat.emission_enabled = true
+	mat.emission = Color(0.9, 0.3, 0.05)
+	mat.emission_energy_multiplier = 0.4 # embers in the cracks
+	stump.material_override = mat
+	n.add_child(stump)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.45, 0.15)
+	glow.light_energy = 1.2
+	glow.omni_range = smoulder_radius * 1.5
+	glow.shadow_enabled = false
+	glow.position.y = 0.8
+	glow.distance_fade_enabled = true # far ones cost nothing
+	glow.distance_fade_begin = 60.0
+	glow.distance_fade_length = 20.0
+	n.add_child(glow)
+	add_child(n)
+	c.fire = n
+
+## A copse: its felled trees grow back one at a time; near you its standing trees are real (cut them for wood).
+func _tick_copse(c: Camp, at: Vector3, now: float) -> void:
+	var j := c.job
+	if j.count < j.max:
+		if not j.has("grow_at"):
+			j["grow_at"] = now + copse_regrow
+		elif now > j.grow_at:
+			j.count += 1
+			j.erase("grow_at")
+	var d := _dist(c.pos, at)
+	if d < spawn_radius and trees and trees.bark_mat:
+		if is_instance_valid(c.fire) and c.fire.get_child_count() != j.count:
+			c.fire.queue_free() # trees cut or grown since: build it again
+			c.fire = null
+		if not is_instance_valid(c.fire):
+			c.fire = Node3D.new()
+			c.fire.top_level = true
+			c.fire.position = c.pos
+			add_child(c.fire)
+			if _sapling_meshes.is_empty():
+				for v in 4:
+					_sapling_meshes.append(trees.make_tree(9100 + v))
+			var rng := RandomNumberGenerator.new()
+			rng.seed = hash(Vector2i(roundi(c.pos.x), roundi(c.pos.z)))
+			for i in j.max:
+				var a := rng.randf() * TAU
+				var spot := _ground(c.pos + Vector3(cos(a), 0, sin(a)) * rng.randf_range(2.0, 12.0))
+				var sc := rng.randf_range(sapling_scale.x, sapling_scale.y)
+				var yaw := rng.randf() * TAU
+				if i >= j.count:
+					continue # felled
+				var body: StaticBody3D = SMALL_TREE.new()
+				body.record = c
+				body.position = spot - c.pos
+				body.rotation.y = yaw
+				var mesh := MeshInstance3D.new()
+				mesh.mesh = _sapling_meshes[i % _sapling_meshes.size()]
+				mesh.material_override = trees.bark_mat
+				mesh.scale = Vector3.ONE * sc
+				body.add_child(mesh)
+				var shape := CollisionShape3D.new()
+				var cap := CapsuleShape3D.new()
+				cap.radius = 0.35 * sc
+				cap.height = 3.5 * sc
+				shape.shape = cap
+				shape.position = Vector3.UP * cap.height * 0.5
+				body.add_child(shape)
+				c.fire.add_child(body)
+	elif d > spawn_radius * 1.2 and is_instance_valid(c.fire):
+		c.fire.queue_free()
+
+## A camp's fire has gone out (no wood): it's a cold fire now, and its people take up their things and go looking for
+## another fire (they'll relight this one if they come back with wood and a flame).
+func fire_out(c: Camp, now: float) -> void:
+	if is_instance_valid(c.fire):
+		c.fire.queue_free()
+	c.wild = "coldfire"
+	c.job["went_out"] = true
+	c.job["out_at"] = now
+	c.job.erase("fire_fuel")
+	var alive := _alive(c.members)
+	if alive.is_empty():
+		return
+	note(alive[0], "let the fire die. They gathered what they could carry and left to find another")
+	_send_band(c, alive, now)
+
+## Ash wood among a group's packs.
+func _wood_in(people: Array) -> int:
+	var n := 0
+	for f in people:
+		n += f.inv.get("ash_wood", 0)
+	return n
+
+## A group can light a fire if they've a spark (a torch burning, or a flint), tinder, kindling and light_logs logs.
+func can_light(b: Camp) -> bool:
+	var p := _alive(b.members)
+	var has := func(id): return p.any(func(f): return f.inv.get(id, 0) > 0)
+	return (b.job.get("fuel", 0.0) > 0.0 or has.call("flint")) and _wood_in(p) >= (camplife.light_logs if camplife else 2) and has.call("tinder") and has.call("kindling")
+
+## Lights a fire at `home` with the group's flame and two of their logs.
+## Their spark, tinder, kindling and two logs. False = it didn't catch (the tinder's spent) or they lack the makings.
+func _light(home: Camp, b: Camp, now: float) -> bool:
+	if not camplife:
+		return true
+	var embers: bool = camplife.embers(home)
+	if not embers and not can_light(b):
+		return false
+	var spend := func(id: String, k: int):
+		for f in _alive(b.members):
+			var m: int = mini(k, f.inv.get(id, 0))
+			camplife.add(f.inv, id, -m)
+			k -= m
+	if not embers:
+		spend.call("tinder", 1)
+	if not camplife.catches(home):
+		note(_alive(b.members)[0], "struck and blew on the tinder, but the fire wouldn't take", false)
+		return false
+	spend.call("kindling", 1)
+	home.job["lit_at"] = now
+	home.job.erase("out_at")
+	var need: int = camplife.light_logs
+	for f in _alive(b.members):
+		var k: int = mini(need, f.inv.get("ash_wood", 0))
+		if k > 0 and camplife:
+			camplife.add(f.inv, "ash_wood", -k)
+			need -= k
+	home.job["fire_fuel"] = camplife.light_logs * camplife.wood_burn
+	home.job["fire_at"] = now
+	home.job.erase("went_out")
 	return true
 
 ## A goblin den sends out a hunting pack, an orc den sends one out to hold a false light. Short of its full size,
@@ -1110,6 +1415,10 @@ func _pack_hunts(b: Camp, alive: Array, now: float) -> bool:
 		for c in camps:
 			if c.wild == "herd" and _dist(c.pos, alive[0].pos) < smell_range and (not herd or _dist(c.pos, alive[0].pos) < _dist(herd.pos, alive[0].pos)):
 				herd = c
+		if not herd and minds: # nothing on the wind: a herd they remember
+			var k: Array = minds.recall(alive, "herd", alive[0].pos, smell_range * 4.0)
+			if not k.is_empty():
+				herd = k[0]
 		if not herd:
 			return false
 		b.job["prey"] = herd
@@ -1216,7 +1525,12 @@ func _hp_to_body(f: Folk) -> void:
 		var h: Stat = f.node.statComponent.health
 		var want := maxi(1, roundi(h.get_max_value() * f.hp / 100.0))
 		if want != h.currentValue:
+			var ai := _ai(f)
+			if ai:
+				ai.sim_hurt = true # the dark or hunger, not a blow: nobody to turn on
 			h.change_current(want - h.currentValue)
+			if ai:
+				ai.sim_hurt = false
 
 ## Something left lying in the world (a corpse's things, what you drop): a place holding those items, there for
 ## anyone to find (you, or anyone passing) until it's emptied.
@@ -1374,7 +1688,7 @@ var _next_pull := 0.0
 
 ## Lit fires and cairns pull a lost soul out of the dark now and then: the fuller the island, the rarer.
 ## They come up out of the dark a way off (never near you), with nearly nothing, and walk toward the light.
-func _pull(at: Vector3, now: float) -> void:
+func _pull(at: Vector3, now: float, to: Camp = null) -> void:
 	var humans := 0
 	for f in folk:
 		if not f.dead and not f.camp.kind in ["goblin", "orc"]:
@@ -1399,6 +1713,17 @@ func _pull(at: Vector3, now: float) -> void:
 	if lights.is_empty():
 		return
 	var light: Camp = lights[_rng.randi() % lights.size()]
+	if camplife and light.wild == "": # bigger fires, and fires with a storyteller, pull more
+		var w := lights.map(func(l): return camplife.fire_scale(l)) # bigger fires pull more
+		var roll: float = _rng.randf() * w.reduce(func(a, b): return a + b, 0.0)
+		for i in lights.size():
+			roll -= w[i]
+			if roll <= 0.0:
+				light = lights[i]
+				break
+	if to:
+		light = to
+		bandit = to.kind == "bandit"
 	var p := Vector3(NAN, NAN, NAN)
 	for attempt in 6:
 		var a := _rng.randf() * TAU
@@ -1434,12 +1759,17 @@ func _pull(at: Vector3, now: float) -> void:
 	camps.append(b)
 	_send(f, light.pos)
 	note(f, "was pulled out of the dark toward a %s" % ("cairn's light" if light.wild == "cairn" else "fire"))
+	if to == null and camplife and camplife.has_role(light, "storyteller") and _rng.randf() < camplife.story_extra:
+		_pull(at, now, light) # the stories carry: another follows
 
 ## A group settles at `home`: if it's a cold fire, nobody's, they light it again and make it theirs.
-func _relight(home: Camp, lead: Folk) -> void:
+func _relight(home: Camp, lead: Folk) -> bool:
 	if home.wild != "coldfire":
 		note(lead, "found a fire and settled there")
-		return
+		return true
+	if not _light(home, lead.camp, SimClock.now):
+		lead.camp.job.erase("settle_at") # it didn't take: they look again
+		return false
 	if is_instance_valid(home.fire):
 		home.fire.queue_free()
 	home.wild = ""
@@ -1448,6 +1778,7 @@ func _relight(home: Camp, lead: Folk) -> void:
 	home.empty_since = 0.0
 	home.next_move = SimClock.now + randf_range(migrate_every.x, migrate_every.y)
 	note(lead, "relit a cold fire and settled there")
+	return true
 
 func _next_waypoint(b: Camp, now: float) -> void:
 	var lead: Folk = _alive(b.members)[0]
@@ -1469,7 +1800,8 @@ func _next_waypoint(b: Camp, now: float) -> void:
 func _camp_near(pos: Vector3, r: float, skip: Camp, cold := 0.0, kind := "drifter") -> Camp:
 	var best: Camp = null
 	for c: Camp in camps: # all of them: cold fires from encounters aren't in the cell grid
-		var ok := c != skip and not c.roaming and ((c.kind == kind and c.wild == "" and _dist(c.pos, pos) < r) or (c.wild == "coldfire" and _dist(c.pos, pos) < cold))
+		var room: bool = not camplife or not c.kind in ["drifter", "bandit"] or _alive(c.members).size() < camplife.capacity(c) # a fire that can keep one more
+		var ok := c != skip and not c.roaming and ((c.kind == kind and c.wild == "" and _dist(c.pos, pos) < r and room) or (c.wild == "coldfire" and _dist(c.pos, pos) < cold))
 		if ok and (not best or _dist(c.pos, pos) < _dist(best.pos, pos)):
 			best = c
 	return best
@@ -1539,6 +1871,44 @@ func _set_foe(f: Folk, enemies: Array) -> void:
 		ai._enter(MobAIComponent.State.CHASE)
 
 ## Walks f (record and character) to a new spot near pos.
+## How a body looks doing what its record is doing (only the look): working at a chore, sitting by its fire, and
+## its role in its name.
+func _pose(f: Folk) -> void:
+	var vis := f.node.get_node_or_null("visual") as Node3D
+	var ai := _ai(f)
+	if not vis or not ai or ai.state == MobAIComponent.State.CHASE or f.camp.wild in ["mourner", "starved"]:
+		return
+	if not vis.has_meta("base_y"):
+		vis.set_meta("base_y", vis.position.y)
+	var by: float = vis.get_meta("base_y")
+	if f.task.get("phase", "") == "work" and f.task.get("type", "") in ["wood", "sap", "forage", "water"]:
+		vis.position.y = by
+		vis.rotation_degrees.x = sin(Time.get_ticks_msec() * 0.008) * 25.0 # chopping, cutting, picking, filling
+	elif ai.state == MobAIComponent.State.IDLE and f.camp.wild == "" and not f.camp.roaming and _dist(f.pos, f.camp.pos) < 10.0:
+		vis.position.y = by - 0.8 # sitting by the fire
+		vis.rotation_degrees.x = -10.0
+	else:
+		vis.position.y = by
+		vis.rotation_degrees.x = 0.0
+	var title := f.name
+	for r in f.camp.job.get("roles", {}):
+		if f.camp.job.roles[r] == f:
+			title = "%s, %s" % [f.name, r]
+	if f.node.Name != title:
+		f.node.Name = title
+
+## One walking step (flat) from p toward `to` at walk_speed, bent round trees (DeadTrees.round_trees): the one way
+## anyone gets anywhere, record or body.
+func _walk(p: Vector3, to: Vector3, dt: float) -> Vector3:
+	var d := Vector3(to.x - p.x, 0, to.z - p.z)
+	var n := minf(d.length(), walk_speed * dt)
+	if n < 0.01:
+		return Vector3.ZERO
+	var dir := d.normalized()
+	if trees and d.length() > 1.0:
+		dir = trees.round_trees(p, dir)
+	return dir * n
+
 func _send(f: Folk, pos: Vector3) -> void:
 	f.home = _around(pos, _rng)
 	var ai := _ai(f)

@@ -14,6 +14,10 @@ extends Node3D
 ## The same, but in the editor (lower = much faster editor viewport; the game uses view_distance).
 @export var editor_view_distance := 300.0
 @export var tree_scale := 1.0 # size multiplier (scaling the node itself does nothing; trees are placed in world space)
+## Dead brush: squat little dead shrubs scattered everywhere. No colliders, drawn only close up (cheap).
+@export var brush_count := 20000
+@export var brush_scale := Vector2(0.25, 0.6) # times its own size (a shrub mesh is about 2 m)
+@export var brush_view := 120.0 # metres they're drawn out to
 @export_group("Bark")
 @export_range(0.0, 1.0) var tree_color_variance := 0.15 # how much each tree's tint differs from bark_color
 @export_range(0.0, 0.5) var pixel_variance := 0.07 # random brightness noise per bark texel
@@ -36,6 +40,8 @@ var _collider_center := Vector3.INF
 var _player: Node3D
 ## Branches left on trees you've worked (Vector2i of the trunk's spot -> count), see world/props/treeHarvest.gd.
 var harvested := {}
+## The bark material, for anything else built from these trees (the copses' small trees: world/camps.gd).
+var bark_mat: StandardMaterial3D
 
 func _ready() -> void:
 	_build()
@@ -58,6 +64,7 @@ func _build() -> void:
 	mat.vertex_color_use_as_albedo = true # per-tree tint comes in as the MultiMesh instance colour
 	mat.roughness = 1.0
 	mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	bark_mat = mat
 	var rng := RandomNumberGenerator.new()
 	rng.seed = tree_seed
 	var meshes: Array[ArrayMesh] = []
@@ -102,6 +109,77 @@ func _build() -> void:
 		mmi.material_override = mat
 		mmi.visibility_range_end = editor_view_distance if Engine.is_editor_hint() else view_distance
 		mmi.top_level = true # instance transforms are world positions; set before add_child so the node's own transform is ignored
+		add_child(mmi)
+	if brush_count > 0:
+		_build_brush(mat)
+
+## The way round: dir (flat, unit) bent away from any trunk (with its roots) that's in the way within a few metres
+## of p. One rule for everyone: records far off (world/camps.gd) and bodies near you (MobAIComponent) walk by it.
+func round_trees(p: Vector3, dir: Vector3) -> Vector3:
+	var cell := Vector2i(floori(p.x / COLLIDE_CELL), floori(p.z / COLLIDE_CELL))
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			for t: Vector4 in _trunks.get(cell + Vector2i(dx, dz), []):
+				var to := Vector3(t.x - p.x, 0.0, t.z - p.z)
+				var ahead := to.dot(dir)
+				var r := 0.6 * t.w + 0.7 # trunk + roots + a body's width
+				if ahead > 0.0 and ahead < r + 2.5 and (to - dir * ahead).length() < r:
+					var side := dir.cross(Vector3.UP)
+					if side.dot(to) > 0.0:
+						side = -side # pass on the side away from it
+					return (dir + side * 1.5).normalized()
+	return dir
+
+## A dead shrub: a few short stems forking once, low poly (~150 triangles, no roots, no LODs needed).
+func _make_brush(seed_: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in rng.randi_range(3, 5):
+		var a := rng.randf() * TAU
+		var dir := Vector3(cos(a) * 0.6, 1.0, sin(a) * 0.6).normalized()
+		_branch(st, rng, Vector3.ZERO, dir, rng.randf_range(1.5, 2.5), 0.12, 1, 2, 0.05)
+	st.generate_normals()
+	st.index()
+	return st.commit()
+
+func _build_brush(mat: Material) -> void:
+	var meshes: Array[ArrayMesh] = [_make_brush(tree_seed * 100 + 51), _make_brush(tree_seed * 100 + 52)]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = tree_seed + 77
+	var chunks := {}
+	var made := 0
+	for i in brush_count * 3:
+		if made >= brush_count:
+			break
+		var p := Vector3(rng.randf_range(-5000, 5000), 0, rng.randf_range(-5000, 5000))
+		p.y = terrain.data.get_height(p)
+		if is_nan(p.y) or p.y < SEA_LEVEL + 1.0 or p.y > MAX_HEIGHT:
+			continue
+		var s := rng.randf_range(brush_scale.x, brush_scale.y) * tree_scale
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s * 1.6, s * 0.6, s * 1.6)) # squat and spread
+		var key := Vector3i(floori(p.x / CHUNK), floori(p.z / CHUNK), rng.randi() % meshes.size())
+		if not chunks.has(key):
+			chunks[key] = []
+		chunks[key].append(Transform3D(basis, p - Vector3.UP * 0.1))
+		made += 1
+	for key: Vector3i in chunks:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = meshes[key.z]
+		mm.instance_count = chunks[key].size()
+		for i in chunks[key].size():
+			mm.set_instance_transform(i, chunks[key][i])
+			var shade := 0.7 + rng.randf() * 0.3 # a little darker than the trees
+			mm.set_instance_color(i, Color(shade, shade * 0.95, shade * 0.9))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = mat
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.visibility_range_end = minf(brush_view, editor_view_distance) if Engine.is_editor_hint() else brush_view
+		mmi.top_level = true
 		add_child(mmi)
 
 ## True if a tree's trunk or roots reach within `clearance` metres of p (the tall inner roots: about 2x the tree scale).

@@ -23,6 +23,13 @@ static var burn_rate := 1.0
 @onready var _min_energy: float = _light.min_energy
 @onready var _max_energy: float = _light.max_energy
 
+func _sap(inv: InventoryComponent) -> bool:
+	var resin: Item = get_node("/root/item_list").get_item_instance("resin")
+	for key: Item in inv.inventory.keys():
+		if InventoryComponent.is_same_item(key, resin):
+			return inv.remove_item(key, 1) > 0
+	return false
+
 func _process(delta: float) -> void:
 	if not has_meta("item"): # set by HeldItemsComponent: only the hand copy burns
 		return
@@ -34,7 +41,16 @@ func _process(delta: float) -> void:
 		lights += 1
 	elif fuel > 0.0:
 		fuel = maxf(fuel - delta * burn_rate, 0.0)
-		if fuel <= 0.0 and lights >= max_lights:
+		var player: Node = get_tree().get_first_node_in_group("player")
+		var inv: InventoryComponent = player.inventoryComponent if player else null
+		if fuel <= 0.0 and inv and inv.count_item(item) >= 2 and lights < max_lights: # another in the pack: light it from the last of the flame
+			fuel = burn_time
+			lights += 1 # every lighting wears your torches, whichever one it is
+			Talker.notify("You light another torch from the last of the flame.")
+		elif fuel <= 0.0 and lights >= max_lights and inv and _sap(inv): # sap worked into the wick: it takes a flame again
+			lights = 0
+			Talker.notify("You work sap into the spent wick. It'll take a flame again.")
+		elif fuel <= 0.0 and lights >= max_lights:
 			_use_up(item)
 			return
 	item.set_meta("fuel", fuel)

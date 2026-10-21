@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 15
+Name = "Flint and Striker"
+id = "0079"
+weight = 1
+maxStackCount = 1
+isPickupable = true
+itemDesription = "A knapped flint and a scrap of iron. Each strike wears them."
+tool = "spark"
+durability = 30
+isUnique = true

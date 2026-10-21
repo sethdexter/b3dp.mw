@@ -3,8 +3,9 @@ extends Node
 ## encounters onto its grid and hands each tick / spawn / talk to the functions here. All the knobs are below.
 ##
 ##   hanged     a body hanging from a gibbet, its pack at its feet. Empty the pack and, now and then, something follows.
-##   coldfire   a dead camp: cold fire, bodies around it. Bring a lit torch to relight it: it becomes a camp
-##              (drifters can settle it) and your respawn point.
+##   coldfire   a dead camp: cold fire, bodies around it. Relight it (a spark, tinder, kindling, logs; embers need
+##              only kindling and logs) and it becomes your camp (drifters can settle it) and your respawn point.
+## You: G makes a fire of your own where you stand; J at a drifter fire joins it (and again, takes a role).
 ##   mourner    kneels at a grave, won't speak. Leave food: a rumour. Hurt them: your torches burn faster for a while.
 ##   pilgrims   a silent line of hooded walkers heading for the nearest bell shrine. Speak to one: they all turn.
 ##   falselight looks like a cairn torch. Get close and it goes out, and something is standing where it was.
@@ -26,6 +27,10 @@ extends Node
 @export_group("Cold fire")
 @export_range(1.0, 10.0, 0.5, "suffix:m") var relight_distance := 5.0
 @export var relit_line := "The fire takes. You can rest here."
+## How close to another fire (lit or cold) you can make your own.
+@export_range(5.0, 500.0, 5.0, "suffix:m") var player_fire_gap := 60.0
+## How well a camp has to think of you (rep) before you can join it (J at its fire).
+@export_range(-100, 100) var join_rep := 5
 
 @export_group("Mourner")
 @export_range(0.0, 1200.0, 10.0, "suffix:s") var curse_time := 300.0
@@ -70,6 +75,10 @@ extends Node
 @export var storm_length := Vector2(60, 150)
 ## Fog this many times thicker, and the light this much dimmer, at the storm's height.
 @export_range(1.0, 20.0, 0.5) var storm_fog := 5.0
+## Ground fog (cheap height fog, no volumetrics): it lies this high above the ground where you stand, this thick
+## (0 = off). Hollows below you fill with it.
+@export_range(0.0, 20.0, 0.25, "suffix:m") var ground_fog_height := 1.5
+@export_range(0.0, 2.0, 0.01) var ground_fog_density := 0.25
 @export_range(0.0, 1.0, 0.05) var storm_light := 0.35
 ## Torches burn this many times faster in a storm.
 @export_range(1.0, 5.0, 0.1) var storm_burn := 2.0
@@ -164,9 +173,18 @@ func tick_spot(c, at: Vector3, now: float) -> void:
 			if not c.looted and _sack_empty(c):
 				c.looted = true
 				_stalk(c, at, now)
-		"coldfire":
-			if _lit_torch_near(c.pos, relight_distance):
-				_relight(c)
+		"coldfire": # you light it as they do: a spark (your torch's flame or a flint), tinder, kindling, logs (embers: no tinder or spark)
+			var p: Node = camps._player
+			var inv: InventoryComponent = p.inventoryComponent if p else null
+			if inv and d < relight_distance and now > c.job.get("told", 0.0):
+				c.job["told"] = now + 8.0
+				var embers: bool = camps.camplife.embers(c)
+				var torch := _lit_torch_near(c.pos, relight_distance)
+				var missing := _makings(inv, embers, torch)
+				if not missing.is_empty():
+					Talker.notify(("Embers still glow in it. " if embers else "") + "It needs " + ", ".join(missing) + ".")
+				elif _strike(inv, c, embers, torch, now):
+					_relight(c)
 		"falselight":
 			if d < trap_distance:
 				spring_light(c, now, null)
@@ -190,10 +208,10 @@ func tick_people(c, at: Vector3, now: float) -> void:
 			if toll.dead or not toll.node:
 				return
 			var d: float = camps._dist(toll.pos, at)
-			if c.job.is_empty() and d < 12.0:
-				c.job = {"warned": now}
+			if not c.job.has("warned") and d < 12.0: # (job holds their torch light too: check the key)
+				c.job["warned"] = now
 				Talker.notify("%s:\n\"%s\"" % [toll.name, toll_demand % toll_cost])
-			elif not c.job.is_empty() and not c.job.has("fight") and (d < toll_too_close or now - c.job.warned > 25.0):
+			elif c.job.has("warned") and not c.job.has("fight") and (d < toll_too_close or now - c.job.warned > 25.0):
 				_toll_fight(c, toll.name)
 
 ## Band steering for roaming encounters. Returns true if it handled the band.
@@ -233,7 +251,9 @@ func on_spawn(f, person: BaseCharacter) -> void:
 	match c.wild:
 		"mourner", "starved":
 			ai.wanders = false
-			person.get_node("visual").scale.y = 0.6 if c.wild == "mourner" else 0.4 # kneeling / slumped
+			var vis: Node3D = person.get_node("visual") # kneeling / slumped: full size, sunk to the knees and bent, not squashed
+			vis.position.y -= 0.9 if c.wild == "mourner" else 1.2
+			vis.rotation_degrees.x = -15.0 if c.wild == "mourner" else -35.0
 			if talker:
 				talker.role = c.wild
 				talker.gives_jobs = false
@@ -336,6 +356,10 @@ func _process(delta: float) -> void:
 	_storm = move_toward(_storm, 1.0 if _storming else 0.0, delta / 8.0) # 8 s to roll in / out
 	_env.fog_density = _base_fog * lerpf(1.0, storm_fog, _storm)
 	_env.fog_light_color = _base_fog_color.lerp(Color(0.03, 0.025, 0.025), _storm) # the ash goes black
+	var me: Node3D = camps._player
+	if me and ground_fog_density > 0.0: # height fog laid on the ground where you stand: thick in the hollows, thin on the rises
+		_env.fog_height = me.global_position.y + ground_fog_height
+		_env.fog_height_density = ground_fog_density
 	if _sun:
 		_sun.light_energy = _base_sun * lerpf(1.0, storm_light, _storm)
 	if _ash:
@@ -421,7 +445,7 @@ func _build(c) -> void:
 					n.visible = false
 					n.set_process(false)
 			root.add_child(fire)
-			for i in rng.randi_range(2, 3):
+			for i in (0 if c.job.get("went_out", false) else rng.randi_range(2, 3)): # a fire that just went out has nobody dead by it
 				var a := rng.randf() * TAU
 				var body := _figure(root, Vector3(cos(a), 0.35, sin(a)) * 3.5, Color(0.2, 0.18, 0.16))
 				body.rotation = Vector3(PI * 0.5, rng.randf() * TAU, 0) # lying where they fell
@@ -552,6 +576,7 @@ func _grave(c, person: Node3D) -> void:
 	_box(c.fire, Vector3(0.15, 1.6, 0.15), Vector3(0, 0.8, -1.2), Color(0.2, 0.15, 0.1))
 	_box(c.fire, Vector3(0.8, 0.15, 0.15), Vector3(0, 1.2, -1.2), Color(0.2, 0.15, 0.1))
 	person.global_position = c.pos + Vector3(0, 0.1, 1.6)
+	person.look_at(c.pos + Vector3(0, person.global_position.y - c.pos.y, 0)) # facing the grave
 
 func _maybe_curse(f, current: int) -> void:
 	if not f.job.has("hp"):
@@ -562,6 +587,139 @@ func _maybe_curse(f, current: int) -> void:
 		Talker.notify(curse_line)
 	f.job["hp"] = current
 
+## G: make a fire where you stand, the way anyone does. It's yours to feed or let die; wanderers and lost souls may
+## come to it, and it grows into a hearth or a pyre by the same rules as theirs (wood, and people in the roles).
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G:
+		make_fire()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_J:
+		join_camp()
+
+## J at a camp's fire (wanderers or bandits): ask to sit with them (they must think well enough of you: rep join_rep, earned by feeding
+## their fire, trading...). Once you're one of them, J again takes the next role nobody holds (or gives yours up).
+## Taking a role someone holds puts them aside. Your role counts like anyone's: the fire's tier needs it filled, its effect is yours (a storyteller's stories...).
+## Their stores are yours to share. Walk off to another fire and join that, and you've left.
+func join_camp() -> void:
+	var p: Node3D = camps._player
+	var life = camps.camplife
+	if not p or not life:
+		return
+	var c = null
+	for o in camps.camps:
+		if o.wild == "" and not o.roaming and o.kind in ["drifter", "bandit"] and camps._dist(o.pos, p.global_position) < 10.0:
+			c = o
+	if c == null:
+		Talker.notify("There's no fire here to sit at.")
+		return
+	if not c.job.get("player_member", false):
+		if camps.minds.hates(c) or c.job.get("cinder_thief", false):
+			Talker.notify("\"Not you. Never you.\"")
+			return
+		if c.rep < join_rep and not c.job.get("player", false):
+			Talker.notify("\"We don't know you. Bring wood for the fire first.\"")
+			return
+		if life.headcount(c) >= life.capacity(c):
+			Talker.notify("\"The fire won't keep another. Feed it, and it might.\"")
+			return
+		for o in camps.camps: # you sit at one fire only
+			if o.job.get("player_member", false):
+				_give_up_role(o)
+				o.job.erase("player_member")
+		c.job["player_member"] = true
+		for f in camps._alive(c.members): # your own people don't come for you
+			var ai = camps._ai(f)
+			if ai:
+				ai.aggressive = false
+				ai.foe = null
+		Talker.notify("You sit with the %s. You're one of them now." % life.fire_name(c).to_lower())
+		return
+	var roles: Dictionary = life.roles(c)
+	var mine: String = _role_of(c)
+	_give_up_role(c)
+	var r: String = life.ROLES[(life.ROLES.find(mine) + 1) % life.ROLES.size()] # the next role after the one you had
+	var had = roles.get(r)
+	roles[r] = "player" # whoever had it steps aside (they'll take a free one if there is one)
+	c.job["duty_at"] = SimClock.now
+	Talker.notify("You're the %s's %s now%s." % [life.fire_name(c).to_lower(), r, (", in %s's place" % had.name) if had is Object and had.name != "" else ""])
+
+func _role_of(c) -> String:
+	for r in c.job.get("roles", {}):
+		if c.job.roles[r] is String:
+			return r
+	return ""
+
+func _give_up_role(c) -> void:
+	var r := _role_of(c)
+	if r != "":
+		c.job.roles.erase(r)
+
+func make_fire() -> void:
+	var p: Node3D = camps._player
+	var inv: InventoryComponent = p.inventoryComponent if p else null
+	if not inv or not camps.camplife:
+		return
+	var at: Vector3 = camps._ground(p.global_position - p.global_basis.z * 2.0)
+	if is_nan(at.y):
+		return
+	for o in camps.camps:
+		if not o.roaming and (o.wild == "" or o.wild == "coldfire") and camps._dist(o.pos, at) < player_fire_gap:
+			Talker.notify("There's a fire here already.")
+			return
+	var torch: bool = _lit_torch_near(p.global_position, relight_distance)
+	var missing := _makings(inv, false, torch)
+	if not missing.is_empty():
+		Talker.notify("To make a fire you need " + ", ".join(missing) + ".")
+		return
+	var c = camps.new_camp()
+	c.pos = at
+	c.kind = "drifter"
+	c.stocked = true # its stores are what you put in them
+	c.next_move = INF
+	if _strike(inv, c, false, torch, SimClock.now):
+		camps.camps.append(c)
+		_relight(c)
+
+## What you're short of to light a fire (none = you can).
+func _makings(inv: InventoryComponent, embers: bool, torch: bool) -> Array[String]:
+	var missing: Array[String] = []
+	if _count(inv, "ash_wood") < camps.camplife.light_logs:
+		missing.append("%d logs" % camps.camplife.light_logs)
+	if _count(inv, "kindling") < 1:
+		missing.append("kindling")
+	if not embers and _count(inv, "tinder") < 1:
+		missing.append("tinder")
+	if not embers and not torch and not Tools.find(inv, "spark"):
+		missing.append("a flame or a flint")
+	return missing
+
+## Tries to light c from your pack (you have the makings). A failed go burns the tinder. True = it took.
+func _strike(inv: InventoryComponent, c, embers: bool, torch: bool, now: float) -> bool:
+	var life = camps.camplife
+	if not embers:
+		_spend(inv, "tinder", 1)
+		if not torch:
+			Tools.use(inv, "spark")
+	if not life.catches(c):
+		Talker.notify("The tinder smokes, and dies. It didn't take.")
+		return false
+	_spend(inv, "kindling", 1)
+	_spend(inv, "ash_wood", life.light_logs)
+	c.job["fire_fuel"] = life.light_logs * life.wood_burn
+	c.job["fire_at"] = now
+	c.job["lit_at"] = now
+	c.job.erase("out_at")
+	c.job.erase("went_out")
+	return true
+
+func _count(inv: InventoryComponent, id: String) -> int:
+	return inv.count_item(camps.get_node("/root/item_list").get_item_instance(id))
+
+func _spend(inv: InventoryComponent, id: String, n: int) -> void:
+	var it: Item = camps.get_node("/root/item_list").get_item_instance(id)
+	for key: Item in inv.inventory.keys():
+		if n > 0 and InventoryComponent.is_same_item(key, it):
+			n -= inv.remove_item(key, n)
+
 func _lit_torch_near(at: Vector3, r: float) -> bool:
 	for t: Node3D in get_tree().get_nodes_in_group("light_source"):
 		var flame := t.get_node_or_null("fire_effect") as Node3D
@@ -570,9 +728,14 @@ func _lit_torch_near(at: Vector3, r: float) -> bool:
 	return false
 
 func _relight(c) -> void:
-	c.fire.queue_free()
+	if is_instance_valid(c.fire):
+		c.fire.queue_free()
 	c.wild = "" # a real drifter camp now: its fire lights up next tick, drifters can settle here
 	c.kind = "drifter"
+	c.job["player"] = true # yours: it burns till its wood is gone, nobody calls you a thief at it
+	for o in camps.camps: # and you sit at it
+		o.job.erase("player_member")
+	c.job["player_member"] = true
 	var p: Node3D = camps._player
 	var respawn := p.find_children("*", "RespawnComponent", true, false) if p else []
 	if not respawn.is_empty():

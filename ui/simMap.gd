@@ -18,17 +18,26 @@ func _ready() -> void:
 	visible = false
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_IGNORE
+	for ctl: Control in [_places, _pulses]:
+		ctl.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		ctl.mouse_filter = MOUSE_FILTER_IGNORE
+		add_child(ctl)
+	_places.show_behind_parent = true
+	_places.draw.connect(_draw_places)
+	_pulses.draw.connect(_draw_pulses)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
 	if event.keycode == KEY_M:
 		visible = not visible
-		if visible and not _bg:
-			_bg = ImageTexture.create_from_image(_island())
-	elif event.keycode == KEY_N: # watch the next wanderer from above
-		var all: Array = camps.folk.filter(func(f): return not f.dead and f.camp.kind == "drifter") # every living human who isn't a bandit
+		if visible:
+			_finish_island()
+			_places.queue_redraw()
+	elif event.keycode == KEY_N: # watch the next one in the chosen category (wheel on the map picks it) from above
+		var all: Array = camps.folk.filter(func(f): return not f.dead and _in_cat(f))
 		if all.is_empty():
+			Talker.notify("Nobody in %s right now." % CATS[_cat])
 			return
 		_watch = all[posmod(all.find(_watch) + (-1 if event.shift_pressed else 1), all.size())] # Shift+N = back one
 		# the map stays up if it was open: you can keep cycling with it showing
@@ -62,6 +71,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # While watching, the mouse orbits the camera round them (wheel zooms) instead of turning you.
 func _input(event: InputEvent) -> void:
+	if visible and event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_cat = posmod(_cat + (1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1), CATS.size()) # map up: the wheel picks who N cycles through
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
 	if not _watch:
 		return
 	if event is InputEventMouseMotion:
@@ -73,6 +87,18 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 const WATCH_AMBIENT := 0.5 # the level's is 0.02
+const CATS := ["All", "Camps", "Wanderers", "Bandits", "Monsters"]
+var _cat := 0
+
+## Whether f is in the category N cycles through.
+func _in_cat(f) -> bool:
+	var c = f.camp
+	match CATS[_cat]:
+		"Camps": return c.wild == "" and not c.roaming and not c.kind in ["goblin", "orc"]
+		"Wanderers": return c.kind == "drifter" # the good human faction (drifters in the code), at a fire or not
+		"Bandits": return c.kind == "bandit"
+		"Monsters": return c.kind in ["goblin", "orc"]
+	return true
 var _yaw := 0.0
 var _pitch := -1.05 # radians below level
 var _zoom := 16.0 # metres from them
@@ -101,8 +127,16 @@ func _protect_player() -> void:
 
 func _process(delta: float) -> void:
 	_protect_player()
-	if visible and Engine.get_process_frames() % 6 == 0:
-		queue_redraw() # ~10 times a second is plenty to watch it move
+	if not _bg and camps and camps.terrain and camps.terrain.data:
+		_island_rows(4)
+	if visible:
+		if Engine.get_process_frames() % 6 == 0:
+			queue_redraw() # ~10 times a second is plenty to watch it move
+		_places_t -= delta
+		if _places_t <= 0.0:
+			_places_t = 2.0
+			_places.queue_redraw()
+		_pulses.queue_redraw()
 	if _watch:
 		var p: Vector3 = _watch.node.global_position if is_instance_valid(_watch.node) else _watch.pos
 		var h: float = camps.terrain.data.get_height(p)
@@ -161,8 +195,8 @@ func _describe(f) -> String:
 		s += "\nRemembers:\n"
 		for m in f.memories:
 			s += "  %s\n" % m.what
-	if not f.job.is_empty():
-		s += "\nJob: %s\n" % str(f.job)
+	if f.job.has("favour"):
+		s += "\nFavour asked of you: %s\n" % str(f.job.favour)
 	if not f.inv.is_empty():
 		s += "\nCarrying: %s\n" % ", ".join(f.inv.keys().map(func(k): return "%s x%d" % [k, f.inv[k]]))
 	if not f.history.is_empty():
@@ -195,6 +229,10 @@ func _doing(f) -> String:
 				return "%s (%.0f s more)." % ["Picking ash fungus" if t.get("spot") else "Hunting", maxf(0.0, t.until - now)]
 			["trade", "out"]:
 				return "Walking %s with the camp's coin to buy %s from a neighbouring camp." % [dir.call(t.to), "water" if t.want == "water" else "food"]
+			["wood", "out"]:
+				return "Walking %s to a copse to cut wood: the camp's fire is eating its logs." % dir.call(t.to)
+			["wood", "work"]:
+				return "Cutting a small tree for wood (%.0f s more)." % maxf(0.0, t.until - now)
 			["supply", "out"]:
 				return "Carrying food %s to a hungry camp: theirs has plenty to spare." % dir.call(t.to)
 			["evacuate", "out"]:
@@ -223,7 +261,7 @@ func _doing(f) -> String:
 		if goal:
 			var why: String = {"spring": "low on water", "fungus": "low on food",
 				"cairn": "torch nearly out, a cairn's light is the nearest fire"}.get(goal.wild, "needs a fire (torch, rest, maybe food)")
-			var what: String = {"spring": "a spring", "fungus": "ash fungus", "cairn": "a cairn's light"}.get(goal.wild, "a %s fire" % goal.kind)
+			var what: String = {"spring": "a spring", "fungus": "ash fungus", "cairn": "a cairn's light"}.get(goal.wild, "a " + camps.camplife.fire_name(goal).to_lower())
 			return "Heading for %s %s: %s.%s" % [what, dir.call(goal.pos), why, torch]
 		match c.wild:
 			"wanderer":
@@ -258,13 +296,20 @@ func _doing(f) -> String:
 			if life.count_food(c.crate) < life.food_low * n:
 				low.append("food")
 		var mood := (" The camp is short of %s." % " and ".join(low)) if not low.is_empty() else ""
-		return ("Resting by the %s fire with %d other%s." % [c.kind, n - 1, "" if n == 2 else "s"] if at_fire else "Near the %s camp." % c.kind) + mood
+		var tier: String = life.fire_tier(c) if life else "fire"
+		var role := ""
+		for k in c.job.get("roles", {}):
+			if c.job.roles[k] == f:
+				role = " They are its %s." % k
+		var keeps := " It keeps %d." % life.capacity(c) if life else ""
+		return ("Resting by the %s %s with %d other%s.%s" % [c.kind, tier, n - 1, "" if n == 2 else "s", keeps] if at_fire else "Near the %s %s." % [c.kind, tier]) + role + mood
 	return "%s %s." % [c.kind, c.wild]
 
 ## Everything near the person being watched, as markers coloured like the map key: other people who are too
 ## far from you to have a body (capsules), and camps, fires, springs, fungus, cairns, remains, bells... (posts).
 const AROUND := 300.0 # metres
 const HERD := Color(0.65, 0.45, 0.25)
+const COPSE := Color(0.5, 0.42, 0.34)
 ## How long the red pulse lasts when something goes into the island log (real seconds).
 const PULSE_SECONDS := 2.5
 var _around: Array[Node3D] = []
@@ -282,6 +327,7 @@ func _spot_color(c) -> Color:
 		"hanged", "starved_dead": return Color(0.7, 0.7, 0.7)
 		"bell": return Color(0.4, 0.7, 1.0)
 		"herd": return HERD
+		"copse": return COPSE
 	return Color(0, 0, 0, 0) # people encounters show as their people
 
 func _show_around(at: Vector3) -> void:
@@ -291,7 +337,7 @@ func _show_around(at: Vector3) -> void:
 			continue
 		var col := _spot_color(c)
 		if col.a > 0.0:
-			want.append([c.pos, col, false, ("%s camp" % c.kind) if c.wild == "" else c.wild.replace("_", " ").capitalize()])
+			want.append([c.pos, col, false, (camps.camplife.fire_name(c) if camps.camplife else "%s camp" % c.kind) if c.wild == "" else c.wild.replace("_", " ").capitalize()])
 	for f in camps.folk:
 		if f.dead or f == _watch or is_instance_valid(f.node) or camps._dist(f.pos, at) > AROUND:
 			continue # people near you have real bodies already
@@ -361,64 +407,116 @@ func _stop_watching() -> void:
 	else:
 		_cam.current = false
 
-func _island() -> Image:
-	var img := Image.create(RES, RES, false, Image.FORMAT_RGB8)
-	var data: Terrain3DData = camps.terrain.data
-	for y in RES:
+## Builds n more rows of the island picture; the texture once it's all done.
+func _island_rows(n: int) -> void:
+	var data = camps.terrain.data
+	if not _img:
+		_img = Image.create(RES, RES, false, Image.FORMAT_RGB8)
+	for y in range(_img_y, mini(RES, _img_y + n)):
 		for x in RES:
-			var h := data.get_height(_world(Vector2(x + 0.5, y + 0.5) / RES))
+			var h: float = data.get_height(_world(Vector2(x + 0.5, y + 0.5) / RES))
 			if is_nan(h) or h < camps.SEA_LEVEL:
-				img.set_pixel(x, y, Color(0.08, 0.12, 0.2))
+				_img.set_pixel(x, y, Color(0.08, 0.12, 0.2))
 			else:
 				var t := clampf(h / 250.0, 0.0, 1.0)
-				img.set_pixel(x, y, Color(0.22, 0.2, 0.14).lerp(Color(0.75, 0.72, 0.66), t))
-	return img
+				_img.set_pixel(x, y, Color(0.22, 0.2, 0.14).lerp(Color(0.75, 0.72, 0.66), t))
+	_img_y = mini(RES, _img_y + n)
+	if _img_y >= RES:
+		_bg = ImageTexture.create_from_image(_img)
+
+func _finish_island() -> void:
+	if not _bg:
+		_island_rows(RES)
 
 # 0..1 map coords <-> world
 func _world(uv: Vector2) -> Vector3:
 	return Vector3((uv.x - 0.5) * camps.HALF_MAP * 2.0, 0, (uv.y - 0.5) * camps.HALF_MAP * 2.0)
 
+const PLACES := ["remains", "cairn", "falselight", "hanged", "starved_dead", "coldfire", "bell", "spring", "fungus", "salt", "copse", "smoulder"]
+var _places := Control.new() # the island and the places on it: redrawn now and then (they hardly change)
+var _pulses := Control.new() # the red log pulses: cheap, redrawn every frame while the map is up
+var _places_t := 0.0
+var _img: Image # the island picture, built a few rows a frame from the start so opening the map doesn't hitch
+var _img_y := 0
+var _o := Vector2.ZERO
+var _k := 1.0
+
+## Where the map sits on screen; sets up _m().
+func _layout() -> Rect2:
+	var side := minf(size.x, size.y) * 0.9
+	var rect := Rect2((size - Vector2(side, side)) * 0.5, Vector2(side, side))
+	_k = side / (camps.HALF_MAP * 2.0)
+	_o = rect.position + Vector2(0.5, 0.5) * side
+	return rect
+
+## World position -> map position.
+func _m(p: Vector3) -> Vector2:
+	return _o + Vector2(p.x, p.z) * _k
+
+func _draw_places() -> void:
+	if not camps or not _bg:
+		return
+	_places.draw_texture_rect(_bg, _layout(), false, Color(1, 1, 1, 0.9))
+	for c in camps.camps:
+		if c.wild == "remains":
+			var r := Rect2(_m(c.pos) - Vector2(3, 3), Vector2(6, 6))
+			if c.looted:
+				_places.draw_rect(r, Color(0.7, 0.7, 0.7), false, 1.0)
+			else:
+				_places.draw_rect(r, Color(0.7, 0.7, 0.7), true)
+			continue
+		if c.wild == "cairn" or c.wild == "falselight":
+			_places.draw_circle(_m(c.pos), 2.5, Color.WHITE) # a false light looks just like a cairn, even here
+			continue
+		if c.wild == "hanged" or c.wild == "starved_dead":
+			var hp: Vector2 = _m(c.pos)
+			_places.draw_line(hp - Vector2(3, 3), hp + Vector2(3, 3), Color(0.7, 0.7, 0.7), 1.5)
+			_places.draw_line(hp - Vector2(3, -3), hp + Vector2(3, -3), Color(0.7, 0.7, 0.7), 1.5)
+			continue
+		if c.wild == "coldfire":
+			_places.draw_arc(_m(c.pos), 4.0, 0, TAU, 10, Color(1.0, 0.55, 0.1), 1.5)
+			continue
+		if c.wild == "bell":
+			_places.draw_circle(_m(c.pos), 4.0, Color(0.4, 0.7, 1.0))
+			continue
+		if c.wild == "spring":
+			_places.draw_circle(_m(c.pos), 2.5, Color(0.2, 0.9, 0.9))
+			continue
+		if c.wild == "fungus":
+			_places.draw_circle(_m(c.pos), 2.5, Color(0.55, 0.75, 0.35))
+			continue
+		if c.wild == "salt":
+			_places.draw_circle(_m(c.pos), 2.0, Color(0.95, 0.92, 0.85))
+			continue
+		if c.wild == "smoulder":
+			_places.draw_circle(_m(c.pos), 1.5, Color(1.0, 0.45, 0.15))
+			continue
+		if c.wild == "copse":
+			if c.job.get("count", 0) > 0:
+				_places.draw_circle(_m(c.pos), 1.5, COPSE)
+			continue
+
+func _draw_pulses() -> void:
+	if not camps:
+		return
+	_layout()
+	# Something just went into the island log: a red pulse where it happened.
+	var now_ms := Time.get_ticks_msec()
+	for i in range(maxi(0, camps.world_log.size() - 40), camps.world_log.size()):
+		var e: Dictionary = camps.world_log[i]
+		var age: float = (now_ms - e.get("ms", -100000)) / (PULSE_SECONDS * 1000.0)
+		if age >= 0.0 and age < 1.0 and e.has("pos"):
+			_pulses.draw_arc(_m(e.pos), lerpf(2.0, 16.0, age), 0, TAU, 16, Color(1, 0.1, 0.05, 1.0 - age), 2.0)
+
 func _draw() -> void:
 	if not camps or not _bg:
 		return
-	var side := minf(size.x, size.y) * 0.9
-	var rect := Rect2((size - Vector2(side, side)) * 0.5, Vector2(side, side))
-	var to_map := func(p: Vector3) -> Vector2:
-		return rect.position + (Vector2(p.x, p.z) / (camps.HALF_MAP * 2.0) + Vector2(0.5, 0.5)) * side
-	draw_texture_rect(_bg, rect, false, Color(1, 1, 1, 0.9))
+	var rect := _layout()
 	for c in camps.camps:
-		if c.wild == "remains":
-			var r := Rect2(to_map.call(c.pos) - Vector2(3, 3), Vector2(6, 6))
-			if c.looted:
-				draw_rect(r, Color(0.7, 0.7, 0.7), false, 1.0)
-			else:
-				draw_rect(r, Color(0.7, 0.7, 0.7), true)
-			continue
-		if c.wild == "cairn" or c.wild == "falselight":
-			draw_circle(to_map.call(c.pos), 2.5, Color.WHITE) # a false light looks just like a cairn, even here
-			continue
-		if c.wild == "hanged" or c.wild == "starved_dead":
-			var hp: Vector2 = to_map.call(c.pos)
-			draw_line(hp - Vector2(3, 3), hp + Vector2(3, 3), Color(0.7, 0.7, 0.7), 1.5)
-			draw_line(hp - Vector2(3, -3), hp + Vector2(3, -3), Color(0.7, 0.7, 0.7), 1.5)
-			continue
-		if c.wild == "coldfire":
-			draw_arc(to_map.call(c.pos), 4.0, 0, TAU, 10, Color(1.0, 0.55, 0.1), 1.5)
-			continue
-		if c.wild == "bell":
-			draw_circle(to_map.call(c.pos), 4.0, Color(0.4, 0.7, 1.0))
-			continue
-		if c.wild == "spring":
-			draw_circle(to_map.call(c.pos), 2.5, Color(0.2, 0.9, 0.9))
-			continue
-		if c.wild == "fungus":
-			draw_circle(to_map.call(c.pos), 2.5, Color(0.55, 0.75, 0.35))
-			continue
-		if c.wild == "salt":
-			draw_circle(to_map.call(c.pos), 2.0, Color(0.95, 0.92, 0.85))
-			continue
+		if c.wild in PLACES:
+			continue # drawn by _draw_places, a couple of times a second
 		if c.wild == "herd": # bigger = more head
-			draw_circle(to_map.call(c.pos), 1.0 + c.job.get("count", 0) * 0.25, HERD)
+			draw_circle(_m(c.pos), 1.0 + c.job.get("count", 0) * 0.25, HERD)
 			continue
 		if c.wild != "" and not c.roaming:
 			continue # an ambush: just its red dots
@@ -428,31 +526,37 @@ func _draw() -> void:
 			for f in c.members:
 				if not f.dead: # blue = drifters on the move, red = a bandit war band
 					if not c.raid: # raids get their own arrows below
-						draw_line(to_map.call(f.pos), to_map.call(c.pos), Color(1, 0.2, 0.1, 0.5) if c.bandit else Color(0.4, 0.6, 1.0, 0.7))
+						draw_line(_m(f.pos), _m(c.pos), Color(1, 0.2, 0.1, 0.5) if c.bandit else Color(0.4, 0.6, 1.0, 0.7))
 					break
 			continue
 		var alive: int = c.members.filter(func(f): return not f.dead).size()
 		if alive == 0:
-			draw_arc(to_map.call(c.pos), 5.0, 0, TAU, 12, Color(0.85, 0.85, 0.85), 1.5) # abandoned fire
+			draw_arc(_m(c.pos), 5.0, 0, TAU, 12, Color(0.85, 0.85, 0.85), 1.5) # abandoned fire
 		else:
-			draw_circle(to_map.call(c.pos), 5.0, camps.KIND_COLORS[c.kind])
+			var tier: String = camps.camplife.fire_tier(c) if camps.camplife else "bonfire"
+			var r: float = {"bonfire": 4.0, "hearth": 6.0, "pyre": 8.0}[tier] # bigger fire, bigger dot
+			draw_circle(_m(c.pos), r, camps.KIND_COLORS[c.kind])
+			if tier == "pyre":
+				draw_arc(_m(c.pos), r + 2.5, 0, TAU, 16, Color(1.0, 0.85, 0.4), 1.5)
+			if c.job.get("player", false):
+				draw_arc(_m(c.pos), r + 1.5, 0, TAU, 16, Color.WHITE, 1.0) # yours
 	for c in camps.camps: # who's attacking whom: an arrow from the attackers to their target
 		if c.raid:
-			_arrow(to_map.call(_lead(c)), to_map.call(_lead(c.raid)), Color(1, 0.2, 0.1, 0.9), 2.0)
+			_arrow(_m(_lead(c)), _m(_lead(c.raid)), Color(1, 0.2, 0.1, 0.9), 2.0)
 	for f in camps.folk:
 		if f.dead:
 			continue
-		var p: Vector2 = to_map.call(f.pos)
+		var p: Vector2 = _m(f.pos)
 		draw_circle(p, 2.0, Color(1.0, 0.9, 0.3) if f.camp.kind == "drifter" else camps.KIND_COLORS[f.camp.kind])
 		if f.node:
 			draw_arc(p, 4.0, 0, TAU, 8, Color.WHITE, 1.0)
 		if not f.task.is_empty(): # chores: green = foraging, cyan = fetching water, yellow = carrying food, orange = leaving
 			var col: Color = {"forage": Color(0.5, 0.85, 0.3), "water": Color(0.2, 0.9, 0.9), "supply": Color(1.0, 0.9, 0.3), "evacuate": Color(1.0, 0.55, 0.1)}.get(f.task.type, Color.WHITE)
-			_arrow(p, to_map.call(f.task.to), col, 1.0)
+			_arrow(p, _m(f.task.to), col, 1.0)
 		if f == _watch:
 			draw_arc(p, 8.0, 0, TAU, 16, Color(1, 0.15, 0.1), 2.0) # who the watch camera is on
 	if is_instance_valid(camps._player):
-		var p: Vector2 = to_map.call(camps._player.global_position)
+		var p: Vector2 = _m(camps._player.global_position)
 		var fwd: Vector3 = -camps._player.global_transform.basis.z
 		var d := Vector2(fwd.x, fwd.z).normalized() * 9.0
 		draw_colored_polygon([p + d, p - d * 0.5 + d.orthogonal() * 0.5, p - d * 0.5 - d.orthogonal() * 0.5], Color.WHITE)
@@ -462,16 +566,14 @@ func _draw() -> void:
 			camps.camps.filter(func(c): return not c.roaming and c.wild == "").size(), alive_folk,
 			camps.camps.filter(func(c): return c.roaming).size(), camps.camps.filter(func(c): return c.raid != null).size()],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-	# Something just went into the island log: a red pulse where it happened.
-	var now_ms := Time.get_ticks_msec()
-	var pulsing := false
-	for e in camps.world_log:
-		var age: float = (now_ms - e.get("ms", -100000)) / (PULSE_SECONDS * 1000.0)
-		if age >= 0.0 and age < 1.0 and e.has("pos"):
-			pulsing = true
-			draw_arc(to_map.call(e.pos), lerpf(2.0, 16.0, age), 0, TAU, 16, Color(1, 0.1, 0.05, 1.0 - age), 2.0)
-	if pulsing and Engine.get_process_frames() % 2 == 0:
-		queue_redraw.call_deferred() # smooth while a pulse is going (otherwise the usual ~10 a second)
+	var counts := []
+	for i in CATS.size():
+		var keep := _cat
+		_cat = i
+		counts.append("%s %d" % [CATS[i], camps.folk.filter(func(f): return not f.dead and _in_cat(f)).size()])
+		_cat = keep
+	draw_string(get_theme_default_font(), rect.position + Vector2(8, 40), "N cycles: %s   (wheel: %s)" % [CATS[_cat], " / ".join(counts)],
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.9, 0.3))
 	_draw_key(Vector2(rect.end.x + 12, rect.position.y + 10))
 	var meet = camps.get_node_or_null("meetings")
 	var life = camps.get_node_or_null("camplife")
@@ -508,6 +610,7 @@ func _draw_key(at: Vector2) -> void:
 	var rows := [
 		["dot", k.drifter, "Drifter camp"], ["dot", k.bandit, "Bandit camp"], ["dot", k.goblin, "Goblin camp"],
 		["dot", k.orc, "Orc camp"], ["ring", Color(0.85, 0.85, 0.85), "Abandoned camp"],
+		["ring", Color(1.0, 0.85, 0.4), "Pyre (bigger dot = bigger fire)"], ["ring", Color.WHITE, "Your fire"],
 		["ring", Color(1.0, 0.55, 0.1), "Cold fire"], ["small", Color(1.0, 0.9, 0.3), "Drifter"],
 		["small", k.bandit, "Bandit"], ["small", k.goblin, "Goblin"], ["small", k.orc, "Orc"],
 		["near", Color.WHITE, "Near you (real)"], ["ring", Color(1, 0.15, 0.1), "Watched (N)"], ["line", Color(0.4, 0.6, 1.0), "Drifters on the move"],
@@ -516,7 +619,7 @@ func _draw_key(at: Vector2) -> void:
 		["arrow_line", Color(1.0, 0.55, 0.1), "Leaving for another camp"], ["square", Color(0.7, 0.7, 0.7), "Remains (hollow: looted)"],
 		["x", Color(0.7, 0.7, 0.7), "Hanged / a body"], ["tiny", Color.WHITE, "Cairn torch (or is it?)"],
 		["dot", Color(0.4, 0.7, 1.0), "Bell shrine"], ["tiny", Color(0.2, 0.9, 0.9), "Spring (water)"],
-		["tiny", Color(0.55, 0.75, 0.35), "Ash fungus (food)"], ["small", Color(0.95, 0.92, 0.85), "Salt crust"], ["tiny", HERD, "Game herd (size = head)"], ["ring", Color(1, 0.1, 0.05), "Just happened (log)"], ["arrow", Color.WHITE, "You"],
+		["tiny", Color(0.55, 0.75, 0.35), "Ash fungus (food)"], ["small", Color(0.95, 0.92, 0.85), "Salt crust"], ["tiny", HERD, "Game herd (size = head)"], ["small", COPSE, "Copse (small trees: wood)"], ["ring", Color(1, 0.1, 0.05), "Just happened (log)"], ["arrow", Color.WHITE, "You"],
 	]
 	draw_rect(Rect2(at - Vector2(6, 6), Vector2(200, rows.size() * 18 + 8)), Color(0, 0, 0, 0.55))
 	for i in rows.size():

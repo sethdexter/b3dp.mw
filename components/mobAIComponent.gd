@@ -83,8 +83,10 @@ func _ready() -> void:
 		character.statComponent.health.value_changed.connect(_on_health_changed)
 
 func _on_health_changed(current: int, _max_val: int) -> void:
-	if aggro_on_hit and _last_health >= 0 and current < _last_health and not character.is_dead:
-		if _find_player():
+	if aggro_on_hit and not sim_hurt and _last_health >= 0 and current < _last_health and not character.is_dead:
+		if not is_instance_valid(foe): # hurt with no fight on: it was you
+			_angry = true
+		if _find_player() or is_instance_valid(foe):
 			_enter(State.CHASE)
 	_last_health = current
 
@@ -94,6 +96,8 @@ func _enter(new_state: State) -> void:
 	state = new_state
 	_state_time = 0.0
 	_stuck_time = 0.0
+	_detour = Vector3.INF
+	_detours = 0
 	match state:
 		State.IDLE:
 			_idle_duration = randf_range(idle_time_min, idle_time_max)
@@ -158,7 +162,9 @@ func _physics_process(delta: float) -> void:
 				speed = wander_speed
 
 		State.CHASE:
-			if player == null or player.is_dead \
+			if not is_instance_valid(foe) and not aggressive and not _angry: # their fight's over, and you never hit them
+				_enter(State.RETURN)
+			elif player == null or player.is_dead \
 					or _flat(player.global_position - character.global_position).length() > lose_aggro_range \
 					or _flat(character.global_position - _home).length() > leash_range:
 				_enter(State.RETURN)
@@ -175,12 +181,27 @@ func _physics_process(delta: float) -> void:
 					_attack(player)
 
 		State.RETURN:
+			if sim_speed > 0.0: # one of the sim's characters: the body only shows the record's walk
+				_puppet(delta)
+				return
 			var to_home := _flat(_home - character.global_position)
-			if to_home.length() < 0.5 or _is_stuck(delta):
+			var goal: Vector3 = _detour if _detour.is_finite() else _home
+			var to_goal := _flat(goal - character.global_position)
+			if _detour.is_finite() and to_goal.length() < 0.6:
+				_detour = Vector3.INF # round it: on for home
+			elif to_home.length() < 0.5:
 				_enter(State.IDLE)
+			elif _is_stuck(delta): # snagged (a trunk, a rock, each other): step aside, left then right, wider each time
+				_detours += 1
+				_stuck_time = 0.0
+				if _detours > 6:
+					_enter(State.IDLE) # give up; the sim's unstick puts them past it
+				else:
+					var side := to_home.normalized().cross(Vector3.UP) * (1.0 if _detours % 2 == 1 else -1.0)
+					_detour = character.global_position + side * (1.5 + _detours) + to_home.normalized()
 			else:
-				desired = _path_dir(_home, to_home)
-				speed = wander_speed * 1.5
+				desired = _path_dir(goal, to_goal)
+				speed = sim_speed if sim_speed > 0.0 else wander_speed * 1.5 # a character walks at the sim's pace
 				# Can re-aggro once it's back near home.
 				if to_home.length() < wander_radius and _try_aggro(player):
 					return
@@ -216,10 +237,50 @@ func _apply_gravity(delta: float) -> void:
 		character.velocity.y = 0.0
 
 func _steer(dir: Vector3, speed: float, delta: float) -> void:
-	var target := dir * speed
+	var target := _round_trees(dir) * speed
 	var rate := 1.0 - exp(-acceleration * delta)
 	character.velocity.x = lerpf(character.velocity.x, target.x, rate)
 	character.velocity.z = lerpf(character.velocity.z, target.z, rate)
+
+## The dead trees aren't in the navmesh: bend dir round any trunk in the way, by the same rule the sim's records
+## walk by (DeadTrees.round_trees), so a body near you and its record far off take the same way round.
+func _round_trees(dir: Vector3) -> Vector3:
+	if dir.length() < 0.01:
+		return dir
+	if _trees == null:
+		var camps := get_tree().get_first_node_in_group("camps")
+		_trees = camps.get("trees") if camps else null
+		if _trees == null:
+			return dir
+	return _trees.round_trees(character.global_position, dir)
+
+var _trees = null # the DeadTrees node (its _trunks lookup)
+## Set by Camps for its characters: walking somewhere (RETURN) is the record's walk, shown. The same step as the
+## record takes far off (Camps._walk: walk_speed, round the trees), on the ground, no physics, so loaded is only a look.
+## (Fights near you are the one thing a body does for itself: CHASE / attack.)
+var sim_speed := 0.0
+## Set by Camps while it syncs record health to the body (the dark, hunger): a hurt that isn't a blow.
+var sim_hurt := false
+var _angry := false # you hurt it: it comes for you even though it isn't aggressive
+
+func _puppet(delta: float) -> void:
+	var to_home := _flat(_home - character.global_position)
+	if to_home.length() < 0.3:
+		character.velocity = Vector3.ZERO
+		_enter(State.IDLE)
+		return
+	var camps := get_tree().get_first_node_in_group("camps")
+	if not camps:
+		return
+	var step: Vector3 = camps._walk(character.global_position, _home, delta)
+	var p: Vector3 = camps._ground(character.global_position + step)
+	if not is_nan(p.y):
+		character.global_position = p + Vector3.UP * 0.1
+	character.velocity = step / maxf(delta, 0.001) # for the walk animation only
+	_face(step, delta)
+	_walk_bob(sim_speed, delta)
+var _detour := Vector3.INF # a step aside round something it snagged on (RETURN)
+var _detours := 0
 
 ## Direction to the next navmesh path point toward target; straight line if no navmesh yet.
 func _path_dir(target: Vector3, straight: Vector3) -> Vector3:
