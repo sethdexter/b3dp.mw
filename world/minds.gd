@@ -21,8 +21,8 @@ extends Node
 ##   cinder-thief  greedy and broke -> steals the camp's wood and runs (the firekeeper may catch them)
 
 @export_group("Needs drain (per minute)")
-@export_range(0.0, 20.0, 0.1) var food_drain := 2.0
-@export_range(0.0, 20.0, 0.1) var water_drain := 3.0
+@export_range(0.0, 20.0, 0.1) var food_drain := 1.0
+@export_range(0.0, 20.0, 0.1) var water_drain := 1.5
 @export_range(0.0, 20.0, 0.1) var light_drain := 4.0
 @export_range(0.0, 20.0, 0.1) var safety_drain := 0.5
 @export_range(0.0, 20.0, 0.1) var coin_drain := 1.0

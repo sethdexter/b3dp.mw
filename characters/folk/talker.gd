@@ -52,6 +52,19 @@ extends InteractableComponent
 ## Set by world/encounters.gd for special people (mourner, starved, pilgrim, toll): they talk their own way.
 var role := ""
 var _talks := 0
+## Seconds they stand still for you after you speak to them (and for as long as their wares are open).
+@export_range(0.0, 60.0, 0.5, "suffix:s") var talk_hold := 8.0
+
+func _hold(person: Node) -> void:
+	var ai = person.get_node_or_null("mobAI")
+	if ai:
+		ai.hold_until_ms = Time.get_ticks_msec() + int(talk_hold * 1000.0)
+
+func _process(_delta: float) -> void:
+	if container and container.is_open: # trading: they wait while you look through their wares
+		var person := get_parent()
+		if person:
+			_hold(person)
 static var _box: Label
 static var _fade: Tween
 
@@ -66,6 +79,7 @@ func interact(player: Node) -> void:
 	if not player or not person or person.is_dead:
 		return
 	interacted.emit(player)
+	_hold(person)
 	if container and not container.is_open:
 		container.open(player) # a trader's wares, next to your pack
 	var line := ""

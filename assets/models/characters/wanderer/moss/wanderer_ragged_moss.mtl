@@ -1,0 +1,60 @@
+newmtl head
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd head.png
+map_Ke head_glow.png
+
+newmtl hood
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd hood.png
+
+newmtl torso
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd torso.png
+
+newmtl sleeve
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd sleeve.png
+
+newmtl cuff
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd cuff.png
+
+newmtl hand
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd hand.png
+
+newmtl robe
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd robe.png
+
+newmtl leg
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd leg.png
+
+newmtl shin
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd shin.png
+
+newmtl foot
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+map_Kd foot.png

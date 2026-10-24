@@ -103,7 +103,7 @@ func _enter(new_state: State) -> void:
 			_idle_duration = randf_range(idle_time_min, idle_time_max)
 		State.WANDER:
 			var angle := randf() * TAU
-			var r := sqrt(randf()) * wander_radius
+			var r := lerpf(0.5, 1.0, sqrt(randf())) * wander_radius # a real stroll: a near point ends at once and they sit straight back down
 			_target_point = _home + Vector3(cos(angle) * r, 0.0, sin(angle) * r)
 
 ## Beyond this from the player it holds still: terrain and tree colliders only exist near the player.
@@ -138,6 +138,14 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_apply_gravity(delta)
+	if Time.get_ticks_msec() < hold_until_ms and state != State.CHASE: # being talked to: stand and face you (a blow or a foe breaks it: CHASE)
+		var you := _find_player()
+		if you:
+			_face(_flat(you.global_position - character.global_position), delta)
+		character.velocity = Vector3(0.0, character.velocity.y, 0.0)
+		character.move_and_slide()
+		_walk_bob(0.0, delta)
+		return
 
 	_state_time += delta
 	var player := foe if is_instance_valid(foe) and not foe.is_dead else _find_player()
@@ -259,6 +267,8 @@ var _trees = null # the DeadTrees node (its _trunks lookup)
 ## record takes far off (Camps._walk: walk_speed, round the trees), on the ground, no physics, so loaded is only a look.
 ## (Fights near you are the one thing a body does for itself: CHASE / attack.)
 var sim_speed := 0.0
+## Talker sets this while you talk to them (or trade): they hold still and face you until then, unless a fight starts.
+var hold_until_ms := 0
 ## Set by Camps while it syncs record health to the body (the dark, hunger): a hurt that isn't a blow.
 var sim_hurt := false
 var _angry := false # you hurt it: it comes for you even though it isn't aggressive
@@ -315,7 +325,7 @@ func _walk_bob(speed: float, delta: float) -> void:
 	if not visual:
 		return
 	var moving := _flat(character.velocity).length() > 0.2 and not is_attacking
-	if moving:
+	if moving and not (animator and animator.has_method("has_clip") and animator.has_clip("walk")): # a real walk clip needs no fake sway
 		_bob_time += delta * (4.0 + speed * 2.0)
 		visual.rotation_degrees.z = sin(_bob_time) * walk_bob_degrees
 	else:

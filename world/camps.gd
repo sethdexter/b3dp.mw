@@ -158,7 +158,7 @@ var _start_pos := Vector3(NAN, NAN, NAN)
 @export_range(0, 2000) var smoulders := 150
 @export_range(1.0, 30.0, 0.5, "suffix:m") var smoulder_radius := 6.0
 @export var sap_giant := 1.4
-@export_range(60.0, 36000.0, 60.0, "suffix:s") var copse_regrow := 1800.0
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var copse_regrow := 900.0
 ## Small trees are this size against the big ones' base size (random in range).
 @export var sapling_scale := Vector2(0.9, 1.5)
 
@@ -1332,10 +1332,10 @@ func _wood_in(people: Array) -> int:
 func can_light(b: Camp) -> bool:
 	var p := _alive(b.members)
 	var has := func(id): return p.any(func(f): return f.inv.get(id, 0) > 0)
-	return (b.job.get("fuel", 0.0) > 0.0 or has.call("flint")) and _wood_in(p) >= (camplife.light_logs if camplife else 2) and has.call("tinder") and has.call("kindling")
+	return (b.job.get("fuel", 0.0) > 0.0 or has.call("flint")) and _wood_in(p) >= 1 and has.call("tinder") and has.call("kindling")
 
 ## Lights a fire at `home` with the group's flame and two of their logs.
-## Their spark, tinder, kindling and two logs. False = it didn't catch (the tinder's spent) or they lack the makings.
+## Their spark, tinder, kindling and up to light_logs logs (one will do: a small fire to start). False = it didn't catch (the tinder's spent) or they lack the makings.
 func _light(home: Camp, b: Camp, now: float) -> bool:
 	if not camplife:
 		return true
@@ -1361,7 +1361,7 @@ func _light(home: Camp, b: Camp, now: float) -> bool:
 		if k > 0 and camplife:
 			camplife.add(f.inv, "ash_wood", -k)
 			need -= k
-	home.job["fire_fuel"] = camplife.light_logs * camplife.wood_burn
+	home.job["fire_fuel"] = (camplife.light_logs - need) * camplife.wood_burn # what they had on hand
 	home.job["fire_at"] = now
 	home.job.erase("went_out")
 	return true
@@ -1881,15 +1881,21 @@ func _pose(f: Folk) -> void:
 	if not vis.has_meta("base_y"):
 		vis.set_meta("base_y", vis.position.y)
 	var by: float = vis.get_meta("base_y")
-	if f.task.get("phase", "") == "work" and f.task.get("type", "") in ["wood", "sap", "forage", "water"]:
-		vis.position.y = by
-		vis.rotation_degrees.x = sin(Time.get_ticks_msec() * 0.008) * 25.0 # chopping, cutting, picking, filling
-	elif ai.state == MobAIComponent.State.IDLE and f.camp.wild == "" and not f.camp.roaming and _dist(f.pos, f.camp.pos) < 10.0:
-		vis.position.y = by - 0.8 # sitting by the fire
-		vis.rotation_degrees.x = -10.0
-	else:
-		vis.position.y = by
-		vis.rotation_degrees.x = 0.0
+	vis.position.y = by
+	vis.rotation_degrees.x = 0.0
+	var fig := vis.get_node_or_null("figure")
+	if fig and "pose" in fig: # the jointed figure poses itself (raggedFigure.gd)
+		if f.task.get("phase", "") == "work" and f.task.get("type", "") in ["wood", "sap", "forage", "water"]:
+			fig.pose = "work" # chopping, cutting, picking, filling
+		elif ai.state == MobAIComponent.State.IDLE and f.camp.wild == "" and not f.camp.roaming and _dist(f.pos, f.camp.pos) < 10.0:
+			var to := f.camp.pos - f.node.global_position # and face it
+			if Vector2(to.x, to.z).length() < 2.5:
+				ai._idle_duration = 0.0 # too close to the flames: move off and rest elsewhere
+			fig.pose = "sit" if ai._idle_duration > 15.0 else "" # long rests sit by the fire, short ones stand
+			if Time.get_ticks_msec() >= ai.hold_until_ms: # not while you're talking to them
+				f.node.rotation.y = lerp_angle(f.node.rotation.y, atan2(-to.x, -to.z), 0.05)
+		else:
+			fig.pose = ""
 	var title := f.name
 	for r in f.camp.job.get("roles", {}):
 		if f.camp.job.roles[r] == f:

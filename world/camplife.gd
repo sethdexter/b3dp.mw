@@ -35,15 +35,15 @@ extends Node
 @export_range(0.0, 100.0, 1.0) var eat_below := 55.0
 @export_range(0.0, 100.0, 1.0) var drink_below := 60.0
 ## How much one person carries at most of water skins / food items.
-@export_range(1, 20) var carry_skins := 4
-@export_range(1, 20) var carry_food := 4
+@export_range(1, 20) var carry_skins := 6
+@export_range(1, 20) var carry_food := 6
 @export_group("Starting stuff")
 ## What each person starts with in their pack, and what each camp's barrel / crate starts with per person.
 @export var pack_start := {"water_skin": 1, "bread": 1}
 ## Nothing extra from nowhere: anyone setting out takes what they can from their camp (tend_torch).
 @export var traveller_extra := {}
 ## Setting out from a camp, each takes this much from its stores if it's there (and the group a torch or two).
-@export var road_share := {"water_skin": 1, "bread": 1, "tinder": 1, "kindling": 1}
+@export var road_share := {"water_skin": 1, "bread": 1, "tinder": 1, "kindling": 1, "ash_wood": 1}
 @export_range(0, 5) var road_torches := 1
 @export_range(0, 20) var barrel_per_person := 2
 @export var crate_per_person := {"bread": 1, "ash_cap": 1, "torch": 2, "ash_wood": 1, "tinder": 1, "kindling": 1}
@@ -58,6 +58,8 @@ extends Node
 @export_range(0, 20) var food_low := 3
 ## At most this share of the camp out foraging at once.
 @export_range(0.0, 1.0, 0.05) var forager_share := 0.75
+## And at most this share fetching water at once.
+@export_range(0.0, 1.0, 0.05) var water_share := 0.34
 @export_range(50.0, 3000.0, 10.0, "suffix:m") var forage_range := 300.0
 @export_range(50.0, 3000.0, 10.0, "suffix:m") var spring_range := 900.0
 ## Seconds spent gathering / filling (what they get is what the place has: see Sources and Hunting).
@@ -130,14 +132,16 @@ extends Node
 ## A camp makes a torch out of a log at its fire when it has fewer than this many per person (keeping the last
 ## logs for the fire). shortcut: one log makes a torch until crafting gives torches a real recipe.
 @export_range(0, 10) var torches_low := 2
+## With no torch to take, a chore goes out with brands from the fire: each one costs the fire this much burn.
+@export_range(0.0, 1200.0, 10.0, "suffix:s") var brand_cost := 150.0
 ## Torches split from one log.
 @export_range(1, 10) var torches_per_log := 3
 ## Making torches takes sap (resin): a log's worth of torches takes this much. Sap also renews a spent torch
 ## (one resin instead of a burnt stub). It only comes from sap nodes on the giant trees: a drawer goes to cut it
 ## (sap_per_trip at most) when the crate has fewer than sap_low.
 @export_range(0, 10) var sap_per_log := 1
-@export_range(0, 10) var sap_per_trip := 2
-@export_range(0, 20) var sap_low := 2
+@export_range(0, 10) var sap_per_trip := 4
+@export_range(0, 20) var sap_low := 4
 @export_range(0, 10) var axe_bonus := 1
 @export_range(0.0, 200.0, 1.0, "suffix:m") var chop_noise := 35.0
 @export_group("Roles")
@@ -172,12 +176,12 @@ const ROLES := ["firekeeper", "drawer", "waterbearer", "wickbearer", "storytelle
 ## Hunters go after the nearest herd of game within this, kill this many (random in range, never more than the
 ## herd has) and bring back this much raw meat per kill. No herd near: nobody goes hunting.
 @export_range(50.0, 5000.0, 10.0, "suffix:m") var hunt_range := 1000.0
-@export var hunt_kills := Vector2i(2, 4)
-@export_range(1, 10) var meat_per_kill := 3
+@export var hunt_kills := Vector2i(3, 5)
+@export_range(1, 10) var meat_per_kill := 5
 @export_group("")
 
 ## Places that run out: [most uses, seconds for one use to come back when nearly full, what one use gives].
-const SOURCES := {"spring": [6, 90.0, 2], "fungus": [3, 300.0, 2], "salt": [3, 900.0, 1], "sap": [3, 1800.0, 1]}
+const SOURCES := {"spring": [6, 45.0, 2], "fungus": [3, 300.0, 2], "salt": [3, 900.0, 1], "sap": [3, 1800.0, 2]}
 
 ## Grows a place's stock back: one use at a time, each slower the emptier it is. s = {stock, at}.
 static func regrow(s: Dictionary, most: int, every: float, slow: float, now: float) -> void:
@@ -518,10 +522,18 @@ func _tend_fire(c, now: float) -> void:
 		add(c.crate, "ash_wood", -1)
 		j.fire_fuel += wood_burn
 	var owned: int = c.crate.get("torch", 0) + camps._alive(c.members).reduce(func(t, f): return t + f.inv.get("torch", 0), 0)
-	if tending and owned < torches_low * n and c.crate.get("ash_wood", 0) > 0 and c.crate.get("resin", 0) >= sap_per_log: # torches from a log and sap, for the road
+	if tending and owned < torches_low * n and c.crate.get("ash_wood", 0) > ceili(n / float(people_per_log)): # torches for the road, from logs the fire can spare
 		add(c.crate, "ash_wood", -1)
-		add(c.crate, "resin", -sap_per_log)
-		add(c.crate, "torch", torches_per_log if has_role(c, "wickbearer") else 1) # a wickbearer gets the most out of a log
+		var made := 1
+		if c.crate.get("resin", 0) >= sap_per_log:
+			add(c.crate, "resin", -sap_per_log)
+			made = torches_per_log if has_role(c, "wickbearer") else 2 # a wickbearer gets the most out of a log
+		elif owned >= n: # no sap and one each already: keep the log for the fire
+			add(c.crate, "ash_wood", 1)
+			made = 0
+		else: # no sap: a crude brand of bare wood that burns out in half the lightings
+			j["torch_wear"] = j.get("torch_wear", 0) + torch_lights / 2
+		add(c.crate, "torch", made)
 	if j.fire_fuel <= 0.0:
 		camps.fire_out(c, now)
 
@@ -549,7 +561,8 @@ func _plan(c, now: float) -> void:
 	if idle.is_empty():
 		return
 	var unknown := false # something's short and nobody remembers where to get it
-	if water < water_low * n and not people.any(func(p): return p.task.get("type", "") == "water"):
+	var carriers := people.filter(func(p): return p.task.get("type", "") == "water").size()
+	if water < water_low * n and carriers < maxi(1, ceili(n * water_share)): # a big camp needs more than one pair of hands
 		var k := _recall(c, "spring", spring_range)
 		if not k.is_empty():
 			_give(_pick(idle, c, "waterbearer"), {"type": "water", "to": camps._ground(k[1]), "phase": "out", "spot": k[0]})
@@ -557,16 +570,16 @@ func _plan(c, now: float) -> void:
 			unknown = true
 	var out := people.filter(func(f): return f.task.get("type", "") == "forage").size()
 	if not idle.is_empty() and food < food_low * n and out < maxi(1, int(n * forager_share)):
-		var k := _recall(c, "fungus", forage_range)
+		var k := _recall(c, "herd", hunt_range) # game first: a hunt feeds far more than a basket of caps
 		if k.is_empty():
-			k = _recall(c, "herd", hunt_range)
+			k = _recall(c, "fungus", forage_range)
 		if not k.is_empty(): # nothing they know to pick and no game they know of: nobody goes
 			var patch = k[0] if k[0].wild == "fungus" else null
 			_give(idle.pop_back(), {"type": "forage", "to": camps._ground(k[1]), "phase": "out", "spot": patch, "herd": null if patch else k[0]})
 		else:
 			unknown = true
 	var cutters: int = people.filter(func(p): return p.task.get("type", "") == "wood").size()
-	if not idle.is_empty() and c.crate.get("ash_wood", 0) < wood_low * n and cutters < (2 if c.crate.get("ash_wood", 0) < n else 1): # very low: two go
+	if not idle.is_empty() and c.crate.get("ash_wood", 0) < wood_low * n and cutters < maxi(2 if c.crate.get("ash_wood", 0) < n else 1, ceili(n * 0.25)): # very low: two go; a big camp sends more
 		var k := _recall(c, "copse", copse_range)
 		if not k.is_empty():
 			_give(_pick(idle, c, "drawer"), {"type": "wood", "to": camps._ground(k[1]), "phase": "out", "spot": k[0]})
@@ -624,6 +637,9 @@ func _give(f, task: Dictionary) -> void:
 	var carry: int = mini(need, 2) # two in hand is enough to keep lighting one from the other
 	move(c.crate, f.inv, "torch", maxi(0, carry - f.inv.get("torch", 0)))
 	var lights: int = need if f.inv.get("torch", 0) >= mini(need, 2) else f.inv.get("torch", 0)
+	if lights == 0 and not c.roaming and c.job.get("fire_fuel", 0.0) > brand_cost * need + fire_feed_below:
+		c.job.fire_fuel -= brand_cost * need # no torch: they carry burning brands from the fire, and it burns lower for it
+		lights = need
 	if lights == 0 and task.type != "evacuate":
 		return
 	c.job["torch_wear"] = c.job.get("torch_wear", 0) + lights

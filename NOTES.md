@@ -113,5 +113,5 @@ Everything is records; nodes are only the view. `world/camps.gd` (node "Camps") 
 - Small magics (Kindle, Mend, Dew, Ward, Sense): every spell costs reagents.
 - Crafting (recipes drafted: torch, kindling, flint, bone knife, hatchet, staff, dried meat, water skin, cloak, leather, salve).
 - Roles you hold carry no duties yet; bandit camps can't be joined; tinder doesn't get damp; NPC sap needs no knife.
-- Loaded visuals: no chop animation, no sitting, roles invisible. Rig + animate goblin/orc (art, the user's).
+- Loaded visuals: wanderers are Mixamo-rigged (rig/umber.fbx + rig/anims, sit/work from Camps._pose); bleached/soot/moss robes still need their own rigs; roles invisible. Rig + animate goblin/orc (art, the user's).
 - Navmesh pathfinding, more mob types.

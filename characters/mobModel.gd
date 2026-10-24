@@ -143,6 +143,8 @@ var _single_clip := ""       # fallback: only one unnamed animation
 var _proc_time := 0.0
 var _proc_speed := 0.0
 var _model_rest_y := 0.0
+## Held instead of idle while standing still, if there's a clip for it (e.g. "sit", "work"; set by Camps).
+var pose := ""
 
 func _setup_animation() -> void:
 	_model_rest_y = model.position.y
@@ -176,7 +178,7 @@ func _setup_animation() -> void:
 	# Loop the locomotion clips; one-shots play once.
 	for role in clips:
 		var a := anim_player.get_animation(clips[role])
-		a.loop_mode = Animation.LOOP_LINEAR if role in ["idle", "walk", "run"] else Animation.LOOP_NONE
+		a.loop_mode = Animation.LOOP_LINEAR if role in ["idle", "walk", "run", "sit", "work"] else Animation.LOOP_NONE
 
 	if clips.is_empty():
 		var names := anim_player.get_animation_list()
@@ -195,6 +197,8 @@ const ROLE_KEYWORDS := {
 	"attack": ["attack", "punch", "slash", "swing", "strike"],
 	"hit": ["hit", "impact", "react"],
 	"death": ["death", "dying", "die"],
+	"sit": ["sit"],
+	"work": ["work", "chop", "pick"],
 }
 
 func _scan_animation_folder() -> Dictionary[String, PackedScene]:
@@ -273,7 +277,7 @@ func set_move_speed(speed: float) -> void:
 	if _one_shot != "":
 		return
 	if speed < 0.2:
-		_play_role("idle")
+		_play_role(pose if clips.has(pose) else "idle")
 	elif speed >= run_threshold and clips.has("run"):
 		_play_role("run", speed / run_clip_speed)
 	elif clips.has("walk"):

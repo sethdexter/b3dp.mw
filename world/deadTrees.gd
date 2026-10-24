@@ -212,6 +212,7 @@ func _process(_delta: float) -> void:
 		add_child(_body)
 		_root_body = StaticBody3D.new()
 		_root_body.top_level = true
+		_root_body.collision_layer = 2 # roots trip only the player (mask 2): bodies walk the sim's path through them
 		add_child(_root_body)
 	var shapes := _body.get_children()
 	var root_cols := _root_body.get_children()

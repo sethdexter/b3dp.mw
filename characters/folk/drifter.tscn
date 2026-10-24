@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bn1cu2x63t7ny"]
 
 [ext_resource type="Script" uid="uid://cr0tpb1a25h1f" path="res://characters/basecharacter.gd" id="1_base"]
 [ext_resource type="Script" uid="uid://b4diwhly0gvuu" path="res://components/attributesComponent.gd" id="2_attr"]
@@ -6,49 +6,54 @@
 [ext_resource type="Script" uid="uid://c36jd280fd07y" path="res://components/combatComponent.gd" id="4_combat"]
 [ext_resource type="Script" uid="uid://dxauf66r51dkp" path="res://characters/trainingDummy.gd" id="5_dummy"]
 [ext_resource type="Script" uid="uid://ne6op0noypt7" path="res://components/mobAIComponent.gd" id="6_ai"]
-[ext_resource type="Script" path="res://characters/folk/folkFigure.gd" id="7_fig"]
-[ext_resource type="Script" path="res://characters/folk/talker.gd" id="8_talk"]
+[ext_resource type="Script" uid="uid://cyp7sytr6a4e2" path="res://characters/folk/raggedFigure.gd" id="7_fig"]
+[ext_resource type="Script" uid="uid://blngtakmhl736" path="res://characters/folk/talker.gd" id="8_talk"]
 [ext_resource type="FontFile" uid="uid://bo6tac5qmet7q" path="res://assets/fonts/MononokiNerdFont-Regular.ttf" id="9_font"]
 [ext_resource type="Script" uid="uid://lfw7r1omdqjv" path="res://components/containerComponent.gd" id="10_cont"]
 [ext_resource type="Script" uid="uid://cbk70h0ponen2" path="res://components/inventoryComponent.gd" id="11_inv"]
 [ext_resource type="Script" uid="uid://ck3lmt0mjc1n4" path="res://ui/itemListView.gd" id="12_view"]
+[ext_resource type="PackedScene" uid="uid://b3ooj7u1d7bdv" path="res://assets/models/characters/wanderer/rig/umber.fbx" id="13_rig"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.55
 height = 3.0
 
-[node name="drifter" type="CharacterBody3D" node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent")]
+[node name="drifter" type="CharacterBody3D" unique_id=811919501 node_paths=PackedStringArray("attributeComponent", "statComponent", "combatComponent")]
 script = ExtResource("1_base")
 Name = "Drifter"
 attributeComponent = NodePath("attributes")
 statComponent = NodePath("stats")
 combatComponent = NodePath("combat")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=642117270]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 shape = SubResource("CapsuleShape3D_body")
 
-[node name="visual" type="Node3D" parent="."]
+[node name="visual" type="Node3D" parent="." unique_id=96729875]
 
-[node name="figure" type="Node3D" parent="visual"]
+[node name="figure" type="Node3D" parent="visual" unique_id=1990113965]
 script = ExtResource("7_fig")
+model_scene = ExtResource("13_rig")
+target_height = 3.0
+model_yaw_degrees = 180.0
+animations_folder = "res://assets/models/characters/wanderer/rig/anims"
+walk_clip_speed = 1.6
+blend_time = 0.5
 
-[node name="attributes" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+[node name="attributes" type="Node" parent="." unique_id=2038801598 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("2_attr")
 currentCharacter = NodePath("..")
 base_strength = 6
-base_vigor = 10
-base_agility = 10
 
-[node name="stats" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+[node name="stats" type="Node" parent="." unique_id=16755898 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("3_stats")
 currentCharacter = NodePath("..")
 
-[node name="combat" type="Node" parent="." node_paths=PackedStringArray("currentCharacter")]
+[node name="combat" type="Node" parent="." unique_id=322110390 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("4_combat")
 currentCharacter = NodePath("..")
 
-[node name="dummy" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+[node name="dummy" type="Node" parent="." unique_id=156951635 node_paths=PackedStringArray("character", "visual")]
 script = ExtResource("5_dummy")
 character = NodePath("..")
 visual = NodePath("../visual")
@@ -56,31 +61,33 @@ respawns = false
 corpse_time = 8.0
 wobble_degrees = 6.0
 loot = Dictionary[String, int]({
+"bone": 1,
+"bread": 1,
+"cloth": 1,
+"coin": 8,
 "health_potion": 1,
 "torch": 1,
-"bread": 1,
-"water_skin": 1,
-"coin": 8,
-"cloth": 1,
-"bone": 1
+"water_skin": 1
 })
 
-[node name="mobAI" type="Node" parent="." node_paths=PackedStringArray("character", "visual")]
+[node name="mobAI" type="Node" parent="." unique_id=426428797 node_paths=PackedStringArray("character", "visual", "animator")]
 script = ExtResource("6_ai")
 character = NodePath("..")
 visual = NodePath("../visual")
-aggressive = false
-wander_radius = 8.0
+animator = NodePath("../visual/figure")
+wander_radius = 4.0
 wander_speed = 1.1
+idle_time_min = 6.0
+idle_time_max = 40.0
+aggressive = false
 chase_speed = 3.2
 attack_range = 2.6
-attack_damage = 2
 
-[node name="talker" type="Node" parent="."]
+[node name="talker" type="Node" parent="." unique_id=413216944]
 script = ExtResource("8_talk")
 gives_jobs = true
 
-[node name="prompt" type="Label" parent="talker"]
+[node name="prompt" type="Label" parent="talker" unique_id=326381218]
 visible = false
 top_level = true
 offset_right = 50.0
@@ -89,28 +96,28 @@ theme_override_fonts/font = ExtResource("9_font")
 text = "Talk"
 horizontal_alignment = 1
 
-[node name="wares" type="Node" parent="talker"]
+[node name="wares" type="Node" parent="talker" unique_id=1272179349]
 script = ExtResource("10_cont")
 shop = true
 starting_items = Dictionary[String, int]({
-"bread": 3,
-"water_skin": 3,
-"dried_meat": 2,
 "ash_wine": 2,
-"torch": 2,
-"health_potion": 1,
 "bone_knife": 1,
-"salt": 2,
+"bread": 3,
 "cloth": 2,
-"sinew": 1
+"dried_meat": 2,
+"health_potion": 1,
+"salt": 2,
+"sinew": 1,
+"torch": 2,
+"water_skin": 3
 })
 
-[node name="inventoryComponent" type="Node" parent="talker/wares"]
+[node name="inventoryComponent" type="Node" parent="talker/wares" unique_id=265830595]
 script = ExtResource("11_inv")
 
-[node name="containerUX" type="CanvasLayer" parent="talker/wares"]
+[node name="containerUX" type="CanvasLayer" parent="talker/wares" unique_id=1227530368]
 
-[node name="ContainerPanel" type="VBoxContainer" parent="talker/wares/containerUX"]
+[node name="ContainerPanel" type="VBoxContainer" parent="talker/wares/containerUX" unique_id=1302408652]
 visible = false
 anchors_preset = 2
 anchor_top = 1.0
@@ -125,12 +132,12 @@ theme_override_constants/separation = 6
 alignment = 2
 script = ExtResource("12_view")
 
-[node name="Items" type="VBoxContainer" parent="talker/wares/containerUX/ContainerPanel"]
+[node name="Items" type="VBoxContainer" parent="talker/wares/containerUX/ContainerPanel" unique_id=1411445680]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 2
 
-[node name="Details" type="Label" parent="talker/wares/containerUX/ContainerPanel"]
+[node name="Details" type="Label" parent="talker/wares/containerUX/ContainerPanel" unique_id=623309975]
 custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)

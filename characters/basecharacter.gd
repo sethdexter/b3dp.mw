@@ -24,6 +24,7 @@ func _ready():
 	# Lets NPCs find the player without hard-coded paths.
 	if controllerComponent:
 		add_to_group("player")
+		set_collision_mask_value(2, true) # tree roots (deadTrees.gd)
 
 	if inventoryComponent:
 		for id in starting_items:
