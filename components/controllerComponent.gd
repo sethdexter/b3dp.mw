@@ -105,12 +105,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		handle_camera_rotation(event.relative)
 
 	# Jump input press
-	var is_jump_press := (InputMap.has_action("jump") and event.is_action_pressed("jump")) or event.is_action_pressed("ui_accept")
+	var is_jump_press: bool = (InputMap.has_action("jump") and event.is_action_pressed("jump")) or (event is InputEventKey and event.pressed and event.keycode == KEY_SPACE) # Space only (Enter is for menus)
 	if is_jump_press:
 		apply_jump()
 
 	# Variable jump height cut on release
-	var is_jump_release := (InputMap.has_action("jump") and event.is_action_released("jump")) or event.is_action_released("ui_accept")
+	var is_jump_release: bool = (InputMap.has_action("jump") and event.is_action_released("jump")) or (event is InputEventKey and not event.pressed and event.keycode == KEY_SPACE)
 	if is_jump_release and character:
 		if character.velocity.y > 0:
 			character.velocity.y *= variable_jump_cut

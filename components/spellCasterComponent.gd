@@ -11,6 +11,8 @@ extends Node
 ## Spells fire from here, along its -Z (the camera).
 @export var cast_origin: Node3D
 @export var current_spell: Spell
+## Spells you know (Z cycles). Empty = every spell in res://spells/data.
+@export var known_spells: Array[Spell] = []
 
 @export_group("Editor preview")
 ## Seconds into the cast: build-up in front of the camera, then the flight.
@@ -30,9 +32,21 @@ var _ghost: Node3D # editor preview projectile, never saved
 func _ready() -> void:
 	if not character:
 		character = get_parent() as BaseCharacter
+	if known_spells.is_empty() and not Engine.is_editor_hint():
+		for f in DirAccess.get_files_at("res://spells/data"):
+			var s = load("res://spells/data/" + f.trim_suffix(".remap"))
+			if s is Spell:
+				known_spells.append(s)
+	if current_spell == null and not known_spells.is_empty():
+		current_spell = known_spells[0]
 
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_Z and not known_spells.is_empty():
+		current_spell = known_spells[posmod(known_spells.find(current_spell) + 1, known_spells.size())]
+		var needs := ", ".join(current_spell.reagents.keys().map(func(k): return "%d %s" % [current_spell.reagents[k], k.replace("_", " ")]))
+		Talker.notify("Spell: %s (%d magicka%s)" % [current_spell.Name, current_spell.cost_magicka, (", " + needs) if needs != "" else ""], 2.5)
 		return
 	if InputMap.has_action("cast") and event.is_action_pressed("cast"):
 		if _inventory_open() or character.is_dead:
@@ -51,6 +65,18 @@ func cast(spell: Spell) -> bool:
 	if not _can_pay(stats, spell):
 		print("Not enough magicka for %s." % spell.Name)
 		return false
+	var inv: InventoryComponent = character.get("inventoryComponent")
+	var db := get_node_or_null("/root/item_list")
+	for id in spell.reagents: # the reagents: no casting without them
+		if not inv or not db or inv.count_item(db.get_item_instance(id)) < spell.reagents[id]:
+			Talker.notify("%s needs %d %s." % [spell.Name, spell.reagents[id], id.replace("_", " ")])
+			return false
+	for id in spell.reagents:
+		var it: Item = db.get_item_instance(id)
+		var left: int = spell.reagents[id]
+		for key: Item in inv.inventory.keys():
+			if left > 0 and InventoryComponent.is_same_item(key, it):
+				left -= inv.remove_item(key, left)
 	_pay(stats, spell)
 	_ready_at_msec = Time.get_ticks_msec() + int(spell.cooldown * 1000.0)
 

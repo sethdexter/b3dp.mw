@@ -15,6 +15,7 @@ var _bg: ImageTexture
 const RES := 256 # heightmap pixels across
 
 func _ready() -> void:
+	add_to_group("sim_map") # ScreenEffects hides itself while the map is up
 	visible = false
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -31,6 +32,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.keycode == KEY_M:
 		visible = not visible
+		if visible:
+			get_tree().call_group("ui_panel", "close_unless", self) # the map covers the screen: the panels close
 		if visible:
 			_finish_island()
 			_places.queue_redraw()

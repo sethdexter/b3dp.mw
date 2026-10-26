@@ -400,6 +400,17 @@ func _dark_wears(f, minutes: float) -> bool:
 		if at_fire:
 			f.hp = minf(100.0, f.hp + rest_heal * minutes * (camps.camplife.ashwife_heal if camps.camplife and camps.camplife.has_role(f.camp, "ashwife") else 1.0))
 		return false
+	if c.job.get("ward_until", 0.0) > SimClock.now:
+		return false # their Ward: the dark holds off (no mending)
+	if f.dark_s > 0.0 and c.roaming and camps.camplife and f.dark_s > 30.0: # caught out in the dark: Ward, if they carry what it takes
+		var bone = camps._alive(c.members).filter(func(o): return o.inv.get("bone", 0) > 0)
+		var resin = camps._alive(c.members).filter(func(o): return o.inv.get("resin", 0) > 0)
+		if not bone.is_empty() and not resin.is_empty():
+			camps.camplife.add(bone[0].inv, "bone", -1)
+			camps.camplife.add(resin[0].inv, "resin", -1)
+			c.job["ward_until"] = SimClock.now + 120.0
+			camps.note(f, "raised a Ward against the dark", false)
+			return false
 	if f.dark_s > 0.0: # by a smoulder the dark holds off a while: it doesn't wear on them, but nothing's mended either
 		if _smoulders.is_empty():
 			_smoulders = camps.camps.filter(func(o): return o.wild == "smoulder") # they never move or go out

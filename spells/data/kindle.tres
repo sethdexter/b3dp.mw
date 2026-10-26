@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Spell" format=3]
+
+[ext_resource type="Script" path="res://spells/spell.gd" id="1_spell"]
+[ext_resource type="Script" path="res://spells/effects/spellEffect.gd" id="2_eff"]
+[ext_resource type="Script" path="res://spells/delivery/selfDelivery.gd" id="3_self"]
+[ext_resource type="Script" path="res://spells/effects/smallMagicEffect.gd" id="4_magic"]
+
+[sub_resource type="Resource" id="Delivery_self"]
+script = ExtResource("3_self")
+
+[sub_resource type="Resource" id="Effect_magic"]
+script = ExtResource("4_magic")
+kind = "kindle"
+
+[resource]
+script = ExtResource("1_spell")
+Name = "Kindle"
+description = "A word over kindling and the flame takes."
+skill = "alteration"
+cost_magicka = 8
+cooldown = 2.0
+reagents = {"resin": 1, "tinder": 1}
+delivery = SubResource("Delivery_self")
+effects = Array[ExtResource("2_eff")]([SubResource("Effect_magic")])

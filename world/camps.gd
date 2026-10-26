@@ -375,6 +375,8 @@ func _ready() -> void:
 	var map: Control = preload("res://ui/simMap.gd").new()
 	map.camps = self
 	layer.add_child(map)
+	layer.add_child(preload("res://ui/craftMenu.gd").new()) # C: crafting
+	layer.add_child(preload("res://ui/controlsPanel.gd").new()) # F1: the controls
 	add_child(layer)
 
 func _generate() -> void:

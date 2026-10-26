@@ -100,6 +100,13 @@ Everything is records; nodes are only the view. `world/camps.gd` (node "Camps") 
 - **Poses:** loaded bodies chop/cut/pick while working a chore, sit by their fire when idle there, and show their role in their name (`Camps._pose`, look only).
 
 
+## Magic
+- Every spell costs magicka and reagents (`Spell.reagents`, paid by SpellCasterComponent). Z cycles known spells (default: all in `spells/data`), RMB casts. Small magics (`spells/effects/smallMagicEffect.gd`): Kindle (resin+tinder: a cold fire takes with kindling+logs, or your torch), Mend (ash cap+resin: health over time), Dew (salt: a water skin), Ward (bone+resin: a carried reprieve glow), Sense (spores: nearest spring/fungus/sap/copse/herd, pulsed on the map). Flame Breath costs resin.
+
+## Crafting
+- `items/crafting.gd` RECIPES (needs / makes / tool / at fire), one table for you and the camps. C opens `ui/craftMenu.gd` (Up/Down or wheel, Enter). Camps `_craft` from their crate: water skins when short, dried meat with salt (shortcut: tool + fire assumed). Hunts give meat, bone, hide, sinew; picking caps sometimes spores.
+- NPC magic (camplife `_cast`, reagents from the crate, no magicka yet): firekeeper Kindles a dying fire, ashwife Mends the hurt, Dew when no spring is known, Sense instead of exploring; roaming bands raise a Ward in the dark (minds).
+
 ## Look
 - Ground fog: cheap height fog laid at your feet (encounters `ground_fog_height` / `ground_fog_density`), hollows fill with it; no volumetrics.
 - Dead brush: `deadTrees.gd` scatters `brush_count` squat dead shrubs (chunked MultiMesh, no colliders, no shadows, drawn to `brush_view`).
@@ -110,8 +117,6 @@ Everything is records; nodes are only the view. `world/camps.gd` (node "Camps") 
 - `tools/soak.gd`: headless fast-forward report (fires, tiers, sap, deaths). Deletes the save first.
 
 ## Open / next
-- Small magics (Kindle, Mend, Dew, Ward, Sense): every spell costs reagents.
-- Crafting (recipes drafted: torch, kindling, flint, bone knife, hatchet, staff, dried meat, water skin, cloak, leather, salve).
 - Roles you hold carry no duties yet; bandit camps can't be joined; tinder doesn't get damp; NPC sap needs no knife.
 - Loaded visuals: wanderers are Mixamo-rigged (rig/umber.fbx + rig/anims, sit/work from Camps._pose); bleached/soot/moss robes still need their own rigs; roles invisible. Rig + animate goblin/orc (art, the user's).
 - Navmesh pathfinding, more mob types.

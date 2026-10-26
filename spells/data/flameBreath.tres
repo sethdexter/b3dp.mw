@@ -23,5 +23,8 @@ script = ExtResource("4_damage")
 script = ExtResource("1_spell")
 Name = "Flame Breath"
 description = "Spit a gout of fire at whatever stands in front of you."
+reagents = {
+"resin": 1
+}
 delivery = SubResource("Delivery_breath")
 effects = Array[ExtResource("1_yoaev")]([SubResource("Effect_fire")])

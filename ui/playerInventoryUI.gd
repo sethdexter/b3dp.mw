@@ -38,6 +38,28 @@ func _ready() -> void:
 	player_view.hide_view()
 	if weight_label:
 		weight_label.visible = false
+		_keys = _key_label(weight_label.get_parent(), HORIZONTAL_ALIGNMENT_RIGHT)
+
+## The keys, under the lists in the weight line's style (like a terminal's hint line).
+var _keys: Label
+func _key_label(parent: Node, align: HorizontalAlignment) -> Label:
+	var l: Label = weight_label.duplicate()
+	l.name = "Keys"
+	l.horizontal_alignment = align
+	l.add_theme_color_override("font_color", Color(0.45, 0.41, 0.33))
+	parent.add_child(l)
+	return l
+
+func _update_keys() -> void:
+	if not _keys:
+		return
+	_keys.visible = is_open
+	_keys.text = ("lmb store  shift+lmb stack  rmb to their side  tab close" if container else
+		"wheel pick  lmb use / equip  q drop  shift+q stack  tab close")
+	if container:
+		var panel := container.find_child("ContainerPanel", true, false)
+		if panel and not panel.has_node("Keys"):
+			_key_label(panel, HORIZONTAL_ALIGNMENT_LEFT).text = "wheel pick  lmb take  shift+lmb stack  rmb to your side"
 
 # --- open / close -----------------------------------------------------------
 
@@ -54,6 +76,7 @@ func open() -> void:
 		weight_label.visible = true
 	_update_weight()
 	_update_focus()
+	_update_keys()
 
 func close() -> void:
 	var c := container
@@ -66,6 +89,7 @@ func close() -> void:
 	player_view.hide_view()
 	if weight_label:
 		weight_label.visible = false
+	_update_keys()
 
 ## Called by ContainerComponent.open()
 func attach_container(c: ContainerComponent) -> void:
@@ -75,6 +99,7 @@ func attach_container(c: ContainerComponent) -> void:
 		open()
 	focus_side = Side.CONTAINER
 	_update_focus()
+	_update_keys()
 
 ## Called by ContainerComponent.close()
 func detach_container(c: ContainerComponent) -> void:
@@ -86,6 +111,7 @@ func detach_container(c: ContainerComponent) -> void:
 		close()
 	else:
 		_update_focus()
+		_update_keys()
 
 func _update_focus() -> void:
 	player_view.focused = focus_side == Side.PLAYER or container == null

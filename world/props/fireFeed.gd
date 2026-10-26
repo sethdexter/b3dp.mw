@@ -35,7 +35,7 @@ func show_prompt() -> void:
 	if record:
 		var mins: float = record.job.get("fire_fuel", 0.0) / 60.0
 		var life = get_tree().get_first_node_in_group("camps").camplife
-		Talker.notify("%s, %s, keeps %d  [E] feed it a log" % [life.fire_name(record), "burning low" if mins < 5.0 else "%.0f min of wood on it" % mins, life.capacity(record)], 1.5)
+		Talker.notify("%s, %s, keeps %d  [E] feed it a log  [J] join" % [life.fire_name(record), "burning low" if mins < 5.0 else "%.0f min of wood on it" % mins, life.capacity(record)], 1.5)
 
 func hide_prompt() -> void:
 	pass

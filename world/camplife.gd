@@ -141,7 +141,12 @@ extends Node
 ## (sap_per_trip at most) when the crate has fewer than sap_low.
 @export_range(0, 10) var sap_per_log := 1
 @export_range(0, 10) var sap_per_trip := 4
-@export_range(0, 20) var sap_low := 4
+@export_range(0, 20) var sap_low := 2
+## The small magics in camps (same reagents as yours): an ashwife Mends anyone below mend_below health; Sense
+## reaches sense_range; picking caps shakes off spores at spores_chance.
+@export_range(0.0, 100.0, 1.0) var mend_below := 50.0
+@export_range(50.0, 1000.0, 10.0, "suffix:m") var sense_range := 300.0
+@export_range(0.0, 1.0, 0.05) var spores_chance := 0.3
 @export_range(0, 10) var axe_bonus := 1
 @export_range(0.0, 200.0, 1.0, "suffix:m") var chop_noise := 35.0
 @export_group("Roles")
@@ -226,6 +231,8 @@ func fill_skins(f, spring) -> int:
 func pick_caps(f, patch, uses := 2) -> int:
 	var got: int = take(patch, uses) * SOURCES.fungus[2]
 	add(f.inv, "ash_cap", got)
+	if got > 0 and randf() < spores_chance:
+		add(f.inv, "spores", 1) # shaken off the caps
 	return got
 
 var camps: Node
@@ -534,6 +541,9 @@ func _tend_fire(c, now: float) -> void:
 		else: # no sap: a crude brand of bare wood that burns out in half the lightings
 			j["torch_wear"] = j.get("torch_wear", 0) + torch_lights / 2
 		add(c.crate, "torch", made)
+	if j.fire_fuel <= 0.0 and has_role(c, "firekeeper") and _cast(c, {"resin": 1, "tinder": 1, "kindling": 1, "ash_wood": light_logs}):
+		j.fire_fuel = light_logs * wood_burn # Kindle: the firekeeper speaks it back to life
+		_log("A firekeeper kindled a dying fire back with a word")
 	if j.fire_fuel <= 0.0:
 		camps.fire_out(c, now)
 
@@ -591,6 +601,28 @@ func _plan(c, now: float) -> void:
 			_give(_pick(idle, c, "drawer"), {"type": "sap", "to": camps._ground(k[1]), "phase": "out", "spot": k[0]})
 		else:
 			unknown = true
+	if c.barrel.get("water_skin", 0) + people.reduce(func(a, f): return a + f.inv.get("water_skin", 0), 0) < n and _craft(c, "water_skin"):
+		camps.note(people[0], "stitched a water skin from hide and sinew", false)
+	if c.crate.get("salt", 0) > 0 and c.crate.get("raw_meat", 0) > 0 and _craft(c, "dried_meat"):
+		camps.note(people[0], "salted meat by the fire", false)
+	if has_role(c, "ashwife"):
+		for f in people:
+			if f.hp < mend_below and _cast(c, {"ash_cap": 1, "resin": 1}):
+				f.hp = minf(100.0, f.hp + 20.0) # Mend
+				camps.note(f, "was mended by the camp's ashwife", false)
+				break
+	if water < n and _recall(c, "spring", spring_range).is_empty() and _cast(c, {"salt": 1}):
+		add(c.barrel, "water_skin", 1) # Dew: water wrung from the air
+		camps.note(people[0], "wrung a skin of water out of the ash-air", false)
+	if unknown and camps.minds and _cast(c, {"spores": 1}): # Sense: they feel where things lie
+		for w in ["spring", "fungus", "copse", "sap", "herd"]:
+			var near: Array = camps.minds._places_near(c.pos, sense_range).filter(func(o): return o.wild == w)
+			if not near.is_empty():
+				near.sort_custom(func(a, b): return camps._dist(a.pos, c.pos) < camps._dist(b.pos, c.pos))
+				for f in people:
+					camps.minds.learn(f, near[0])
+		unknown = false
+		camps.note(people[0], "sensed the land around the camp", false)
 	if unknown and not idle.is_empty() and not people.any(func(p): return p.task.get("type", "") == "explore"):
 		var a := randf() * TAU # they need something nobody knows where to find: someone goes looking
 		var to: Vector3 = camps._ground(c.pos + Vector3(cos(a), 0, sin(a)) * randf_range(explore_range * 0.4, explore_range))
@@ -617,6 +649,31 @@ func _plan(c, now: float) -> void:
 					move(c.crate, f.inv, id, carry_food * 2 - count_food(f.inv))
 			_give(f, {"type": "supply", "dest": hungry, "to": hungry.pos, "phase": "out"})
 			_log("A drifter camp sent food to a hungry neighbour")
+
+## Makes a recipe out of the camp's crate (items/crafting.gd: the same recipes as yours). shortcut: the camp's
+## people are assumed to have the tool and the fire. False = short of something.
+func _craft(c, id: String) -> bool:
+	var r: Dictionary = CRAFTING.RECIPES[id]
+	for k in r.needs:
+		if c.crate.get(k, 0) < r.needs[k]:
+			return false
+	for k in r.needs:
+		add(c.crate, k, -r.needs[k])
+	for k in r.makes:
+		add(c.barrel if k == "water_skin" else c.crate, k, r.makes[k])
+	return true
+
+const CRAFTING := preload("res://items/crafting.gd")
+
+## The small magics, cast the way you do: with the reagents (taken from the crate). False = they haven't got them.
+## shortcut: NPCs have no magicka pool yet; the reagents are the whole cost.
+func _cast(c, cost: Dictionary) -> bool:
+	for id in cost:
+		if c.crate.get(id, 0) < cost[id]:
+			return false
+	for id in cost:
+		add(c.crate, id, -cost[id])
+	return true
 
 ## The nearest place of this kind the camp's people remember (with something in it): [place, where they think], or [].
 func _recall(c, wild: String, r: float) -> Array:
@@ -770,7 +827,7 @@ func step(f, now: float) -> void:
 						move(f.inv, c.barrel, id, f.inv[id] - 1)
 					elif nourish(id).x > 0.0:
 						move(f.inv, c.crate, id, f.inv[id] - 1)
-					elif id in ["ash_wood", "torch", "tinder", "kindling", "resin"]:
+					elif id in ["ash_wood", "torch", "tinder", "kindling", "resin", "bone", "spores", "salt", "hide", "sinew"]:
 						move(f.inv, c.crate, id, f.inv[id]) # wood for the fire; torches back in the crate
 					elif id == "coin" and t.type == "trade":
 						move(f.inv, c.crate, id, f.inv[id]) # the change goes back in the crate
@@ -796,6 +853,9 @@ func hunt(f, herd) -> int:
 	var kills: int = mini(herd.job.get("count", 0), randi_range(hunt_kills.x, maxi(hunt_kills.x, hunt_kills.y)))
 	herd.job.count -= kills
 	add(f.inv, "raw_meat", kills * meat_per_kill)
+	add(f.inv, "bone", kills) # one good bone, a hide and sinew a carcass, as yours give
+	add(f.inv, "hide", kills)
+	add(f.inv, "sinew", kills)
 	return kills * meat_per_kill
 
 func _home(f, c) -> void:

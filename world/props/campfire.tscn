@@ -49,12 +49,12 @@ transform = Transform3D(1.2206795, -0.26892868, -0.9105879, 0.2719092, 0.3335850
 transform = Transform3D(0.99137914, 0.112738125, 0.06676386, -0.09534359, 0.97024035, -0.22258437, -0.08987065, 0.21429908, 0.9726252, 0.033650607, 0.71397513, 0.13123977)
 
 [node name="flames2" parent="." unique_id=1194029680 instance=ExtResource("2_fire")]
-transform = Transform3D(4.67, 0, 0, 0, 4.67, 0, 0, 0, 7.211, 0.14873445, 0.5691501, 0.10014346)
+transform = Transform3D(1.98, 0, 0, 0, 1.98, 0, 0, 0, 3.069, 0.08746767, 0.23019147, -0.09971115)
 
 [node name="smoke" parent="flames2" unique_id=1873420662 instance=ExtResource("4_smoke")]
-transform = Transform3D(0.09003978, 0, 0, 0, 0.13635859, 0, 0, 0, 0.06630904, -0.001346603, 1.0570889, -0.005972404)
+transform = Transform3D(0.09003978, 0, 0, 0, 0.13635857, 0, 0, 0, 0.06630903, -0.001346603, 0.17369762, -0.005972404)
 transparency = 0.93
-amount = 604
+amount = 182
 amount_ratio = 0.09
 lifetime = 5.81
 max_ratio = 0.89
@@ -62,6 +62,7 @@ period = 4.0
 
 [node name="smokeColumn" parent="flames2" unique_id=1873420663 instance=ExtResource("5_column")]
 transform = Transform3D(-0.08347826, 0, 0, 0, -0.08347826, 0, 0, 0, -0.054165494, 0.011189818, 0.5908748, -0.0100747775)
+visible = false
 skeleton = NodePath("../..")
 
 [node name="firelight" type="OmniLight3D" parent="." unique_id=1893124499]

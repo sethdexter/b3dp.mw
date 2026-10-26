@@ -15,6 +15,8 @@ class_name Spell
 @export var cost_magicka: int = 3
 @export var cost_stamina: int = 0
 @export var cost_health: int = 0
+## Items used up by the casting (item id -> count). Every magic costs something real (see world/minds.gd lore).
+@export var reagents: Dictionary = {}
 ## Seconds before it can be cast again.
 @export var cooldown: float = 0.6
 

@@ -81,6 +81,10 @@ func _on_health_changed(current: int, max_val: int) -> void:
 func _process(delta: float) -> void:
 	if not mat:
 		return
+	# Off while the M map is up or you're watching through another camera (N): they're not your eyes.
+	var cam := get_viewport().get_camera_3d()
+	var map := get_tree().get_first_node_in_group("sim_map") as Control
+	overlay.visible = _fade > 0.0 or not ((map and map.visible) or (cam and not character.is_ancestor_of(cam)))
 	_time += delta
 	_loss = lerpf(_loss, _target_loss, 1.0 - exp(-smoothing * delta))
 	_flash = maxf(0.0, _flash - flash_decay * delta)
