@@ -175,8 +175,8 @@ func _meet(c, o, now: float) -> void:
 		"spring", "fungus":
 			for f in _alive(c):
 				var life = camps.camplife
-				if life and o.wild == "spring": # fill their skins, if it has water
-					life.fill_skins(f, o)
+				if life and o.wild == "spring" and c.roaming: # passing by: a drink's worth for the road (camps fetch on chores)
+					life.fill_skins(f, o, life.road_fill)
 				elif life and f.inv.get("ash_cap", 0) < 2: # pick a few caps, if there are any
 					life.pick_caps(f, o, 1)
 	if randf() > friendly_chance or c.kind != "drifter" or o.kind != "drifter" or not _peopled(o):

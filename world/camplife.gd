@@ -119,7 +119,12 @@ extends Node
 @export_range(50.0, 3000.0, 10.0, "suffix:m") var copse_range := 700.0
 ## Nobody remembers where to find something the camp needs: someone walks out up to this far to look.
 ## Something not where they remembered: they cast about search_radius around, up to search_tries times.
-@export_range(50.0, 3000.0, 10.0, "suffix:m") var explore_range := 500.0
+@export_range(50.0, 3000.0, 10.0, "suffix:m") var explore_range := 800.0
+## Chance per plan that a camp with someone curious idle sends them exploring even when nothing's needed.
+@export_range(0.0, 1.0, 0.01) var explore_chance := 0.1
+## Passers-by at a spring (travellers, anyone meeting it) fill only this many skins each: what they need for the
+## road. (Filling to carry_skins every time they passed was draining the springs dry for the camps.)
+@export_range(0, 10) var road_fill := 2
 @export_range(5.0, 200.0, 5.0, "suffix:m") var search_radius := 30.0
 @export_range(0, 10) var search_tries := 3
 ## Cutting a small tree: seconds by hand / with a hatchet (you), wood it gives (+ more with a hatchet), and how far
@@ -253,8 +258,8 @@ func take(spot, uses: int) -> int:
 	return k
 
 ## Fills f's water skins at a spring, as far as it has water. Returns skins filled.
-func fill_skins(f, spring) -> int:
-	var room: int = maxi(0, carry_skins - f.inv.get("water_skin", 0))
+func fill_skins(f, spring, upto := -1) -> int:
+	var room: int = maxi(0, (carry_skins if upto < 0 else upto) - f.inv.get("water_skin", 0))
 	var got: int = mini(room, take(spring, ceili(room / float(SOURCES.spring[2]))) * SOURCES.spring[2])
 	add(f.inv, "water_skin", got)
 	return got
@@ -655,6 +660,9 @@ func _plan(c, now: float) -> void:
 					camps.minds.learn(f, near[0])
 		unknown = false
 		camps.note(people[0], "sensed the land around the camp", false)
+	var curious: Array = idle.filter(func(f): return camps.minds and camps.minds._t(f, "curiosity") > 0.6)
+	if not curious.is_empty() and not unknown and randf() < explore_chance and not people.any(func(p): return p.task.get("type", "") == "explore"):
+		unknown = true # nothing needed, but the curious go and see what's out there anyway
 	if unknown and not idle.is_empty() and not people.any(func(p): return p.task.get("type", "") == "explore"):
 		var a := randf() * TAU # they need something nobody knows where to find: someone goes looking
 		var to: Vector3 = camps._ground(c.pos + Vector3(cos(a), 0, sin(a)) * randf_range(explore_range * 0.4, explore_range))
@@ -1145,7 +1153,7 @@ func _arrive(b, alive: Array, at) -> void:
 			for f in alive:
 				if take(at, 1) > 0: # a drink each, then skins, while it lasts
 					f.needs.water = 100.0
-				fill_skins(f, at)
+				fill_skins(f, at, road_fill)
 		"fungus":
 			for f in alive:
 				pick_caps(f, at, randi_range(1, 2))

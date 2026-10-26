@@ -87,11 +87,11 @@ extends Node
 @export_group("Knowing the island")
 ## How far they see places around them (metres), how often they look, how far off a place can be remembered, how
 ## many places one person keeps in mind, and how far round their camp its people know from the start.
-@export_range(5.0, 200.0, 5.0, "suffix:m") var sight_range := 40.0
+@export_range(5.0, 200.0, 5.0, "suffix:m") var sight_range := 80.0
 @export_range(2.0, 120.0, 1.0, "suffix:s") var look_every := 15.0
 @export_range(0.0, 200.0, 5.0, "suffix:m") var misremember := 25.0
 @export_range(1, 50) var memory_size := 8 # places of each kind
-@export_range(0.0, 3000.0, 50.0, "suffix:m") var known_start := 1000.0 # (at least camplife spring_range, or camps never learn their own springs)
+@export_range(0.0, 3000.0, 50.0, "suffix:m") var known_start := 0.0 # 0: nobody starts knowing anything they haven't stumbled on
 @export_group("")
 ## A greedy, broke camp member steals the camp's wood and runs (cinder-thief) at this chance per think;
 ## the firekeeper catches them at cinder_caught.
@@ -224,7 +224,11 @@ func look(f) -> void:
 	var r: float = sight_range * (0.75 + 0.5 * _t(f, "curiosity")) # the curious notice more
 	if not f.job.get("looked", false):
 		f.job["looked"] = true
-		r = known_start # their home ground: a camp's people know what's round it (the newly pulled know nothing)
+		r = maxf(known_start, r) # their home ground, if known_start says they know it (0: only what they see)
+		if f.camp.wild == "" and camps.camplife: # but a camp's people know the water their fire was made by
+			var w = camps.camplife._nearest(f.camp.pos, "spring", camps.camplife.spring_range)
+			if w:
+				learn(f, w)
 	var seen: Array = _places_near(f.pos, r)
 	if r > sight_range:
 		seen.sort_custom(func(a, b): return camps._dist(a.pos, f.pos) > camps._dist(b.pos, f.pos)) # nearest last: those are kept
