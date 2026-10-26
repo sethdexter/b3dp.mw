@@ -412,6 +412,7 @@ func _generate() -> void:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 991
 		enc.make_bells(rng)
+		enc.make_old_world(rng)
 		enc.make_salt(rng)
 	var wood := RandomNumberGenerator.new()
 	wood.seed = 2718

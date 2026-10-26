@@ -65,6 +65,12 @@ extends Node
 
 @export_group("Bell")
 @export_range(0, 5) var bell_shrines := 2
+## The old world (world/props/oldWorld.gd): dead lamp-towers on the high ground (relit with old oil, a great light
+## for good: tower_light reach), and sealed halls (one Sunken Key each, from the bells) holding hall_loot.
+@export_range(0, 20) var lamp_towers := 6
+@export_range(0, 10) var sealed_halls := 2
+@export_range(10.0, 200.0, 5.0, "suffix:m") var tower_light := 60.0
+@export var hall_loot := {"old_oil": 3, "scrap_metal": 2, "script_fragment": 2, "coin": 12}
 ## You hear the bell from this far.
 @export_range(50.0, 2000.0, 10.0, "suffix:m") var bell_range := 700.0
 @export_range(2.0, 60.0, 1.0, "suffix:s") var bell_every := 12.0
@@ -99,7 +105,7 @@ var _sun: DirectionalLight3D
 var _base_sun := 0.0
 var _ash: GPUParticles3D
 
-const SPOTS := ["hanged", "coldfire", "falselight", "bell", "starved_dead", "spring", "fungus", "salt"]
+const SPOTS := ["hanged", "coldfire", "falselight", "bell", "starved_dead", "spring", "fungus", "salt", "lamptower", "hall"]
 
 func _ready() -> void:
 	camps = get_parent()
@@ -143,11 +149,34 @@ func make_bells(rng: RandomNumberGenerator) -> void:
 		camps.camps.append(c)
 		made += 1
 
+## The old world's ruins: lamp-towers up high, sealed halls down low (same spots every island: rng is seeded).
+func make_old_world(rng: RandomNumberGenerator) -> void:
+	for kind in ["lamptower", "hall"]:
+		var made := 0
+		for attempt in 600:
+			if made >= (lamp_towers if kind == "lamptower" else sealed_halls):
+				break
+			var p: Vector3 = camps._ground(Vector3(rng.randf_range(-4500, 4500), 0, rng.randf_range(-4500, 4500)))
+			if is_nan(p.y) or p.y < camps.SEA_LEVEL + 2.0 or p.y > camps.MAX_HEIGHT or (kind == "lamptower" and p.y < 40.0):
+				continue
+			var c = camps.new_camp()
+			c.pos = p
+			c.wild = kind
+			c.next_move = INF
+			camps.camps.append(c)
+			made += 1
+
+## Builds a ruin again (it changed: lit, opened).
+func rebuild(c) -> void:
+	if is_instance_valid(c.fire):
+		c.fire.queue_free()
+	c.fire = null
+
 # --- per camp tick ---------------------------------------------------------
 
 ## Spots with no people (or not yet): build near, free far, and spring their trap / trigger.
 func tick_spot(c, at: Vector3, now: float) -> void:
-	var reach: float = bell_range if c.wild == "bell" else (camps.fire_radius if c.wild == "falselight" else camps.spawn_radius)
+	var reach: float = bell_range if c.wild == "bell" else (camps.fire_radius if c.wild == "falselight" else (tower_light * 8.0 if c.wild == "lamptower" else camps.spawn_radius)) # a lamp-tower stands up out of the dark from far off
 	var d: float = camps._dist(c.pos, at)
 	if d < reach and not is_instance_valid(c.fire):
 		c.fire = Node3D.new()
@@ -482,6 +511,36 @@ func _build(c) -> void:
 				_box(root, Vector3(0.06, h, 0.06), Vector3(cos(a) * r, h * 0.5, sin(a) * r), Color(0.6, 0.58, 0.52))
 				_box(root, Vector3(0.3, 0.08, 0.3), Vector3(cos(a) * r, h, sin(a) * r), Color(0.75, 0.72, 0.66))
 			_source(root, "Ash fungus", Vector3(3.4, 0.5, 3.4), {"drink": 0.0, "fill": 0, "item": "ash_cap", "item_count": L.fungus[2], "stock": L.fungus[0], "regrow": L.fungus[1], "extra_item": "spores", "extra_chance": 0.3})
+		"lamptower": # a tall stone shaft with a dead brazier on top; relit, it burns for good
+			_box(root, Vector3(4.0, 2.0, 4.0), Vector3(0, 1.0, 0), Color(0.16, 0.16, 0.17))
+			_box(root, Vector3(1.8, 20.0, 1.8), Vector3(0, 12.0, 0), Color(0.14, 0.14, 0.15))
+			var bowl := _box(root, Vector3(3.0, 1.2, 3.0), Vector3(0, 22.6, 0), Color(0.1, 0.09, 0.08))
+			_old_world_prop(c, root, Vector3(4.0, 3.0, 4.0))
+			if c.job.get("lit", false):
+				var m := bowl.material_override as StandardMaterial3D
+				m.emission_enabled = true
+				m.emission = Color(1.0, 0.6, 0.2)
+				m.emission_energy_multiplier = 3.0
+				var glow := OmniLight3D.new()
+				glow.light_color = Color(1.0, 0.7, 0.4)
+				glow.light_energy = 6.0
+				glow.omni_range = tower_light * 1.4
+				glow.shadow_enabled = false
+				glow.position.y = 24.0
+				root.add_child(glow)
+				var fire := Node3D.new() # its light counts like a fire's (DarknessComponent: campfire group, light_radius)
+				fire.add_to_group("campfire")
+				fire.set_meta("light_radius", tower_light)
+				root.add_child(fire)
+		"hall": # a stone door half sunk into the ground, lintel and all; opened, what's inside is a sack
+			_box(root, Vector3(5.0, 0.6, 1.0), Vector3(0, 3.0, 0), Color(0.15, 0.15, 0.16))
+			_box(root, Vector3(0.8, 3.0, 1.0), Vector3(-2.2, 1.3, 0), Color(0.15, 0.15, 0.16))
+			_box(root, Vector3(0.8, 3.0, 1.0), Vector3(2.2, 1.3, 0), Color(0.15, 0.15, 0.16))
+			if not c.job.get("open", false):
+				_box(root, Vector3(3.6, 2.8, 0.4), Vector3(0, 1.2, 0), Color(0.2, 0.19, 0.16)) # the door
+			elif not c.looted:
+				_sack(c, Vector3(0, 0.2, -1.5), rng, hall_loot.duplicate())
+			_old_world_prop(c, root, Vector3(5.0, 3.5, 2.0))
 		"bell":
 			for i in 7: # a ring of standing stones
 				var a := TAU * i / 7.0
@@ -518,6 +577,17 @@ func _source(parent: Node3D, label: String, size: Vector3, opts: Dictionary) -> 
 	var spot = parent.get_meta("record") if parent.has_meta("record") else null
 	src.record = spot
 	parent.add_child(src)
+
+func _old_world_prop(c, root: Node3D, size: Vector3) -> void:
+	var body: StaticBody3D = load("res://world/props/oldWorld.gd").new()
+	body.record = c
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position.y = size.y * 0.5
+	body.add_child(shape)
+	root.add_child(body)
 
 func _box(parent: Node3D, size: Vector3, at: Vector3, col: Color) -> MeshInstance3D:
 	var m := MeshInstance3D.new()

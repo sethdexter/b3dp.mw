@@ -24,6 +24,8 @@ var resin: Item = preload("res://items/data/resin.tres")
 var tinder: Item = preload("res://items/data/tinder.tres")
 var kindling: Item = preload("res://items/data/kindling.tres")
 var flint: Item = preload("res://items/data/flint.tres")
+var old_oil: Item = preload("res://items/data/old_oil.tres")
+var script_fragment: Item = preload("res://items/data/script_fragment.tres")
 var scrap_metal: Item = preload("res://items/data/scrap_metal.tres")
 var cloth: Item = preload("res://items/data/cloth.tres")
 var salt: Item = preload("res://items/data/salt.tres")
@@ -65,6 +67,8 @@ var item_list: Dictionary[String, Item] = {
 	"tinder": tinder,
 	"kindling": kindling,
 	"flint": flint,
+	"old_oil": old_oil,
+	"script_fragment": script_fragment,
 	"scrap_metal": scrap_metal,
 	"cloth": cloth,
 	"salt": salt,

@@ -435,7 +435,7 @@ func _finish_island() -> void:
 func _world(uv: Vector2) -> Vector3:
 	return Vector3((uv.x - 0.5) * camps.HALF_MAP * 2.0, 0, (uv.y - 0.5) * camps.HALF_MAP * 2.0)
 
-const PLACES := ["remains", "cairn", "falselight", "hanged", "starved_dead", "coldfire", "bell", "spring", "fungus", "salt", "copse", "smoulder"]
+const PLACES := ["remains", "cairn", "falselight", "hanged", "starved_dead", "coldfire", "bell", "spring", "fungus", "salt", "copse", "smoulder", "lamptower", "hall"]
 var _places := Control.new() # the island and the places on it: redrawn now and then (they hardly change)
 var _pulses := Control.new() # the red log pulses: cheap, redrawn every frame while the map is up
 var _places_t := 0.0
@@ -490,6 +490,12 @@ func _draw_places() -> void:
 			continue
 		if c.wild == "salt":
 			_places.draw_circle(_m(c.pos), 2.0, Color(0.95, 0.92, 0.85))
+			continue
+		if c.wild == "lamptower": # gold when it burns again
+			_places.draw_rect(Rect2(_m(c.pos) - Vector2(3, 3), Vector2(6, 6)), Color(1.0, 0.8, 0.3) if c.job.get("lit", false) else Color(0.6, 0.6, 0.65))
+			continue
+		if c.wild == "hall":
+			_places.draw_rect(Rect2(_m(c.pos) - Vector2(3, 3), Vector2(6, 6)), Color(0.6, 0.6, 0.65), c.job.get("open", false), 1.5)
 			continue
 		if c.wild == "smoulder":
 			_places.draw_circle(_m(c.pos), 1.5, Color(1.0, 0.45, 0.15))

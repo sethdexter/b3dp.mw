@@ -24,10 +24,11 @@ static var burn_rate := 1.0
 @onready var _max_energy: float = _light.max_energy
 
 func _sap(inv: InventoryComponent) -> bool:
-	var resin: Item = get_node("/root/item_list").get_item_instance("resin")
-	for key: Item in inv.inventory.keys():
-		if InventoryComponent.is_same_item(key, resin):
-			return inv.remove_item(key, 1) > 0
+	for id in ["resin", "old_oil"]: # the old world's oil does it as well as sap
+		var it: Item = get_node("/root/item_list").get_item_instance(id)
+		for key: Item in inv.inventory.keys():
+			if InventoryComponent.is_same_item(key, it):
+				return inv.remove_item(key, 1) > 0
 	return false
 
 func _process(delta: float) -> void:

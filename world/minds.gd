@@ -212,6 +212,11 @@ func _now() -> float:
 ## remember; with nothing remembered, someone goes exploring. Seeing a place puts it right; finding it gone, or not
 ## where they thought, they forget it. Monsters and bandits too.
 var _smoulders := []
+var _towers_list := []
+func _towers() -> Array:
+	if _towers_list.is_empty():
+		_towers_list = camps.camps.filter(func(o): return o.wild == "lamptower")
+	return _towers_list
 
 const KNOWABLE := ["spring", "fungus", "salt", "copse", "sap", "herd", "coldfire", "cairn"]
 
@@ -403,6 +408,11 @@ func _dark_wears(f, minutes: float) -> bool:
 		if at_fire:
 			f.hp = minf(100.0, f.hp + rest_heal * minutes * (camps.camplife.ashwife_heal if camps.camplife and camps.camplife.has_role(f.camp, "ashwife") else 1.0))
 		return false
+	if f.dark_s > 0.0 and camps.enc:
+		for o in _towers():
+			if o.job.get("lit", false) and camps._dist(o.pos, f.pos) < camps.enc.tower_light:
+				f.dark_s = 0.0 # a lamp-tower of the old world, burning again
+				return false
 	if c.job.get("ward_until", 0.0) > SimClock.now:
 		return false # their Ward: the dark holds off (no mending)
 	if f.dark_s > 0.0 and c.roaming and camps.camplife and f.dark_s > 30.0: # caught out in the dark: Ward, if they carry what it takes

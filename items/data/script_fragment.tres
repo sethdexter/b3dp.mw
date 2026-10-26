@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Item" format=3]
+
+[ext_resource type="Script" uid="uid://clc3ta7ivy4ye" path="res://items/item.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+value = 8
+Name = "Script Fragment"
+id = "0081"
+weight = 1
+maxStackCount = 10
+isPickupable = true
+itemDesription = "A curl of thin metal scratched with the old script. Some of it you can read."

@@ -110,6 +110,10 @@ Everything is records; nodes are only the view. `world/camps.gd` (node "Camps") 
 - `items/crafting.gd` RECIPES (needs / makes / tool / at fire), one table for you and the camps. C opens `ui/craftMenu.gd` (Up/Down or wheel, Enter). Camps `_craft` from their crate: water skins when short, dried meat with salt (shortcut: tool + fire assumed). Hunts give meat, bone, hide, sinew; picking caps sometimes spores.
 - NPC magic (camplife `_cast`: reagents from the crate, the caster's magicka `Folk.mp`): firekeeper Kindles a dying fire, ashwife Mends the hurt, Dew when no spring is known, Sense instead of exploring; roaming bands raise a Ward in the dark (minds).
 
+## The old world
+- Lamp-towers (`lamp_towers`, high ground) and sealed halls (`sealed_halls`) from `encounters.make_old_world`; interact via `world/props/oldWorld.gd`. A hall opens with the Sunken Key (from a bell shrine) and holds `hall_loot` (old oil, scrap, script fragments, coin). A tower relit with 2 old oil + a flame burns for good: a campfire-group light of `tower_light` (60 m) for you, and the sim counts it as light (minds `_towers`). Old oil also renews a spent torch. Map: grey squares, gold when lit; hollow square = opened hall.
+- Nox spells: Shroud (spores: hunters notice you only at `shroud_reach` for `shroud_time`), Drain (blackflesh: health from whoever is in front of you).
+
 ## Look
 - Ground fog: cheap height fog laid at your feet (encounters `ground_fog_height` / `ground_fog_density`), hollows fill with it; no volumetrics.
 - Dead brush: `deadTrees.gd` scatters `brush_count` squat dead shrubs (chunked MultiMesh, no colliders, no shadows, drawn to `brush_view`).

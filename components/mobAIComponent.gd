@@ -229,6 +229,8 @@ func _try_aggro(player: BaseCharacter) -> bool:
 		return false
 	var dark: Node = player.get_node_or_null("darkness")
 	var reach := aggro_range * (dark_aggro_multiplier if dark and dark.get("in_dark") else 1.0)
+	if Time.get_ticks_msec() < player.get_meta("shrouded_until", 0): # Shroud (Nox): the dark hides you
+		reach *= player.get_meta("shroud_reach", 0.25)
 	if _flat(player.global_position - character.global_position).length() > reach:
 		return false
 	if needs_line_of_sight and not _can_see(player):

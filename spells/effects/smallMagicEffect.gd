@@ -9,7 +9,7 @@ extends SpellEffect
 ##   ward    a small glow goes with you: the dark holds off (a carried smoulder: no healing) for a while
 ##   sense   you feel where the nearest spring, fungus, sap, copse and herd lie
 
-@export_enum("kindle", "mend", "dew", "ward", "sense") var kind := "kindle"
+@export_enum("kindle", "mend", "dew", "ward", "sense", "shroud", "drain") var kind := "kindle"
 ## mend: health per tick, ticks, seconds between. ward: seconds, reach. sense: how far.
 @export var mend_amount := 2
 @export var mend_ticks := 10
@@ -109,6 +109,39 @@ func _sense(t: BaseCharacter) -> void:
 			camps.world_log.append({"t": SimClock.now, "who": "You", "text": "sensed %s" % wild, "pos": best.pos, "ms": Time.get_ticks_msec()}) # a pulse on the map
 	Talker.notify("You feel the land around you:\n" + ("\n".join(lines) if not lines.is_empty() else "Nothing near."), 8.0)
 
+## shroud: the dark hides you; things that hunt you notice you only this close (a share of their usual reach).
+@export var shroud_time := 60.0
+@export var shroud_reach := 0.25
+## drain: health taken from whoever's in front of you within reach, and given to you.
+@export var drain_amount := 12
+@export var drain_range := 4.0
+
+func _shroud(t: BaseCharacter) -> void:
+	t.set_meta("shrouded_until", Time.get_ticks_msec() + int(shroud_time * 1000.0))
+	t.set_meta("shroud_reach", shroud_reach)
+	Talker.notify("The dark folds over you.")
+
+func _drain(t: BaseCharacter) -> void:
+	var fwd: Vector3 = -t.global_basis.z
+	var cam := t.get_viewport().get_camera_3d()
+	if cam:
+		fwd = -cam.global_basis.z
+	var best: BaseCharacter = null
+	for n in t.get_tree().current_scene.find_children("*", "CharacterBody3D", true, false): # (only on a cast)
+		var o := n as BaseCharacter
+		if o == null or o == t or o.is_dead or not o.statComponent:
+			continue
+		var to := o.global_position - t.global_position
+		if to.length() < drain_range and to.normalized().dot(fwd) > 0.5 and (best == null or to.length() < (best.global_position - t.global_position).length()):
+			best = o
+	if best == null:
+		Talker.notify("There's nothing within reach to drain.")
+		return
+	best.statComponent.health.change_current(-drain_amount)
+	t.statComponent.health.change_current(drain_amount)
+	Talker.notify("You pull the warmth out of %s." % best.Name)
+
 func describe() -> String:
 	return {"kindle": "Lights a cold fire or your torch", "mend": "Restores %d Health over %d s" % [mend_amount * mend_ticks, int(mend_ticks * mend_every)],
-		"dew": "Fills a water skin", "ward": "Holds off the dark for %d s" % int(ward_time), "sense": "Senses springs, fungus, sap, trees and herds"}[kind]
+		"dew": "Fills a water skin", "ward": "Holds off the dark for %d s" % int(ward_time), "sense": "Senses springs, fungus, sap, trees and herds",
+		"shroud": "Hunters barely notice you for %d s" % int(shroud_time), "drain": "Takes %d Health from a foe, gives it to you" % drain_amount}[kind]

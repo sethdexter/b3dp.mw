@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="Spell" format=3]
+
+[ext_resource type="Script" path="res://spells/spell.gd" id="1_spell"]
+[ext_resource type="Script" path="res://spells/effects/spellEffect.gd" id="2_eff"]
+[ext_resource type="Script" path="res://spells/delivery/selfDelivery.gd" id="3_self"]
+[ext_resource type="Script" path="res://spells/effects/smallMagicEffect.gd" id="4_magic"]
+
+[sub_resource type="Resource" id="Delivery_self"]
+script = ExtResource("3_self")
+
+[sub_resource type="Resource" id="Effect_magic"]
+script = ExtResource("4_magic")
+kind = "shroud"
+
+[resource]
+script = ExtResource("1_spell")
+Name = "Shroud"
+description = "Let the dark fold over you: what hunts you looks past you."
+skill = "nox"
+cost_magicka = 10
+cooldown = 2.0
+reagents = {"spores": 1}
+delivery = SubResource("Delivery_self")
+effects = Array[ExtResource("2_eff")]([SubResource("Effect_magic")])
