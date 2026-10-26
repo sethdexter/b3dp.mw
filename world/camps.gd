@@ -841,6 +841,7 @@ func _tick_folk(f: Folk, at: Vector3, now: float) -> void:
 					_feed(foe.get_meta("folk"), f) # a real fight near you feeds the winner just like one far off
 			f.dead = true # killed: stays gone (its corpse cleans itself up)
 			f.node = null
+			note(f, "was killed by you" if by_player else "fell in a fight")
 			if minds:
 				minds.on_death(f, by_player)
 			return
@@ -908,8 +909,9 @@ func _spawn(f: Folk) -> void:
 		wares.starting_items = nothing
 		wares.get_node("inventoryComponent").inventory.clear()
 		var sync: Node = load("res://world/props/campStoreSync.gd").new()
-		sync.record = f.camp if f.camp.wild == "" and not f.camp.roaming else f
-		sync.which = "crate" if f.camp.wild == "" and not f.camp.roaming else "pack"
+		var keeper: bool = f.camp.wild == "" and not f.camp.roaming and f.camp.job.get("roles", {}).get("firekeeper") == f
+		sync.record = f.camp if keeper else f # only the firekeeper sells the camp's supplies; anyone else, what they carry
+		sync.which = "crate" if keeper else "pack"
 		sync.whole = true
 		wares.add_child(sync)
 	var dummy := person.get_node_or_null("dummy")
@@ -1893,6 +1895,7 @@ func _tick_raid(c: Camp, now: float) -> void:
 		var won := _rng.randf() < bandit_win_chance
 		var victim: Folk = (defenders if won else raiders).pick_random()
 		victim.dead = true
+		note(victim, "was killed when %s fell on %s" % ["raiders" if won else "they", "their camp" if won else "a camp they raided"])
 		_feed((raiders if won else defenders).pick_random(), victim)
 		if won and camplife and c.raid.stocked: # one of them grabs what they can carry while the fighting goes on
 			_plunder(c.raid, [raiders.pick_random()])

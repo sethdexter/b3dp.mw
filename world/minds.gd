@@ -346,6 +346,10 @@ func think(f, now: float) -> void:
 	f.mp = minf(100.0, f.mp + mp_regen * minutes) # magicka comes back with time, as yours does
 	if f.job.has("sick_until") and camps.fate:
 		camps.fate.cough(f, minutes) # the grey cough (world/fate.gd)
+		if f.hp <= 0.0:
+			camps.note(f, "the grey cough took them")
+			_die(f)
+			return
 	if _psyche(f, minutes, now):
 		return # broken: walked off into the dark
 	if _dark_wears(f, minutes) or _starve_wears(f, minutes):
@@ -394,6 +398,7 @@ func _monster_think(f, now: float) -> void:
 			life.add(from, "raw_meat", -1)
 			f.needs.food = minf(100.0, f.needs.food + life.nourish("raw_meat").x)
 	if f.needs.food <= 0.0: # starved
+		camps.note(f, "starved")
 		f.dead = true
 		if is_instance_valid(f.node) and f.node.statComponent:
 			f.node.statComponent.health.change_current(-100000) # the record is already dead, so nobody's blamed
