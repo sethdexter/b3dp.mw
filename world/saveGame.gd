@@ -78,7 +78,7 @@ func save() -> void:
 			"ticked": f.ticked, "job": _out(f.job, cid, fid), "asked": f.asked, "needs": f.needs, "traits": f.traits,
 			"memories": _out(f.memories, cid, fid), "think_t": f.think_t, "locked_until": f.locked_until,
 			"task": _out(f.task, cid, fid), "inv": f.inv, "history": f.history, "packed": f.packed, "hp": f.hp, "dark_s": f.dark_s,
-			"known": _out(f.known, cid, fid)})
+			"known": _out(f.known, cid, fid), "mp": f.mp})
 	var data := {"version": VERSION, "now": SimClock.now, "camps": cs, "folk": fs, "world_log": camps.world_log,
 		"next_pull": camps._next_pull, "trees": camps.trees.harvested if camps.trees else {},
 		"storm": [camps.enc._next_storm, camps.enc._storm_end, camps.enc._storming, camps.enc._cursed_until] if camps.enc else [],
@@ -182,6 +182,7 @@ func load_world() -> bool:
 		f.inv = d.inv
 		f.history = d.history
 		f.known = _in(d.get("known", []), cs, fs)
+		f.mp = d.get("mp", 100.0)
 	camps.camps.clear()
 	for c in cs:
 		camps.camps.append(c)

@@ -44,7 +44,7 @@ extends Node
 @export var traveller_extra := {}
 ## Setting out from a camp, each takes this much from its stores if it's there (and the group a torch or two).
 @export var road_share := {"water_skin": 1, "bread": 1, "tinder": 1, "kindling": 1, "ash_wood": 1}
-@export_range(0, 5) var road_torches := 1
+@export_range(0, 5) var road_torches := 2
 @export_range(0, 20) var barrel_per_person := 2
 @export var crate_per_person := {"bread": 1, "ash_cap": 1, "torch": 2, "ash_wood": 1, "tinder": 1, "kindling": 1}
 ## And the goods a camp starts with, whatever its size (random in each range): what you see set out on its
@@ -147,6 +147,8 @@ extends Node
 @export_range(0.0, 100.0, 1.0) var mend_below := 50.0
 @export_range(50.0, 1000.0, 10.0, "suffix:m") var sense_range := 300.0
 @export_range(0.0, 1.0, 0.05) var spores_chance := 0.3
+## A forager goes to a salt crust they know of when the crate has fewer than this (Dew and salting meat need it).
+@export_range(0, 20) var salt_low := 2
 @export_range(0, 10) var axe_bonus := 1
 @export_range(0.0, 200.0, 1.0, "suffix:m") var chop_noise := 35.0
 @export_group("Roles")
@@ -541,7 +543,7 @@ func _tend_fire(c, now: float) -> void:
 		else: # no sap: a crude brand of bare wood that burns out in half the lightings
 			j["torch_wear"] = j.get("torch_wear", 0) + torch_lights / 2
 		add(c.crate, "torch", made)
-	if j.fire_fuel <= 0.0 and has_role(c, "firekeeper") and _cast(c, {"resin": 1, "tinder": 1, "kindling": 1, "ash_wood": light_logs}):
+	if j.fire_fuel <= 0.0 and _cast(c, {"resin": 1, "tinder": 1, "kindling": 1, "ash_wood": light_logs}, 8.0, "firekeeper"):
 		j.fire_fuel = light_logs * wood_burn # Kindle: the firekeeper speaks it back to life
 		_log("A firekeeper kindled a dying fire back with a word")
 	if j.fire_fuel <= 0.0:
@@ -607,14 +609,14 @@ func _plan(c, now: float) -> void:
 		camps.note(people[0], "salted meat by the fire", false)
 	if has_role(c, "ashwife"):
 		for f in people:
-			if f.hp < mend_below and _cast(c, {"ash_cap": 1, "resin": 1}):
+			if f.hp < mend_below and _cast(c, {"ash_cap": 1, "resin": 1}, 10.0, "ashwife"):
 				f.hp = minf(100.0, f.hp + 20.0) # Mend
 				camps.note(f, "was mended by the camp's ashwife", false)
 				break
-	if water < n and _recall(c, "spring", spring_range).is_empty() and _cast(c, {"salt": 1}):
+	if water < water_low * n and _cast(c, {"salt": 1}, 6.0): # short of water: Dew tops it up while the carriers are out
 		add(c.barrel, "water_skin", 1) # Dew: water wrung from the air
 		camps.note(people[0], "wrung a skin of water out of the ash-air", false)
-	if unknown and camps.minds and _cast(c, {"spores": 1}): # Sense: they feel where things lie
+	if unknown and camps.minds and _cast(c, {"spores": 1}, 8.0): # Sense: they feel where things lie
 		for w in ["spring", "fungus", "copse", "sap", "herd"]:
 			var near: Array = camps.minds._places_near(c.pos, sense_range).filter(func(o): return o.wild == w)
 			if not near.is_empty():
@@ -629,6 +631,10 @@ func _plan(c, now: float) -> void:
 		if not is_nan(to.y):
 			idle.sort_custom(func(x, y): return camps.minds._t(x, "curiosity") < camps.minds._t(y, "curiosity"))
 			_give(idle.pop_back(), {"type": "explore", "to": to, "phase": "out"}) # the most curious goes
+	if not idle.is_empty() and c.crate.get("salt", 0) < salt_low and not people.any(func(p): return p.task.get("type", "") == "salt"):
+		var ks := _recall(c, "salt", forage_range * 2.0)
+		if not ks.is_empty():
+			_give(idle.pop_back(), {"type": "salt", "to": camps._ground(ks[1]), "phase": "out", "spot": ks[0]})
 	var coin: int = c.crate.get("coin", 0)
 	if not idle.is_empty() and coin > 0 and not people.any(func(p): return p.task.get("type", "") == "trade"):
 		var want := "water" if water < water_low * n else ("food" if food < food_low * n else "")
@@ -666,13 +672,23 @@ func _craft(c, id: String) -> bool:
 const CRAFTING := preload("res://items/crafting.gd")
 
 ## The small magics, cast the way you do: with the reagents (taken from the crate). False = they haven't got them.
-## shortcut: NPCs have no magicka pool yet; the reagents are the whole cost.
-func _cast(c, cost: Dictionary) -> bool:
+## The caster pays magicka like you (Folk.mp: Kindle 8, Mend 10, Dew 6, Sense 8, Ward 12).
+func _cast(c, cost: Dictionary, mp := 0.0, role := ""):
+	var who = c.job.get("roles", {}).get(role) if role != "" else null # the role holder casts it, else whoever has the most magicka
+	if role != "" and not (who is Object and has_role(c, role)):
+		return false
+	if who == null:
+		for f in camps._alive(c.members):
+			if who == null or f.mp > who.mp:
+				who = f
+	if who == null or who.mp < mp:
+		return false
 	for id in cost:
 		if c.crate.get(id, 0) < cost[id]:
 			return false
 	for id in cost:
 		add(c.crate, id, -cost[id])
+	who.mp -= mp
 	return true
 
 ## The nearest place of this kind the camp's people remember (with something in it): [place, where they think], or [].
@@ -716,7 +732,7 @@ func _give(f, task: Dictionary) -> void:
 		"evacuate": "packed up and left for another camp " + where,
 		"trade": "set off with the camp's coin to buy from a neighbouring camp " + where,
 		"wood": "set off to cut wood at a copse " + where, "sap": "set off to cut sap from a giant tree " + where,
-		"explore": "set off into the dark to look for what the camp needs " + where}.get(task.type, task.type))
+		"explore": "set off into the dark to look for what the camp needs " + where, "salt": "set off to break salt from a crust " + where}.get(task.type, task.type))
 
 ## Moves a person's chore along. Called for every person on one as the Camps sweep reaches them (loaded or not).
 func step(f, now: float) -> void:
@@ -744,7 +760,7 @@ func step(f, now: float) -> void:
 		"out":
 			if d < 8.0:
 				var aim = spot if spot else t.get("herd")
-				if t.type in ["forage", "water", "wood", "sap"] and aim and camps._dist(f.pos, aim.pos) > sight: # not where they remembered
+				if t.type in ["forage", "water", "wood", "sap", "salt"] and aim and camps._dist(f.pos, aim.pos) > sight: # not where they remembered
 					t["searched"] = t.get("searched", 0) + 1
 					if t.searched > search_tries or not aim in camps.camps:
 						if camps.minds:
@@ -762,7 +778,7 @@ func step(f, now: float) -> void:
 							camps.minds.look(f)
 						camps.note(f, "looked around in the dark and turned for home")
 						_home(f, c)
-					"forage", "water", "wood", "sap":
+					"forage", "water", "wood", "sap", "salt":
 						t.phase = "work"
 						t["until"] = now + randf_range(gather_time.x, gather_time.y)
 						camps.note(f, {"water": "filling skins at the spring", "wood": "cutting a small tree", "sap": "cutting sap out of the bark"}.get(t.type, "picking fungus" if t.get("spot") else "hunting"))
@@ -808,6 +824,9 @@ func step(f, now: float) -> void:
 					got = fill_skins(f, t.spot)
 				elif t.type == "wood":
 					got = chop(f, t.spot)
+				elif t.type == "salt":
+					got = take(t.spot, 2) * SOURCES.salt[2]
+					add(f.inv, "salt", got)
 				elif t.type == "sap":
 					got = take(t.spot, sap_per_trip) # shortcut: an NPC needs no knife for it
 					add(f.inv, "resin", got)

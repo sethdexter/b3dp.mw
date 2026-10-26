@@ -67,6 +67,8 @@ extends Node
 @export_range(0.0, 1.0, 0.05) var act_chance := 0.35
 ## When a camp has more people than its fire keeps, chance (per think) one of them leaves to find another fire.
 @export_range(0.0, 1.0, 0.05) var crowded_leave := 0.2
+## Magicka (0-100) back per minute for everyone (their spells cost it: camplife.gd, the Ward below).
+@export_range(0.0, 20.0, 0.1) var mp_regen := 1.0
 @export_group("The mind")
 ## Shaken: how long it lasts (s). Hopeful: minutes round a told-to fire before it comes, how long it lasts, despair
 ## eased per minute. Broken: the despair it takes, and the chance per minute they walk off into the dark.
@@ -325,6 +327,7 @@ func think(f, now: float) -> void:
 	var minutes: float = (now - f.think_t + think_every) / 60.0
 	f.think_t = now + think_every
 	_drain_and_refill(f, minutes)
+	f.mp = minf(100.0, f.mp + mp_regen * minutes) # magicka comes back with time, as yours does
 	if f.job.has("sick_until") and camps.fate:
 		camps.fate.cough(f, minutes) # the grey cough (world/fate.gd)
 	if _psyche(f, minutes, now):
@@ -405,7 +408,8 @@ func _dark_wears(f, minutes: float) -> bool:
 	if f.dark_s > 0.0 and c.roaming and camps.camplife and f.dark_s > 30.0: # caught out in the dark: Ward, if they carry what it takes
 		var bone = camps._alive(c.members).filter(func(o): return o.inv.get("bone", 0) > 0)
 		var resin = camps._alive(c.members).filter(func(o): return o.inv.get("resin", 0) > 0)
-		if not bone.is_empty() and not resin.is_empty():
+		if not bone.is_empty() and not resin.is_empty() and f.mp >= 12.0:
+			f.mp -= 12.0
 			camps.camplife.add(bone[0].inv, "bone", -1)
 			camps.camplife.add(resin[0].inv, "resin", -1)
 			c.job["ward_until"] = SimClock.now + 120.0

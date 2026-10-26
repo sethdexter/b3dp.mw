@@ -106,7 +106,7 @@ var _start_pos := Vector3(NAN, NAN, NAN)
 
 @export_group("Raids", "")
 ## When a bandit camp acts, chance it sends out a roaming war band (rather than raiding one camp directly)...
-@export_range(0.0, 1.0, 0.01) var war_band_chance := 0.6
+@export_range(0.0, 1.0, 0.01) var war_band_chance := 0.35
 ## ...made of this share of the camp (the rest stay home).
 @export_range(0.1, 1.0, 0.05) var war_band_share := 0.5
 ## Bandits only raid camps within this (a war band raids whatever comes within fire_radius).
@@ -116,7 +116,7 @@ var _start_pos := Vector3(NAN, NAN, NAN)
 ## The raid starts once a raider is this close to the target fire.
 @export_range(5.0, 100.0, 1.0, "suffix:m") var raid_arrive := 20.0
 ## Far away (dice rolls): chance per camp tick that someone falls...
-@export_range(0.0, 1.0, 0.01) var raid_kill_chance := 0.3
+@export_range(0.0, 1.0, 0.01) var raid_kill_chance := 0.2
 ## ...and the chance it's a defender rather than a bandit.
 @export_range(0.0, 1.0, 0.01) var bandit_win_chance := 0.6
 
@@ -292,6 +292,7 @@ class Folk:
 	var packed := false
 	var hp := 100.0 # health, 0-100 (near you their body's health tracks it too)
 	var dark_s := 0.0 # seconds out of the light this time
+	var mp := 100.0 # magicka, 0-100 (their small magics cost it, as yours do; minds.gd refills it)
 	var known := [] # minds.gd: places they remember, [place, where they think it is] (a little off, sometimes)
 
 var camps: Array[Camp] = []
@@ -997,7 +998,7 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 			return
 		# Nobody sets out for anywhere their light won't get them (a torch's worth of walking: _reach()).
 		if not c.bandit:
-			var to := _camp_near(c.pos, _reach(), c, minf(coldfire_spot, _reach()))
+			var to := _camp_near(c.pos, _reach(c), c, minf(coldfire_spot, _reach(c)))
 			if to and c.members.size() > keepers: # someone always stays to keep the fire; the rest move on
 				_send_band(c, c.members.slice(keepers), now)
 				var band: Camp = camps[-1]
@@ -1006,7 +1007,7 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 				for f: Folk in band.members:
 					_send(f, to.pos)
 			return
-		var prey := _prey_near(c.pos, _reach(), c)
+		var prey := _prey_near(c.pos, _reach(c), c)
 		if prey and _rng.randf() < war_band_chance and c.members.size() >= 2:
 			_send_band(c, c.members.slice(0, maxi(1, roundi(c.members.size() * war_band_share))), now)
 			var band: Camp = camps[-1]
@@ -1016,15 +1017,19 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 				_send(f, prey.pos)
 			return
 		var dest := _pick_camp(c)
-		if dest and _dist(dest.pos, c.pos) < _reach() and not _alive(dest.members).is_empty():
+		if dest and _dist(dest.pos, c.pos) < _reach(c) and not _alive(dest.members).is_empty():
 			for f: Folk in c.members:
 				_send(f, dest.pos)
 			c.raid = dest
 			c.raid_since = now
 
-## How far anyone sets out from a fire: what one torch lights them for, with some to spare.
-func _reach() -> float:
-	return camplife.npc_torch_time * walk_speed * 0.8 if camplife else float(fire_radius)
+## How far anyone sets out from a fire: what the torches they take for the road light them for (camplife
+## road_torches, a bandit's brands burn longer), with some to spare. (One torch's worth was shorter than the
+## distance between most camps: bandits never found anyone to raid and nobody moved.)
+func _reach(c: Camp = null) -> float:
+	if not camplife:
+		return float(fire_radius)
+	return (camplife.torch_time(c) if c else camplife.npc_torch_time) * walk_speed * 0.8 * maxi(1, camplife.road_torches)
 
 ## Splits `who` off camp c into a band that roams. Drifter bands settle at the first drifter fire they see;
 ## bandit war bands raid whatever camp they come across and keep roaming.
