@@ -117,6 +117,11 @@ var _start_pos := Vector3(NAN, NAN, NAN)
 @export_range(5.0, 100.0, 1.0, "suffix:m") var raid_arrive := 20.0
 ## Far away (dice rolls): chance per camp tick that someone falls...
 @export_range(0.0, 1.0, 0.01) var raid_kill_chance := 0.2
+## A hungry den (less than a meal each in its larder) sends a pack to raid the nearest camp with meat in its crate
+## at this chance per think.
+@export_range(0.0, 1.0, 0.01) var den_raid_chance := 0.3
+## Raiders carry off up to this many of each thing they want (coin: all of it).
+@export_range(1, 20) var plunder_carry := 4
 ## ...and the chance it's a defender rather than a bandit.
 @export_range(0.0, 1.0, 0.01) var bandit_win_chance := 0.6
 
@@ -1010,7 +1015,8 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 					_send(f, to.pos)
 			return
 		var prey := _prey_near(c.pos, _reach(c), c)
-		if prey and _rng.randf() < war_band_chance and c.members.size() >= 2:
+		var short: bool = camplife and (camplife.count_food(c.crate) < c.members.size() or c.barrel.get("water_skin", 0) < c.members.size())
+		if prey and _rng.randf() < war_band_chance * (2.0 if short else 1.0) and c.members.size() >= 2: # short of food or water: they go and take it
 			_send_band(c, c.members.slice(0, maxi(1, roundi(c.members.size() * war_band_share))), now)
 			var band: Camp = camps[-1]
 			band.raid = prey
@@ -1024,6 +1030,23 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 				_send(f, dest.pos)
 			c.raid = dest
 			c.raid_since = now
+
+## Raiders carry off what's worth it to their kind, as much as each can carry (plunder_carry of each thing):
+## bandits coin, food, water, wood, torches and resin; goblins and orcs meat. It goes home with them (their camp or
+## den's stores, _tick_homeward).
+func _plunder(target: Camp, raiders: Array) -> void:
+	var monster: bool = raiders[0].camp.kind in ["goblin", "orc"]
+	var wants: Array = ["raw_meat", "dried_meat", "blackflesh"] if monster else ["coin", "water_skin", "ash_wood", "torch", "resin"]
+	for r: Folk in raiders:
+		for id in wants:
+			var from: Dictionary = target.barrel if id == "water_skin" else target.crate
+			camplife.move(from, r.inv, id, mini(from.get(id, 0), 999 if id == "coin" else plunder_carry))
+		if not monster:
+			for k in plunder_carry: # and food, the best first
+				var id: String = camplife._best(target.crate, false)
+				if id == "":
+					break
+				camplife.move(target.crate, r.inv, id, 1)
 
 ## How far anyone sets out from a fire: what the torches they take for the road light them for (camplife
 ## road_torches, a bandit's brands burn longer), with some to spare. (One torch's worth was shorter than the
@@ -1394,6 +1417,23 @@ func _den_acts(c: Camp, now: float) -> void:
 		c.members.append(f)
 		folk.append(f)
 	var hungry := meat < n # less than a meal each in the larder: they go hunting
+	if hungry and n >= 2 and _rng.randf() < den_raid_chance:
+		var mark: Camp = null # a camp of people with meat in its crate, within the pack's range
+		for o in camps:
+			if o.wild == "" and not o.roaming and o.kind in ["drifter", "bandit"] and o.stocked and _dist(o.pos, c.pos) < fire_radius * 3.0 \
+					and o.crate.get("raw_meat", 0) + o.crate.get("dried_meat", 0) >= 2 and not _alive(o.members).is_empty() \
+					and (mark == null or _dist(o.pos, c.pos) < _dist(mark.pos, c.pos)):
+				mark = o
+		if mark:
+			_send_band(c, c.members.slice(0, maxi(2, mini(n - 1, pack_size.y))), now)
+			var b: Camp = camps[-1]
+			b.wild = "pack"
+			b.job["until"] = now + pack_roam_time.y
+			b.raid = mark
+			b.raid_since = now
+			for f: Folk in b.members:
+				_send(f, mark.pos)
+			return
 	var storm: float = storm_packs if enc and enc._storming else 1.0 # the ash storm brings them out
 	if (c.kind == "goblin" or hungry) and n >= (1 if hungry else 2) and _rng.randf() < pack_out_chance * (2.0 if hungry else 1.0) * storm:
 		var k := maxi(1, mini(n - (0 if hungry and n == 1 else 1), _rng.randi_range(pack_size.x, maxi(pack_size.x, pack_size.y))))
@@ -1818,6 +1858,9 @@ func _camp_near(pos: Vector3, r: float, skip: Camp, cold := 0.0, kind := "drifte
 func _tick_raid(c: Camp, now: float) -> void:
 	var raiders := _alive(c.members)
 	var defenders := _alive(c.raid.members)
+	if not raiders.is_empty() and defenders.is_empty() and camplife and c.raid.stocked:
+		_plunder(c.raid, raiders) # nobody left to stop them: they strip the camp of what they can carry
+		note(raiders[0], "stripped a %s of its stores" % (camplife.fire_name(c.raid).to_lower() if c.raid.wild == "" else c.raid.wild))
 	if raiders.is_empty() or defenders.is_empty() or now - c.raid_since > raid_time_limit:
 		for f: Folk in raiders + defenders: # over: everyone stops fighting, raiders head home
 			if _ai(f):
@@ -1830,6 +1873,10 @@ func _tick_raid(c: Camp, now: float) -> void:
 			c.from = c.raid # a war band moves on rather than hitting the same camp again
 		c.raid = null
 		c.job.erase("fight") # a toll-taker's fight is over: back to asking
+		if c.roaming and c.den and c.wild == "pack" and not raiders.is_empty():
+			c.job["fed"] = true # a pack that's raided takes the meat home (see _pack_hunts)
+			_go_home(c, now)
+			return
 		if c.roaming and c.den and c.wild == "":
 			_go_home(c, now) # a war band takes what it got back to its fire
 		return
@@ -1844,14 +1891,8 @@ func _tick_raid(c: Camp, now: float) -> void:
 		var victim: Folk = (defenders if won else raiders).pick_random()
 		victim.dead = true
 		_feed((raiders if won else defenders).pick_random(), victim)
-		if won and camplife and c.raid.stocked: # the raiders carry off what they can: coin first, then food and water
-			var r: Folk = raiders.pick_random()
-			camplife.move(c.raid.crate, r.inv, "coin", c.raid.crate.get("coin", 0))
-			for k in 3:
-				var id: String = camplife._best(c.raid.crate, false)
-				if id != "":
-					camplife.move(c.raid.crate, r.inv, id, 1)
-			camplife.move(c.raid.barrel, r.inv, "water_skin", 2)
+		if won and camplife and c.raid.stocked: # one of them grabs what they can carry while the fighting goes on
+			_plunder(c.raid, [raiders.pick_random()])
 		if is_instance_valid(victim.node) and victim.node.statComponent:
 			victim.node.statComponent.health.change_current(-100000)
 		else:
@@ -1900,7 +1941,8 @@ func _pose(f: Folk) -> void:
 			var to := f.camp.pos - f.node.global_position # and face it
 			if Vector2(to.x, to.z).length() < 2.5:
 				ai._idle_duration = 0.0 # too close to the flames: move off and rest elsewhere
-			fig.pose = "sit" if ai._idle_duration > 15.0 else "" # long rests sit by the fire, short ones stand
+			var sitter: bool = absi(hash(f.name)) % 3 != 0 and f.camp.job.get("roles", {}).get("firekeeper") != f # two in three sit; the firekeeper stays on its feet
+			fig.pose = "sit" if sitter and ai._idle_duration > 15.0 else "" # long rests sit by the fire, short ones stand
 			if Time.get_ticks_msec() >= ai.hold_until_ms: # not while you're talking to them
 				f.node.rotation.y = lerp_angle(f.node.rotation.y, atan2(-to.x, -to.z), 0.05)
 		else:
@@ -1949,7 +1991,8 @@ func _prey_near(pos: Vector3, r: float, skip: Camp) -> Camp:
 	var best_score := -INF
 	for c in camps:
 		if c != skip and not c.bandit and not c.roaming and c.wild == "" and _dist(c.pos, pos) < r and not _alive(c.members).is_empty():
-			var score: float = c.crate.get("coin", 0) * 20.0 - _dist(c.pos, pos) # word of a rich camp gets about
+			var food: int = camplife.count_food(c.crate) if camplife else 0
+			var score: float = c.crate.get("coin", 0) * 20.0 + food * 10.0 + c.barrel.get("water_skin", 0) * 10.0 - _dist(c.pos, pos) # word of a well-stocked camp gets about
 			if score > best_score:
 				best_score = score
 				best = c
