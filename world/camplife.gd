@@ -46,7 +46,7 @@ extends Node
 @export var road_share := {"water_skin": 1, "bread": 1, "tinder": 1, "kindling": 1, "ash_wood": 1}
 @export_range(0, 5) var road_torches := 2
 @export_range(0, 20) var barrel_per_person := 3
-@export var crate_per_person := {"bread": 2, "dried_meat": 1, "ash_cap": 1, "torch": 2, "ash_wood": 2, "tinder": 1, "kindling": 1, "resin": 1}
+@export var crate_per_person := {"bread": 2, "dried_meat": 1, "ash_cap": 1, "torch": 2, "ash_wood": 2, "tinder": 1, "kindling": 1, "resin": 2, "salt": 1, "spores": 1, "bone": 1} # (the resin, salt, spores and bone: their magic's reagents)
 ## And the goods a camp starts with, whatever its size (random in each range): what you see set out on its
 ## barrels and crates is what's here.
 @export var goods_start := {"coin": Vector2i(2, 14), "ash_wine": Vector2i(0, 2), "health_potion": Vector2i(0, 1), "flint": Vector2i(0, 1),
@@ -573,7 +573,7 @@ func _tend_fire(c, now: float) -> void:
 		else: # no sap: a crude brand of bare wood that burns out in half the lightings
 			j["torch_wear"] = j.get("torch_wear", 0) + torch_lights / 2
 		add(c.crate, "torch", made)
-	if j.fire_fuel <= 0.0 and _cast(c, {"resin": 1, "tinder": 1, "kindling": 1, "ash_wood": light_logs}, 8.0, "firekeeper"):
+	if j.fire_fuel <= 0.0 and _cast(c, {"resin": 1, "tinder": 1, "kindling": 1, "ash_wood": light_logs}, 8.0, "firekeeper", false, "kindle"):
 		j.fire_fuel = light_logs * wood_burn # Kindle: the firekeeper speaks it back to life
 		_log("A firekeeper kindled a dying fire back with a word")
 	if j.fire_fuel <= 0.0:
@@ -639,14 +639,14 @@ func _plan(c, now: float) -> void:
 		camps.note(people[0], "salted meat by the fire", false)
 	if has_role(c, "ashwife"):
 		for f in people:
-			if f.hp < mend_below and _cast(c, {"ash_cap": 1, "resin": 1}, 10.0, "ashwife"):
+			if f.hp < mend_below and _cast(c, {"ash_cap": 1, "resin": 1}, 10.0, "ashwife", false, "mend"):
 				f.hp = minf(100.0, f.hp + 20.0) # Mend
 				camps.note(f, "was mended by the camp's ashwife", false)
 				break
-	if water < water_low * n and _cast(c, {"salt": 1}, 6.0, "", true): # short of water (Nox): Dew tops it up while the carriers are out
+	if water < water_low * n and _cast(c, {"salt": 1}, 6.0, "", true, "dew"): # short of water (Nox): Dew tops it up while the carriers are out
 		add(c.barrel, "water_skin", 1) # Dew: water wrung from the air
 		camps.note(people[0], "wrung a skin of water out of the ash-air", false)
-	if unknown and camps.minds and _cast(c, {"spores": 1}, 8.0, "", true): # Sense (Nox): they feel where things lie
+	if unknown and camps.minds and _cast(c, {"spores": 1}, 8.0, "", true, "sense"): # Sense (Nox): they feel where things lie
 		for w in ["spring", "fungus", "copse", "sap", "herd"]:
 			var near: Array = camps.minds._places_near(c.pos, sense_range).filter(func(o): return o.wild == w)
 			if not near.is_empty():
@@ -703,7 +703,9 @@ const CRAFTING := preload("res://items/crafting.gd")
 
 ## The small magics, cast the way you do: with the reagents (taken from the crate). False = they haven't got them.
 ## The caster pays magicka like you (Folk.mp: Kindle 8, Mend 10, Dew 6, Sense 8, Ward 12).
-func _cast(c, cost: Dictionary, mp := 0.0, role := "", nox := false):
+var casts := {} # spell -> times NPCs cast it (tools/soak.gd reports it)
+
+func _cast(c, cost: Dictionary, mp := 0.0, role := "", nox := false, spell := ""):
 	var who = c.job.get("roles", {}).get(role) if role != "" else null # the role holder casts it, else whoever has the most magicka
 	if role != "" and not (who is Object and has_role(c, role)):
 		return false
@@ -719,6 +721,7 @@ func _cast(c, cost: Dictionary, mp := 0.0, role := "", nox := false):
 	for id in cost:
 		add(c.crate, id, -cost[id])
 	who.mp -= mp
+	casts[spell] = casts.get(spell, 0) + 1
 	if nox: # the dark's own power: it takes some of their light, and leaves a little despair (and they learn it)
 		practise(who, "nox")
 		who.needs["light"] = maxf(0.0, who.needs.get("light", 100.0) - nox_light)

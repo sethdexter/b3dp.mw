@@ -413,6 +413,7 @@ func _dark_wears(f, minutes: float) -> bool:
 			camps.camplife.add(bone[0].inv, "bone", -1)
 			camps.camplife.add(resin[0].inv, "resin", -1)
 			c.job["ward_until"] = SimClock.now + 120.0
+			camps.camplife.casts["ward"] = camps.camplife.casts.get("ward", 0) + 1
 			camps.note(f, "raised a Ward against the dark", false)
 			return false
 	if f.dark_s > 0.0: # by a smoulder the dark holds off a while: it doesn't wear on them, but nothing's mended either

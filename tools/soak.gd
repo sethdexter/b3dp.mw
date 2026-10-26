@@ -78,6 +78,7 @@ func _initialize():
 			if c.job.get("went_out", false):
 				outs += 1
 		print("  fires lit %d (wood in crates %d) | fires gone out %d | small trees standing %d" % [lit_n, wood, outs, trees])
+		print("  NPC spells cast so far: ", camps.camplife.casts)
 		print("  sap nodes %d | resin in crates %d | tiers %s" % [camps.camps.filter(func(c): return c.wild == "sap").size(), camps.camps.reduce(func(t, c): return t + c.crate.get("resin", 0), 0), str(camps.camps.filter(func(c): return c.wild == "" and not c.roaming and c.kind in ["drifter", "bandit"]).map(func(c): return camps.camplife.fire_tier(c)))])
 		var hs = camps.camps.filter(func(c): return c.wild == "herd")
 		var head := 0
