@@ -51,7 +51,7 @@ func _initialize():
 			camps.camps.filter(func(c): return c.wild == "coldfire").size(), camps.camps.filter(func(c): return c.raid != null).size(), frames * 1000.0 / maxf(1.0, real_ms)])
 		var deadby = {}
 		for f in camps.folk:
-			if f.dead and not f.has_meta("counted"):
+			if f.dead and f.camp != null and not f.has_meta("counted"):
 				f.set_meta("counted", true)
 				var k = f.camp.kind + "/" + (f.camp.wild if f.camp.wild != "" else ("band" if f.camp.roaming else "camp")) + ("/raid" if f.camp.raid else "") + ("/PULLED" if not f.history.is_empty() and f.history[0].text.begins_with("was pulled") else "") + ("/" + (f.history[-2].text.left(28) if f.history.size() > 1 else ""))
 				deadby[k] = deadby.get(k, 0) + 1
