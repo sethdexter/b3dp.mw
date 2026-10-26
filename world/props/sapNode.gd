@@ -42,5 +42,6 @@ func interact(player: Node) -> void:
 		Talker.notify("It's been cut dry. It'll bleed again, in time.")
 		return
 	Tools.use(inv, "knife")
-	inv.add_item(get_node("/root/item_list").get_item_instance("resin"), 1)
-	Talker.notify("You cut out a lump of resin.")
+	var n: int = camps.camplife.gather(1, camps.camplife.player_skill(player, "woodcraft"))
+	inv.add_item(get_node("/root/item_list").get_item_instance("resin"), n)
+	Talker.notify("You cut out %s of resin." % ("a lump" if n == 1 else "%d lumps" % n))

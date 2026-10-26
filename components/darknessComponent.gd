@@ -70,13 +70,14 @@ func _process(delta: float) -> void:
 	if before < warn_after and dark_time >= warn_after:
 		in_dark = true # the dark only takes hold now: monsters see you better from here on
 		Talker.notify(enter_dark_line)
-	if before < dread_time and dark_time >= dread_time:
+	var hold: float = nox_hold() # the more you know of the dark, the longer it takes to get into you, and the less it takes
+	if before < dread_time * hold and dark_time >= dread_time * hold:
 		Talker.notify(dread_line)
 	var stats := character.statComponent
 	if stats and dark_time > grace_time:
 		stats.spend_stamina(stamina_drain * delta) # spending also holds off stamina regen
-		if dark_time > dread_time and stats.health:
-			_drain_acc += health_drain * delta
+		if dark_time > dread_time * hold and stats.health:
+			_drain_acc += health_drain * delta / hold
 			if _drain_acc >= 1.0:
 				var points := int(_drain_acc)
 				_drain_acc -= points
@@ -104,6 +105,14 @@ func _at_fire() -> bool:
 	return false
 
 var _reprieve := false
+## Passive dark defence from your Nox skill: dread comes this many times later and drains this many times slower
+## (1 + level x nox_defence; level 50 with 0.01 = half again).
+@export_range(0.0, 0.05, 0.001) var nox_defence := 0.01
+
+func nox_hold() -> float:
+	var sk = character.get_node_or_null("skills") if character else null
+	var s: Skill = sk.get_skill("nox") if sk else null
+	return 1.0 + (maxf(0.0, s.get_level() - 1.0) * nox_defence if s else 0.0)
 
 ## Near a "reprieve" light (a smoulder): its meta light_radius.
 func _in_reprieve() -> bool:

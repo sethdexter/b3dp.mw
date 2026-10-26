@@ -78,7 +78,7 @@ func save() -> void:
 			"ticked": f.ticked, "job": _out(f.job, cid, fid), "asked": f.asked, "needs": f.needs, "traits": f.traits,
 			"memories": _out(f.memories, cid, fid), "think_t": f.think_t, "locked_until": f.locked_until,
 			"task": _out(f.task, cid, fid), "inv": f.inv, "history": f.history, "packed": f.packed, "hp": f.hp, "dark_s": f.dark_s,
-			"known": _out(f.known, cid, fid), "mp": f.mp})
+			"known": _out(f.known, cid, fid), "mp": f.mp, "skills": f.skills})
 	var data := {"version": VERSION, "now": SimClock.now, "camps": cs, "folk": fs, "world_log": camps.world_log,
 		"next_pull": camps._next_pull, "trees": camps.trees.harvested if camps.trees else {},
 		"storm": [camps.enc._next_storm, camps.enc._storm_end, camps.enc._storming, camps.enc._cursed_until] if camps.enc else [],
@@ -115,6 +115,9 @@ func _player_out() -> Dictionary:
 	var needs := p.get_node_or_null("needs")
 	if needs:
 		d["needs"] = [needs.hunger, needs.thirst]
+	var sk := p.get_node_or_null("skills")
+	if sk:
+		d["skills"] = sk.skills_list.map(func(k): return [k.Name, k.baseValue, k.xp])
 	var respawn := p.find_children("*", "RespawnComponent", true, false)
 	if not respawn.is_empty():
 		d["respawn"] = respawn[0]._spawn_transform
@@ -183,6 +186,7 @@ func load_world() -> bool:
 		f.history = d.history
 		f.known = _in(d.get("known", []), cs, fs)
 		f.mp = d.get("mp", 100.0)
+		f.skills = d.get("skills", {})
 	camps.camps.clear()
 	for c in cs:
 		camps.camps.append(c)
@@ -257,6 +261,13 @@ func _apply_player() -> void:
 			var st: Stat = [s.health, s.stamina, s.get("magicka")][i]
 			if st:
 				st.change_current(int(vals[i]) - st.currentValue)
+	var sk := p.get_node_or_null("skills")
+	if sk and _player_data.has("skills"):
+		for row in _player_data.skills:
+			for k in sk.skills_list:
+				if k.Name == row[0]:
+					k.baseValue = row[1]
+					k.xp = row[2]
 	var needs := p.get_node_or_null("needs")
 	if needs and _player_data.has("needs"):
 		needs.hunger = _player_data.needs[0]

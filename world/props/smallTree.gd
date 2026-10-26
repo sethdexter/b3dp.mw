@@ -35,7 +35,7 @@ func interact(player: Node) -> void:
 		return
 	if axe:
 		Tools.use(inv, "axe")
-	var wood: int = life.wood_per_tree + (life.axe_bonus if axe else 0)
+	var wood: int = life.gather(life.wood_per_tree + (life.axe_bonus if axe else 0), life.player_skill(player, "woodcraft"))
 	var db: Node = get_node("/root/item_list")
 	inv.add_item(db.get_item_instance("ash_wood"), wood)
 	inv.add_item(db.get_item_instance("kindling"), life.kindling_per_tree)

@@ -292,6 +292,7 @@ class Folk:
 	var packed := false
 	var hp := 100.0 # health, 0-100 (near you their body's health tracks it too)
 	var dark_s := 0.0 # seconds out of the light this time
+	var skills := {} # camplife.gd gather(): woodcraft / foraging / hunting levels (1-100), raised by doing it
 	var mp := 100.0 # magicka, 0-100 (their small magics cost it, as yours do; minds.gd refills it)
 	var known := [] # minds.gd: places they remember, [place, where they think it is] (a little off, sometimes)
 

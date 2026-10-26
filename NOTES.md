@@ -100,12 +100,15 @@ Everything is records; nodes are only the view. `world/camps.gd` (node "Camps") 
 - **Poses:** loaded bodies chop/cut/pick while working a chore, sit by their fire when idle there, and show their role in their name (`Camps._pose`, look only).
 
 
+## Gathering skills
+- Woodcraft (chop, sap), Foraging (fungus, salt), Hunting (butchering / kills). `camplife.gather(n, level)`: n items come to n x (1 + level x `gather_bonus`), fraction by chance; same tree/patch/kill gives more to the practised. You: SkillsComponent woodcraft/foraging/hunting (saved), +xp per use. NPCs: `Folk.skills` (saved), `practise()` raises it by `skill_gain` (slower as it grows).
+
 ## Magic
-- Every spell costs magicka and reagents (`Spell.reagents`, paid by SpellCasterComponent). Z cycles known spells (default: all in `spells/data`), RMB casts. Small magics (`spells/effects/smallMagicEffect.gd`): Kindle (resin+tinder: a cold fire takes with kindling+logs, or your torch), Mend (ash cap+resin: health over time), Dew (salt: a water skin), Ward (bone+resin: a carried reprieve glow), Sense (spores: nearest spring/fungus/sap/copse/herd, pulsed on the map). Flame Breath costs resin.
+- Every spell costs magicka and reagents (`Spell.reagents`, paid by SpellCasterComponent). Z cycles known spells (default: all in `spells/data`), RMB casts. Small magics (`spells/effects/smallMagicEffect.gd`): Kindle (resin+tinder: a cold fire takes with kindling+logs, or your torch), Mend (ash cap+resin: health over time), Dew (salt: a water skin), Ward (bone+resin: a carried reprieve glow), Sense (spores: nearest spring/fungus/sap/copse/herd, pulsed on the map). Flame Breath costs resin. Two schools (skills): **Lux** (Kindle, Mend, Ward, Flame Breath: fire and warmth) and **Nox** (Sense, Dew: the dark's power; each cast adds `nox_dread` seconds of dread to you, and costs an NPC caster light and despair: camplife `nox_light`, `nox_despair`).
 
 ## Crafting
 - `items/crafting.gd` RECIPES (needs / makes / tool / at fire), one table for you and the camps. C opens `ui/craftMenu.gd` (Up/Down or wheel, Enter). Camps `_craft` from their crate: water skins when short, dried meat with salt (shortcut: tool + fire assumed). Hunts give meat, bone, hide, sinew; picking caps sometimes spores.
-- NPC magic (camplife `_cast`, reagents from the crate, no magicka yet): firekeeper Kindles a dying fire, ashwife Mends the hurt, Dew when no spring is known, Sense instead of exploring; roaming bands raise a Ward in the dark (minds).
+- NPC magic (camplife `_cast`: reagents from the crate, the caster's magicka `Folk.mp`): firekeeper Kindles a dying fire, ashwife Mends the hurt, Dew when no spring is known, Sense instead of exploring; roaming bands raise a Ward in the dark (minds).
 
 ## Look
 - Ground fog: cheap height fog laid at your feet (encounters `ground_fog_height` / `ground_fog_density`), hollows fill with it; no volumetrics.

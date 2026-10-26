@@ -8,19 +8,23 @@ var short_blade: Skill = Skill.new("Short Blade")
 var long_blade:  Skill = Skill.new("Long Blade");
 var light_armor: Skill = Skill.new("Light Armour")
 var heavy_armor: Skill = Skill.new("Heavy Armour");
-var destruction: Skill = Skill.new("Destruction")
-var restoration: Skill = Skill.new("Restoration");
-var mysticism:   Skill = Skill.new("Mysticism")
-var alteration:  Skill = Skill.new("Alteration");
+## The two schools of magic. Lux: fire and warmth (safe, but it eats what the fire eats). Nox: the dark's own power
+## (cheap, but every cast costs you light: the dread creeps closer, and for the island's people, despair).
+var lux: Skill = Skill.new("Lux")
+var nox: Skill = Skill.new("Nox")
 var stealth:     Skill = Skill.new("Stealth")
 var deception:   Skill = Skill.new("Deception");                                           
 var athletics:   Skill = Skill.new("Athletics")
 var acrobatics:  Skill = Skill.new("Acrobatics");
+## Gathering (world/camplife.gd gather()): the more practised, the more you get out of the same tree, patch or kill.
+var woodcraft:   Skill = Skill.new("Woodcraft") # chopping, cutting sap
+var foraging:    Skill = Skill.new("Foraging") # fungus, salt
+var hunting:     Skill = Skill.new("Hunting") # butchering a carcass
 
 ##so accessable
 var skills_list = [short_blade, long_blade, light_armor, heavy_armor,
-				   destruction, restoration, mysticism, alteration,
-				   stealth, deception, athletics, acrobatics]
+				   lux, nox,
+				   stealth, deception, athletics, acrobatics, woodcraft, foraging, hunting]
 
 ##ability list is dynamic
 var abilities_dict = {

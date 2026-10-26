@@ -7,7 +7,7 @@ class_name Spell
 @export var Name: String = "Spell"
 @export_multiline var description: String = ""
 ## Skill that scales this spell and gains XP when it lands.
-@export var skill: String = "destruction"
+@export var skill: String = "lux" # its school: lux or nox (SkillsComponent)
 ## Attribute that scales damage (10 = no change).
 @export var attribute: String = "intelligence"
 

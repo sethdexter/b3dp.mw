@@ -18,9 +18,16 @@ extends SpellEffect
 @export var ward_radius := 6.0
 @export var sense_range := 300.0
 
-func apply(target: BaseCharacter, _source: Node, _spell: Spell) -> void:
+## Seconds of dread a Nox spell puts on you (DarknessComponent dark_time), as if you'd stood that long in the dark.
+@export var nox_dread := 15.0
+
+func apply(target: BaseCharacter, _source: Node, spell: Spell) -> void:
 	if not target:
 		return
+	if spell and spell.skill == "nox": # the dark's power: it takes some of your light
+		var dk = target.get_node_or_null("darkness")
+		if dk:
+			dk.dark_time += nox_dread
 	call("_" + kind, target)
 
 func _camps(t: Node):

@@ -45,8 +45,8 @@ extends Node
 ## Setting out from a camp, each takes this much from its stores if it's there (and the group a torch or two).
 @export var road_share := {"water_skin": 1, "bread": 1, "tinder": 1, "kindling": 1, "ash_wood": 1}
 @export_range(0, 5) var road_torches := 2
-@export_range(0, 20) var barrel_per_person := 2
-@export var crate_per_person := {"bread": 1, "ash_cap": 1, "torch": 2, "ash_wood": 1, "tinder": 1, "kindling": 1}
+@export_range(0, 20) var barrel_per_person := 3
+@export var crate_per_person := {"bread": 2, "dried_meat": 1, "ash_cap": 1, "torch": 2, "ash_wood": 2, "tinder": 1, "kindling": 1, "resin": 1}
 ## And the goods a camp starts with, whatever its size (random in each range): what you see set out on its
 ## barrels and crates is what's here.
 @export var goods_start := {"coin": Vector2i(2, 14), "ash_wine": Vector2i(0, 2), "health_potion": Vector2i(0, 1), "flint": Vector2i(0, 1),
@@ -149,6 +149,14 @@ extends Node
 @export_range(0.0, 1.0, 0.05) var spores_chance := 0.3
 ## A forager goes to a salt crust they know of when the crate has fewer than this (Dew and salting meat need it).
 @export_range(0, 20) var salt_low := 2
+@export_group("Gathering skills")
+## Extra yield per skill level (0.01: level 50 gets half again, level 100 double) and how fast NPCs learn by doing.
+@export_range(0.0, 0.05, 0.001) var gather_bonus := 0.01
+@export_range(0.0, 5.0, 0.05) var skill_gain := 0.5
+## A Nox spell (Dew, Sense) costs its caster this much light need and this much despair.
+@export_range(0.0, 50.0, 1.0) var nox_light := 10.0
+@export_range(0.0, 0.1, 0.005) var nox_despair := 0.01
+@export_group("")
 @export_range(0, 10) var axe_bonus := 1
 @export_range(0.0, 200.0, 1.0, "suffix:m") var chop_noise := 35.0
 @export_group("Roles")
@@ -212,6 +220,28 @@ func has_stock(spot) -> bool:
 	regrow(spot.job, cfg[0], cfg[1], bare_slow, SimClock.now)
 	return spot.job.stock > 0
 
+## Gathering skill: what n items come to in the hands of someone at this level (1 = n; 100 = n x (1 + 100 x
+## gather_bonus)), the fraction rounded by chance. Same rule for you (Skill levels) and for them (Folk.skills).
+func gather(n: int, level: float) -> int:
+	var x: float = n * (1.0 + maxf(0.0, level - 1.0) * gather_bonus)
+	return int(x) + (1 if randf() < x - int(x) else 0)
+
+## Practice: an NPC's skill rises a little each time, slower the better they are.
+func practise(f, skill: String) -> float:
+	var lv: float = f.skills.get(skill, randf_range(1.0, 15.0))
+	lv = minf(100.0, lv + skill_gain / (1.0 + lv * 0.05))
+	f.skills[skill] = lv
+	return lv
+
+## Your level in a gathering skill, and a use's worth of practice.
+func player_skill(player: Node, skill: String) -> int:
+	var sk = player.get_node_or_null("skills") if player else null
+	var s: Skill = sk.get_skill(skill) if sk else null
+	if not s:
+		return 1
+	s.add_xp(1.0)
+	return s.get_level()
+
 ## Takes up to `uses` uses from a spring / fungus patch / salt crust; returns how many it had.
 func take(spot, uses: int) -> int:
 	var cfg = SOURCES.get(spot.wild) if spot else null
@@ -231,7 +261,7 @@ func fill_skins(f, spring) -> int:
 
 ## Picks ash caps at a patch, as far as it has any. Returns caps picked.
 func pick_caps(f, patch, uses := 2) -> int:
-	var got: int = take(patch, uses) * SOURCES.fungus[2]
+	var got: int = gather(take(patch, uses) * SOURCES.fungus[2], practise(f, "foraging"))
 	add(f.inv, "ash_cap", got)
 	if got > 0 and randf() < spores_chance:
 		add(f.inv, "spores", 1) # shaken off the caps
@@ -613,10 +643,10 @@ func _plan(c, now: float) -> void:
 				f.hp = minf(100.0, f.hp + 20.0) # Mend
 				camps.note(f, "was mended by the camp's ashwife", false)
 				break
-	if water < water_low * n and _cast(c, {"salt": 1}, 6.0): # short of water: Dew tops it up while the carriers are out
+	if water < water_low * n and _cast(c, {"salt": 1}, 6.0, "", true): # short of water (Nox): Dew tops it up while the carriers are out
 		add(c.barrel, "water_skin", 1) # Dew: water wrung from the air
 		camps.note(people[0], "wrung a skin of water out of the ash-air", false)
-	if unknown and camps.minds and _cast(c, {"spores": 1}, 8.0): # Sense: they feel where things lie
+	if unknown and camps.minds and _cast(c, {"spores": 1}, 8.0, "", true): # Sense (Nox): they feel where things lie
 		for w in ["spring", "fungus", "copse", "sap", "herd"]:
 			var near: Array = camps.minds._places_near(c.pos, sense_range).filter(func(o): return o.wild == w)
 			if not near.is_empty():
@@ -673,7 +703,7 @@ const CRAFTING := preload("res://items/crafting.gd")
 
 ## The small magics, cast the way you do: with the reagents (taken from the crate). False = they haven't got them.
 ## The caster pays magicka like you (Folk.mp: Kindle 8, Mend 10, Dew 6, Sense 8, Ward 12).
-func _cast(c, cost: Dictionary, mp := 0.0, role := ""):
+func _cast(c, cost: Dictionary, mp := 0.0, role := "", nox := false):
 	var who = c.job.get("roles", {}).get(role) if role != "" else null # the role holder casts it, else whoever has the most magicka
 	if role != "" and not (who is Object and has_role(c, role)):
 		return false
@@ -689,6 +719,10 @@ func _cast(c, cost: Dictionary, mp := 0.0, role := ""):
 	for id in cost:
 		add(c.crate, id, -cost[id])
 	who.mp -= mp
+	if nox: # the dark's own power: it takes some of their light, and leaves a little despair (and they learn it)
+		practise(who, "nox")
+		who.needs["light"] = maxf(0.0, who.needs.get("light", 100.0) - nox_light)
+		who.traits["despair"] = minf(1.0, who.traits.get("despair", 0.0) + nox_despair)
 	return true
 
 ## The nearest place of this kind the camp's people remember (with something in it): [place, where they think], or [].
@@ -825,10 +859,10 @@ func step(f, now: float) -> void:
 				elif t.type == "wood":
 					got = chop(f, t.spot)
 				elif t.type == "salt":
-					got = take(t.spot, 2) * SOURCES.salt[2]
+					got = gather(take(t.spot, 2) * SOURCES.salt[2], practise(f, "foraging"))
 					add(f.inv, "salt", got)
 				elif t.type == "sap":
-					got = take(t.spot, sap_per_trip) # shortcut: an NPC needs no knife for it
+					got = gather(take(t.spot, sap_per_trip), practise(f, "woodcraft")) # shortcut: an NPC needs no knife for it
 					add(f.inv, "resin", got)
 				elif t.get("spot"):
 					got = pick_caps(f, t.spot, randi_range(1, 2))
@@ -859,7 +893,7 @@ func chop(f, copse) -> int:
 	var wood := 0
 	while copse and copse in camps.camps and copse.job.get("count", 0) > 0 and wood < wood_carry: # as many as they can carry home
 		copse.job.count -= 1
-		wood += wood_per_tree + (axe_bonus if f.inv.get("hatchet", 0) > 0 else 0) # shortcut: an NPC's hatchet doesn't wear yet
+		wood += gather(wood_per_tree + (axe_bonus if f.inv.get("hatchet", 0) > 0 else 0), practise(f, "woodcraft")) # shortcut: an NPC's hatchet doesn't wear yet
 	add(f.inv, "ash_wood", wood)
 	add(f.inv, "kindling", wood / wood_per_tree * kindling_per_tree)
 	add(f.inv, "tinder", wood / wood_per_tree * tinder_per_tree)
@@ -871,7 +905,7 @@ func hunt(f, herd) -> int:
 		return 0
 	var kills: int = mini(herd.job.get("count", 0), randi_range(hunt_kills.x, maxi(hunt_kills.x, hunt_kills.y)))
 	herd.job.count -= kills
-	add(f.inv, "raw_meat", kills * meat_per_kill)
+	add(f.inv, "raw_meat", gather(kills * meat_per_kill, practise(f, "hunting")))
 	add(f.inv, "bone", kills) # one good bone, a hide and sinew a carcass, as yours give
 	add(f.inv, "hide", kills)
 	add(f.inv, "sinew", kills)

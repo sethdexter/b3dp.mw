@@ -62,8 +62,10 @@ func interact(player: Node) -> void:
 			said.append("fill %d water skin%s" % [room, "" if room == 1 else "s"])
 	if item != "" and inv:
 		var it: Item = db.get_item_instance(item)
-		inv.add_item(it, item_count)
-		said.append("take %d %s" % [item_count, it.Name])
+		var camps = get_tree().get_first_node_in_group("camps")
+		var n: int = camps.camplife.gather(item_count, camps.camplife.player_skill(player, "foraging")) if camps and camps.camplife else item_count
+		inv.add_item(it, n)
+		said.append("take %d %s" % [n, it.Name])
 	if extra_item != "" and inv and randf() < extra_chance:
 		var ex: Item = db.get_item_instance(extra_item)
 		inv.add_item(ex, 1)

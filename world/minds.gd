@@ -423,12 +423,13 @@ func _dark_wears(f, minutes: float) -> bool:
 				return false
 	var before: float = f.dark_s
 	f.dark_s += minutes * 60.0
-	var dread: float = dk.dread_time if dk else 60.0
+	var hold: float = 1.0 + maxf(0.0, f.skills.get("nox", 1.0) - 1.0) * (dk.nox_defence if dk else 0.01) # their Nox: the same passive defence as yours
+	var dread: float = (dk.dread_time if dk else 60.0) * hold
 	if before < dread and f.dark_s >= dread and randf() > _t(f, "courage"):
 		shake(f, "the dread in the dark got into them") # the brave shrug it off
 	var over: float = maxf(0.0, f.dark_s - maxf(before, dread))
 	var hp_max: float = float(camps._player.statComponent.health.get_max_value()) if dk and camps._player.statComponent else 100.0
-	f.hp -= over * (dk.health_drain if dk else 0.25) / hp_max * 100.0
+	f.hp -= over * (dk.health_drain if dk else 0.25) / hp_max * 100.0 / hold
 	if f.hp > 0.0:
 		return false
 	camps.note(f, "the dark wore them down until there was nothing left")

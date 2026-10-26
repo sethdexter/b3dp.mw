@@ -47,9 +47,12 @@ static func break_down(inv: InventoryComponent, it: Item, db) -> String:
 		use(inv, need)
 	inv.remove_item(it, 1)
 	var got: Array[String] = []
+	var camps = inv.get_tree().get_first_node_in_group("camps") if inv.is_inside_tree() else null
+	var hunt: int = camps.camplife.player_skill(inv.get_parent(), "hunting") if camps and camps.camplife and it.Name.to_lower().ends_with("carcass") else 0
 	for id in parts:
 		var part: Item = db.get_item_instance(id)
 		if part:
-			inv.add_item(part, parts[id])
-			got.append("%d %s" % [parts[id], part.Name.to_lower()])
+			var n: int = camps.camplife.gather(parts[id], hunt) if hunt > 0 else parts[id] # a practised hunter wastes less of a kill
+			inv.add_item(part, n)
+			got.append("%d %s" % [n, part.Name.to_lower()])
 	return "You break down the %s: %s." % [it.Name.to_lower(), ", ".join(got)]
