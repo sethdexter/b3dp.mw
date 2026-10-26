@@ -15,6 +15,7 @@ var whole := false
 var _container: ContainerComponent
 var _t := 0.0
 var _shown := {} # this container's share of the store as last shown (id -> count)
+var _last := {} # the store's totals as last seen (id -> count): shares only grow when the store does
 static var _ids := {} # item resource path -> item_list id
 static var _groups := {} # [record, which] -> the syncs sharing that store
 
@@ -97,9 +98,16 @@ func _refresh() -> void:
 		return
 	var want := {}
 	for id in _stash():
-		var n := _share(_stash()[id])
+		var total: int = _stash()[id]
+		var n := _share(total)
+		if total <= _last.get(id, -1): # nothing new came in: it can only go down here (the store isn't re-spread
+			n = mini(n, _shown.get(id, 0)) # into a crate you've just emptied: that read as looting the same crate again)
+		_last[id] = total
 		if n > 0:
 			want[id] = n
+	for id in _last.keys():
+		if not _stash().has(id):
+			_last.erase(id)
 	if want == _shown:
 		return
 	_container.storage.inventory.clear()
