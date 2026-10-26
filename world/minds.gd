@@ -91,7 +91,7 @@ extends Node
 @export_range(2.0, 120.0, 1.0, "suffix:s") var look_every := 15.0
 @export_range(0.0, 200.0, 5.0, "suffix:m") var misremember := 25.0
 @export_range(1, 50) var memory_size := 8 # places of each kind
-@export_range(0.0, 3000.0, 50.0, "suffix:m") var known_start := 0.0 # 0: nobody starts knowing anything they haven't stumbled on
+@export_range(0.0, 3000.0, 50.0, "suffix:m") var known_start := 300.0 # their home ground: what lies round their own fire (0: only what they stumble on)
 @export_group("")
 ## A greedy, broke camp member steals the camp's wood and runs (cinder-thief) at this chance per think;
 ## the firekeeper catches them at cinder_caught.
