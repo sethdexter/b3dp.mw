@@ -8,7 +8,8 @@ extends Node
 ## mourn      lost kin, pious -> kneels where it happened: a Mourner
 ## pilgrimage faith gone, pious -> walks to the bell, joining any Pilgrims nearby
 ##   wander     no fire / no company left -> a lone Wanderer looking for a camp (settles at one)
-##   turn       a starving, cruel drifter turns bandit (alone in the dark: an Ambush)
+##   turn       a starving, cruel drifter turns bandit: lives with the camp a while, steals from it, tolls now and
+##              then, then leaves to find a bandit fire (_turned)
 ##   reform     a fed, gentle bandit becomes a drifter wanderer
 ##   hunt       someone whose kin you killed, with cruelty and courage, comes after you with others like them
 ##   collapse   food or water at 0                -> drops where they are (a Starved encounter). Fed by you or a
@@ -97,6 +98,12 @@ extends Node
 ## the firekeeper catches them at cinder_caught.
 @export_range(0.0, 1.0, 0.01) var cinder_chance := 0.05
 @export_range(0.0, 1.0, 0.05) var cinder_caught := 0.5
+## Turned bandit at a wanderers' fire: how long they stay (s), and per think the chance they steal from the stores,
+## go out tolling, or leave early to find a bandit fire.
+@export_range(60.0, 36000.0, 60.0, "suffix:s") var turned_stay := 2400.0
+@export_range(0.0, 1.0, 0.01) var turned_steal := 0.15
+@export_range(0.0, 1.0, 0.01) var turned_toll := 0.05
+@export_range(0.0, 1.0, 0.01) var turned_leave := 0.03
 ## How close one of a camp's people has to be to see you steal from it.
 @export_range(1.0, 100.0, 1.0, "suffix:m") var theft_sight := 25.0
 
@@ -524,12 +531,46 @@ func _drain_and_refill(f, minutes: float) -> void:
 	if c.wild == "pilgrims":
 		f.needs.faith = minf(100.0, f.needs.faith + 4.0 * minutes) # walking to the bell keeps them going
 
+## Someone at a wanderers' fire who's turned bandit in their heart: they live with the camp a while yet, help
+## themselves to its stores when nobody's looking (the firekeeper may catch them and cast them out), now and then
+## go out on the road to take tolls, and in the end leave to find a bandit fire of their own. True = they acted.
+func _turned(f, now: float) -> bool:
+	var c = f.camp
+	var life = camps.camplife
+	var since: float = now - f.job.turned
+	if since > turned_stay or randf() < turned_leave:
+		f.job.erase("turned")
+		camps.note(f, "slipped away to find a bandit fire")
+		_become(f, "wanderer", "bandit", true, now) # a bandit wanderer: they settle at a bandit camp
+		return true
+	if life and randf() < turned_steal:
+		var keeper = c.job.get("roles", {}).get("firekeeper")
+		if life.has_role(c, "firekeeper") and keeper != f and randf() < cinder_caught:
+			f.job.erase("turned")
+			camps.note(f, "was caught with their hand in the camp's stores, and cast out")
+			_become(f, "wanderer", "bandit", true, now)
+			return true
+		life.move(c.crate, f.inv, "coin", c.crate.get("coin", 0) / 3) # a little at a time, so it's not missed
+		for k in 2:
+			var id: String = life._best(c.crate, false)
+			if id != "":
+				life.move(c.crate, f.inv, id, 1)
+		camps.note(f, "helped themselves to the camp's stores when nobody was looking", false)
+		return true
+	if randf() < turned_toll:
+		f.job.erase("turned")
+		_become(f, "toll" if f.traits.greed > f.traits.cruelty else "ambush", "bandit", false, now) # out on the road
+		return true
+	return false
+
 ## The most urgent thing a camp member could do, if anything. Ordered roughly by how strong the pull is.
 func _decide_in_camp(f, now: float) -> void:
 	var n: Dictionary = f.needs
 	var t: Dictionary = f.traits
 	if camps.camplife and camps.camplife.headcount(f.camp) > camps.camplife.capacity(f.camp) and randf() < crowded_leave:
 		_become(f, "wanderer", f.camp.kind, true, now) # more of them than the fire keeps: someone goes looking for another
+		return
+	if f.job.has("turned") and f.camp.kind == "drifter" and _turned(f, now):
 		return
 	var grief = _memory(f, "lost_kin")
 	var hate = _memory(f, "player_killed_kin")
@@ -538,7 +579,8 @@ func _decide_in_camp(f, now: float) -> void:
 	elif grief and now - grief.at < grief_time and t.piety > trait_bar:
 		_become(f, "mourner", f.camp.kind, false, now, grief.pos)
 	elif f.camp.kind == "drifter" and n.food < desperate and t.cruelty > trait_bar and t.despair > 0.5:
-		_become(f, "toll" if t.greed > t.cruelty else "ambush", "bandit", false, now) # turns bandit
+		f.job["turned"] = now # turns bandit, but stays among them a while (see _turned)
+		camps.note(f, "has started looking at the camp's stores the way a bandit would", false)
 	elif n.food < desperate and t.courage < 0.4:
 		_become(f, "starved", f.camp.kind, false, now)
 	elif n.coin < desperate and t.greed > trait_bar and (f.camp.kind == "bandit" or t.cruelty > 0.5):
