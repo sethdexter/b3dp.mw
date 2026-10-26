@@ -43,7 +43,8 @@ blend_time = 0.5
 [node name="attributes" type="Node" parent="." unique_id=2038801598 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("2_attr")
 currentCharacter = NodePath("..")
-base_strength = 6
+base_strength = 9
+base_vigor = 14
 
 [node name="stats" type="Node" parent="." unique_id=16755898 node_paths=PackedStringArray("currentCharacter")]
 script = ExtResource("3_stats")

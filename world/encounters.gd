@@ -474,6 +474,8 @@ func _build(c) -> void:
 					n.visible = false
 					n.set_process(false)
 			root.add_child(fire)
+			if c.stocked: # a camp that went cold keeps its crate and barrel (and what's left in them)
+				camps._dress(c, root)
 			for i in (0 if c.job.get("went_out", false) else rng.randi_range(2, 3)): # a fire that just went out has nobody dead by it
 				var a := rng.randf() * TAU
 				var body := _figure(root, Vector3(cos(a), 0.35, sin(a)) * 3.5, Color(0.2, 0.18, 0.16))

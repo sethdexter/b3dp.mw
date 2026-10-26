@@ -50,15 +50,20 @@ func _ready() -> void:
 func _stash() -> Dictionary:
 	return record.inv if which == "pack" else (record.barrel if which == "barrel" else record.crate)
 
+var _was_open := false
+
 func _process(delta: float) -> void:
+	if not record or not _container or not _container.storage:
+		return
+	if _container.is_open or _was_open: # you're rummaging (or just shut it): what's in the container is the truth,
+		_write_back() # written every frame, so nothing you took can come back on the next refresh
+		_was_open = _container.is_open
+		return
 	_t += delta
-	if _t < 0.5 or not record or not _container or not _container.storage:
+	if _t < 0.5:
 		return
 	_t = 0.0
-	if _container.is_open:
-		_write_back() # you're rummaging: what's in the container is the truth
-	else:
-		_refresh() # the camp's people have been using it: show what's there now
+	_refresh() # the camp's people have been using it: show what's there now
 
 ## Container contents -> the record: the store changes by however this container's share changed.
 func _write_back() -> void:

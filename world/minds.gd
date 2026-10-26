@@ -690,6 +690,11 @@ func on_death(f, by_player: bool) -> void:
 			remember(o, "player_killed_kin", f.pos)
 	if by_player:
 		rep(c, rep_killed)
+		for o in camps._alive(c.members): # you killed one of theirs: those near enough to see come for you
+			var ai = camps._ai(o)
+			if ai:
+				ai._angry = true
+				ai._enter(MobAIComponent.State.CHASE)
 
 func rep(c, amount: int) -> void:
 	if c:

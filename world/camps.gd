@@ -990,9 +990,12 @@ func _tick_camp(c: Camp, at: Vector3, now: float) -> void:
 	# Only camps near the player have members as nodes.
 	var fighting := d < despawn_radius and c.members.any(func(f: Folk): return _ai(f) and _ai(f).state == MobAIComponent.State.CHASE)
 	if fighting:
+		var at_you: bool = c.members.any(func(f: Folk): return _ai(f) and _ai(f).state == MobAIComponent.State.CHASE and (_ai(f)._angry or not is_instance_valid(_ai(f).foe)))
 		for f: Folk in c.members:
 			var ai := _ai(f)
 			if ai and ai.state != MobAIComponent.State.CHASE:
+				if at_you:
+					ai._angry = true # it's you they're fighting: the whole camp means it
 				ai._enter(MobAIComponent.State.CHASE)
 	# Group: drifter bands move on to another camp together; bandit bands go raiding one.
 	elif now > c.next_move:
